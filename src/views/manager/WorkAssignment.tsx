@@ -10,7 +10,6 @@ import {
   Search,
   UserRound,
   Users,
-  Wrench,
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";

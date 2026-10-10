@@ -1,8 +1,6 @@
 
 import {
   Activity,
-  AlertCircle,
-  CalendarDays,
   CheckCircle2,
   Clock,
   Eye,

@@ -1,13 +1,8 @@
 import {
-  BarChart3,
-  CheckSquare,
   ClipboardList,
-  FileCheck,
-  FileText,
   LayoutDashboard,
   LogOut,
   Menu,
-  Users,
   Activity,
   ShieldCheck,
   X,

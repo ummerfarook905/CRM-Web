@@ -11,8 +11,6 @@ import {
   Plus,
   Search,
   Settings2,
-  UserRound,
-  Users,
   Wrench,
   X,
 } from "lucide-react";

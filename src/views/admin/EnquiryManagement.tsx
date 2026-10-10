@@ -1,7 +1,6 @@
 
 import {
   ArrowRight,
-  Calendar,
   CheckCircle,
   Clock,
   Eye,
@@ -11,7 +10,6 @@ import {
   Phone,
   Plus,
   Search,
-  UserRound,
   UserRoundCheck,
   X,
 } from "lucide-react";
