@@ -8,6 +8,8 @@ import {
   LogOut,
   Menu,
   Users,
+  Activity,
+  ShieldCheck,
   X,
 } from "lucide-react";
 
@@ -39,70 +41,23 @@ export default function ManagerSideNav() {
     },
 
     {
-      name: "Service Requests & Bookings",
-      path: "/manager/service-requests",
+      name: "WorkAssignment",
+      path: "/manager/WorkAssignment",
       icon: ClipboardList,
     },
 
     {
-      name: "Work Orders & Field Work",
-      path: "/manager/work-orders",
-      icon: FileCheck,
+      name: "WorkMonitoring",
+      path: "/manager/WorkMonitoring",
+      icon: Activity,
     },
 
     {
-      name: "My Team",
-      path: "/manager/team",
-      icon: Users,
+      name: "WorkVerification",
+      path: "/manager/WorkVerification",
+      icon: ShieldCheck,
     },
 
-    {
-      name: "Technician Roster",
-      path: "/manager/technicians",
-      icon: Users,
-    },
-
-    {
-      name: "Attendance & GPS",
-      path: "/manager/attendance",
-      icon: BarChart3,
-    },
-
-    {
-      name: "Tasks",
-      path: "/manager/tasks",
-      icon: CheckSquare,
-    },
-
-    {
-      name: "Client Directory",
-      path: "/manager/clients",
-      icon: Users,
-    },
-
-    {
-      name: "Water Treatment Plants",
-      path: "/manager/plants",
-      icon: FileText,
-    },
-
-    {
-      name: "Contracts & AMC",
-      path: "/manager/contracts",
-      icon: FileCheck,
-    },
-
-    {
-      name: "Field Photo Verification",
-      path: "/manager/photo-verification",
-      icon: FileCheck,
-    },
-
-    {
-      name: "Service Reports & QA",
-      path: "/manager/reports",
-      icon: FileText,
-    },
   ];
 
   // =====================================================

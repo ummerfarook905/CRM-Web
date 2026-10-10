@@ -19,6 +19,12 @@ import Unauthorized from "../views/errors/Unauthorized";
 import ProtectedRoute from "../components/ProtectedRoute";
 
 import AuthViewModel from "../viewmodels/auth/AuthViewModel";
+import EnquiryManagement from "../views/admin/EnquiryManagement";
+import ServiceManagement from "../views/admin/ServiceManagement";
+import WorkAssignment from "../views/manager/WorkAssignment";
+import WorkMonitoring from "../views/manager/WorkMonitoring";
+import WorkVerification from "../views/manager/WorkVerification";
+
 
 export default function AppRoutes() {
   const isAuthenticated =
@@ -97,25 +103,13 @@ export default function AppRoutes() {
           />
 
           <Route
-            path="reports"
-            element={
-              <div className="rounded-xl bg-white p-8">
-                <h1 className="text-2xl font-bold">
-                  Admin Reports
-                </h1>
-              </div>
-            }
+            path="Enquiries"
+            element={<EnquiryManagement />}
           />
 
           <Route
-            path="settings"
-            element={
-              <div className="rounded-xl bg-white p-8">
-                <h1 className="text-2xl font-bold">
-                  Admin Settings
-                </h1>
-              </div>
-            }
+            path="Services"
+            element={<ServiceManagement />}
           />
         </Route>
       </Route>
@@ -150,37 +144,20 @@ export default function AppRoutes() {
 
           {/* Future manager pages */}
           <Route
-            path="team"
-            element={
-              <div className="rounded-xl bg-white p-8">
-                <h1 className="text-2xl font-bold">
-                  My Team
-                </h1>
-              </div>
-            }
+            path="WorkAssignment"
+            element={<WorkAssignment />}
           />
 
           <Route
-            path="tasks"
-            element={
-              <div className="rounded-xl bg-white p-8">
-                <h1 className="text-2xl font-bold">
-                  Tasks
-                </h1>
-              </div>
-            }
+            path="WorkMonitoring"
+            element={<WorkMonitoring />}
           />
 
           <Route
-            path="reports"
-            element={
-              <div className="rounded-xl bg-white p-8">
-                <h1 className="text-2xl font-bold">
-                  Manager Reports
-                </h1>
-              </div>
-            }
+            path="WorkVerification"
+            element={<WorkVerification />}
           />
+
         </Route>
       </Route>
 

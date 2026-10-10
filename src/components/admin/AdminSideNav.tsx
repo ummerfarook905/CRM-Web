@@ -1,12 +1,9 @@
 import {
-  BarChart3,
-  ClipboardList,
   FileCheck,
-  FileText,
   LayoutDashboard,
   LogOut,
   Menu,
-  Settings,
+  Wrench,
   Users,
   X,
 } from "lucide-react";
@@ -41,74 +38,21 @@ export default function AdminSideNav() {
     {
       name: "Customers",
       path: "/admin/customers",
-      icon: ClipboardList,
-    },
-
-    {
-      name: "Work Orders & Field Work",
-      path: "/admin/work-orders",
-      icon: FileCheck,
-    },
-
-    {
-      name: "Technician Roster",
-      path: "/admin/technicians",
       icon: Users,
     },
 
     {
-      name: "Attendance & GPS",
-      path: "/admin/attendance",
-      icon: BarChart3,
-    },
-
-    {
-      name: "Overtime Management",
-      path: "/admin/overtime",
-      icon: FileText,
-    },
-
-    {
-      name: "Client Directory",
-      path: "/admin/clients",
-      icon: Users,
-    },
-
-    {
-      name: "Water Treatment Plants",
-      path: "/admin/plants",
-      icon: FileText,
-    },
-
-    {
-      name: "Contracts & AMC",
-      path: "/admin/contracts",
+      name: "Enquiries",
+      path: "/admin/Enquiries",
       icon: FileCheck,
     },
 
     {
-      name: "Field Photo Verification",
-      path: "/admin/photo-verification",
-      icon: FileCheck,
+      name: "Services",
+      path: "/admin/Services",
+      icon: Wrench,
     },
 
-    {
-      name: "Service Reports & QA",
-      path: "/admin/service-reports",
-      icon: FileText,
-    },
-
-    {
-      name: "Invoicing & Financials",
-      path: "/admin/invoices",
-      icon: BarChart3,
-    },
-
-    {
-      name: "System Settings",
-      path: "/admin/settings",
-      icon: Settings,
-    },
   ];
 
   // =====================================================
