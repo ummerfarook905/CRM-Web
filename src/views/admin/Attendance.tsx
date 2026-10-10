@@ -196,7 +196,7 @@ function escapeCsv(value: string | number): string {
 }
 
 export default function Attendance() {
-  const [records, setRecords] =
+  const [records] =
     useState<AttendanceRecord[]>(loadAttendance);
 
   const [selectedDate, setSelectedDate] = useState(today);
