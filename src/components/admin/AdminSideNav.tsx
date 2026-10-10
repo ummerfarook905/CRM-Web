@@ -53,6 +53,38 @@ export default function AdminSideNav() {
       icon: Wrench,
     },
 
+    {
+      name: "Work Monitoring",
+      path: "/admin/WorkMonitoring",
+      icon: FileCheck,
+    },
+
+    {
+      name: "Work Verification",
+      path: "/admin/WorkVerification",
+      icon: FileCheck,
+    },
+
+    {
+      name: "Employees",
+      path: "/admin/Employees",
+      icon: Users,
+    },
+
+    {
+      name: "Attendance",
+      path: "/admin/Attendance",
+      icon: FileCheck,
+    },
+
+    {
+      name: "Overtime",
+      path: "/admin/Overtime",
+      icon: FileCheck,
+    },
+
+
+
   ];
 
   // =====================================================

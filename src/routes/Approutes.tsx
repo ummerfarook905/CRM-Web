@@ -24,6 +24,9 @@ import ServiceManagement from "../views/admin/ServiceManagement";
 import WorkAssignment from "../views/manager/WorkAssignment";
 import WorkMonitoring from "../views/manager/WorkMonitoring";
 import WorkVerification from "../views/manager/WorkVerification";
+import Employees from "../views/admin/Employees";
+import Overtime from "../views/admin/Overtime";
+import Attendance from "../views/admin/Attendance";
 
 
 export default function AppRoutes() {
@@ -111,6 +114,32 @@ export default function AppRoutes() {
             path="Services"
             element={<ServiceManagement />}
           />
+
+          <Route
+            path="Employees"
+            element={<Employees />}
+          />
+
+          <Route
+            path="Attendance"
+            element={<Attendance />}
+          />
+
+          <Route
+            path="Overtime"
+            element={<Overtime />}
+          />
+
+          <Route
+            path="WorkMonitoring"
+            element={<WorkMonitoring />}
+          />
+
+          <Route
+            path="WorkVerification"
+            element={<WorkVerification />}
+          />
+
         </Route>
       </Route>
 

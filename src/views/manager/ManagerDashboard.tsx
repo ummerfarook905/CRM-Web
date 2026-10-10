@@ -1,36 +1,53 @@
+
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
+  ArrowRight,
   ArrowUpRight,
-  Calendar,
   CheckCircle2,
   ClipboardList,
+  Clock,
   Download,
   FileText,
-  Flag,
-  UserPlus,
-  Users,
+  Search,
   Wrench,
-  Zap,
-  ChevronRight,
-  Clock,
+  X,
+  type LucideIcon,
 } from "lucide-react";
 
-import { useNavigate } from "react-router-dom";
+type WorkStatus =
+  | "New"
+  | "Pending"
+  | "Assigned"
+  | "In Progress"
+  | "Completed";
+
+type WorkPriority = "High" | "Medium" | "Low";
 
 interface StatCard {
   title: string;
   value: string;
   percentage: string;
   description: string;
-  icon: React.ElementType;
+  icon: LucideIcon;
   iconBg: string;
   iconColor: string;
   accent: string;
-  secondary?: string;
+}
+
+interface WorkItem {
+  id: number;
+  customer: string;
+  service: string;
+  location: string;
+  priority: WorkPriority;
+  status: WorkStatus;
+  date: string;
 }
 
 const stats: StatCard[] = [
   {
-    title: "VIEW INCOMING WORK",
+    title: "NEW WORKS",
     value: "48",
     percentage: "+12.5%",
     description: "12 New Today",
@@ -39,85 +56,39 @@ const stats: StatCard[] = [
     iconColor: "text-emerald-800",
     accent: "border-t-slate-900",
   },
-
   {
-    title: "VIEW SERVICE DETAILS",
+    title: "ASSIGNED WORKS",
     value: "126",
     percentage: "+8.4%",
-    description: "Total Service Requests",
-    icon: FileText,
+    description: "Total Assigned Works",
+    icon: ClipboardList,
     iconBg: "bg-blue-50",
     iconColor: "text-blue-700",
     accent: "border-t-blue-500",
   },
-
   {
-    title: "ASSIGN EMPLOYEES",
+    title: "IN PROGRESS",
     value: "92",
     percentage: "+6.2%",
-    description: "Employees Assigned",
-    icon: UserPlus,
+    description: "Works In Progress",
+    icon: Wrench,
     iconBg: "bg-violet-50",
     iconColor: "text-violet-700",
     accent: "border-t-violet-500",
   },
-
   {
-    title: "SET WORK DATE",
+    title: "COMPLETED WORKS",
     value: "64",
     percentage: "+10.1%",
-    description: "Scheduled This Week",
-    icon: Calendar,
+    description: "Works Completed",
+    icon: CheckCircle2,
     iconBg: "bg-emerald-50",
     iconColor: "text-emerald-700",
     accent: "border-t-lime-500",
   },
-
-  {
-    title: "SET PRIORITY",
-    value: "38",
-    percentage: "",
-    description: "20 Normal Priority",
-    secondary: "18 High Priority",
-    icon: Flag,
-    iconBg: "bg-orange-50",
-    iconColor: "text-orange-600",
-    accent: "border-t-orange-500",
-  },
-
-  {
-    title: "ADD WORK INSTRUCTIONS",
-    value: "74",
-    percentage: "+14.3%",
-    description: "Works With Instructions",
-    icon: ClipboardList,
-    iconBg: "bg-cyan-50",
-    iconColor: "text-cyan-700",
-    accent: "border-t-cyan-500",
-  },
-
-  {
-    title: "ASSIGN MULTIPLE EMPLOYEES",
-    value: "28",
-    percentage: "+7.6%",
-    description: "Works With Multiple Employees",
-    icon: Users,
-    iconBg: "bg-red-50",
-    iconColor: "text-red-600",
-    accent: "border-t-red-500",
-  },
 ];
 
-interface WorkItem {
-  id: number;
-  customer: string;
-  service: string;
-  location: string;
-  priority: "High" | "Medium" | "Low";
-  status: "New" | "Pending" | "Assigned";
-  date: string;
-}
-
+// Sample UI records. Replace these with your API/database records.
 const recentWorks: WorkItem[] = [
   {
     id: 1,
@@ -126,9 +97,8 @@ const recentWorks: WorkItem[] = [
     location: "Chennai",
     priority: "High",
     status: "New",
-    date: "Oct 15, 2024",
+    date: "2026-10-10",
   },
-
   {
     id: 2,
     customer: "GreenTech Pvt Ltd",
@@ -136,9 +106,8 @@ const recentWorks: WorkItem[] = [
     location: "Coimbatore",
     priority: "Medium",
     status: "Pending",
-    date: "Oct 15, 2024",
+    date: "2026-10-10",
   },
-
   {
     id: 3,
     customer: "Sunrise Apartments",
@@ -146,9 +115,8 @@ const recentWorks: WorkItem[] = [
     location: "Madurai",
     priority: "High",
     status: "Assigned",
-    date: "Oct 14, 2024",
+    date: "2026-10-09",
   },
-
   {
     id: 4,
     customer: "Global Foods",
@@ -156,9 +124,8 @@ const recentWorks: WorkItem[] = [
     location: "Trichy",
     priority: "Medium",
     status: "New",
-    date: "Oct 14, 2024",
+    date: "2026-10-09",
   },
-
   {
     id: 5,
     customer: "Sri Hospitals",
@@ -166,93 +133,163 @@ const recentWorks: WorkItem[] = [
     location: "Salem",
     priority: "Low",
     status: "Pending",
-    date: "Oct 13, 2024",
+    date: "2026-10-08",
+  },
+  {
+    id: 6,
+    customer: "Metro Solutions",
+    service: "RO Installation",
+    location: "Kochi",
+    priority: "High",
+    status: "New",
+    date: "2026-10-08",
+  },
+  {
+    id: 7,
+    customer: "BlueSky Hotels",
+    service: "AMC Service",
+    location: "Thrissur",
+    priority: "Medium",
+    status: "Assigned",
+    date: "2026-10-07",
+  },
+  {
+    id: 8,
+    customer: "City Care Hospital",
+    service: "Filter Replacement",
+    location: "Calicut",
+    priority: "Low",
+    status: "In Progress",
+    date: "2026-10-07",
+  },
+  {
+    id: 9,
+    customer: "Green Valley",
+    service: "System Checkup",
+    location: "Palakkad",
+    priority: "Medium",
+    status: "Completed",
+    date: "2026-10-06",
+  },
+  {
+    id: 10,
+    customer: "Prime Industries",
+    service: "Water Plant Maintenance",
+    location: "Kannur",
+    priority: "High",
+    status: "Pending",
+    date: "2026-10-06",
   },
 ];
 
-interface QuickAction {
-  name: string;
-  path: string;
-  icon: React.ElementType;
-  bg: string;
-  color: string;
+const destinationPaths: Record<string, string> = {
+  "NEW WORKS": "/manager/WorkAssignment",
+  "ASSIGNED WORKS": "/manager/WorkAssignment",
+  "IN PROGRESS": "/manager/WorkMonitoring",
+  "COMPLETED WORKS": "/manager/WorkVerification",
+};
+
+const destinationLabels: Record<string, string> = {
+  "NEW WORKS": "VIEW INCOMING WORKS",
+  "ASSIGNED WORKS": "VIEW ASSIGNED WORKS",
+  "IN PROGRESS": "VIEW IN-PROGRESS WORKS",
+  "COMPLETED WORKS": "VIEW COMPLETED WORKS",
+};
+
+function matchesCategory(work: WorkItem, title: string): boolean {
+  switch (title) {
+    case "NEW WORKS":
+      return work.status === "New";
+    case "ASSIGNED WORKS":
+      return work.status === "Assigned";
+    case "IN PROGRESS":
+      return work.status === "In Progress";
+    case "COMPLETED WORKS":
+      return work.status === "Completed";
+    default:
+      return true;
+  }
 }
-
-const quickActions: QuickAction[] = [
-  {
-    name: "View Incoming Work",
-    path: "/manager/incoming-work",
-    icon: Download,
-    bg: "bg-emerald-50",
-    color: "text-emerald-700",
-  },
-
-  {
-    name: "View Service Details",
-    path: "/manager/service-requests",
-    icon: FileText,
-    bg: "bg-blue-50",
-    color: "text-blue-700",
-  },
-
-  {
-    name: "Assign Employees",
-    path: "/manager/assign-employees",
-    icon: Users,
-    bg: "bg-violet-50",
-    color: "text-violet-700",
-  },
-
-  {
-    name: "Set Work Date",
-    path: "/manager/work-date",
-    icon: Calendar,
-    bg: "bg-emerald-50",
-    color: "text-emerald-700",
-  },
-
-  {
-    name: "Set Priority",
-    path: "/manager/priority",
-    icon: Flag,
-    bg: "bg-orange-50",
-    color: "text-orange-600",
-  },
-
-  {
-    name: "Add Work Instructions",
-    path: "/manager/work-instructions",
-    icon: ClipboardList,
-    bg: "bg-cyan-50",
-    color: "text-cyan-700",
-  },
-
-  {
-    name: "Assign Multiple Employees",
-    path: "/manager/multiple-employees",
-    icon: Users,
-    bg: "bg-red-50",
-    color: "text-red-600",
-  },
-];
 
 export default function ManagerDashboard() {
   const navigate = useNavigate();
 
+  const [selectedStat, setSelectedStat] =
+    useState<StatCard | null>(null);
+
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredRecords = useMemo(() => {
+    if (!selectedStat) return [];
+
+    const query = searchTerm.trim().toLowerCase();
+
+    return recentWorks.filter((work) => {
+      const categoryMatches = matchesCategory(
+        work,
+        selectedStat.title
+      );
+
+      const searchableValues = [
+        work.customer,
+        work.service,
+        work.location,
+        work.status,
+        work.priority,
+        String(work.id),
+        `WRK-${String(work.id).padStart(4, "0")}`,
+      ];
+
+      const searchMatches = searchableValues.some((value) =>
+        value.toLowerCase().includes(query)
+      );
+
+      return categoryMatches && searchMatches;
+    });
+  }, [selectedStat, searchTerm]);
+
+  useEffect(() => {
+    if (!selectedStat) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedStat(null);
+        setSearchTerm("");
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedStat]);
+
+  function closePopup() {
+    setSelectedStat(null);
+    setSearchTerm("");
+  }
+
+  function goToAllocatedPage() {
+    if (!selectedStat) return;
+
+    const path = destinationPaths[selectedStat.title];
+
+    closePopup();
+
+    if (path) {
+      navigate(path);
+    }
+  }
+
   return (
     <div className="space-y-6">
-
-      {/* ================================================= */}
-      {/* HEADER */}
-      {/* ================================================= */}
-
+      {/* Dashboard header */}
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
             Manager Dashboard
           </h1>
-
           <p className="mt-1 text-sm text-slate-500">
             Manage service works, assign employees and track progress.
           </p>
@@ -260,18 +297,12 @@ export default function ManagerDashboard() {
 
         <div className="flex items-center gap-2 text-xs text-slate-500">
           <Clock size={15} />
-
           Last updated: Just now
         </div>
-
       </div>
 
-      {/* ================================================= */}
-      {/* STAT CARDS */}
-      {/* ================================================= */}
-
+      {/* Statistics cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
         {stats.map((stat) => {
           const Icon = stat.icon;
 
@@ -280,382 +311,339 @@ export default function ManagerDashboard() {
               key={stat.title}
               type="button"
               onClick={() => {
-                const action = quickActions.find(
-                  (item) => item.name.toUpperCase() === stat.title
-                );
-
-                if (action) {
-                  navigate(action.path);
-                }
+                setSearchTerm("");
+                setSelectedStat(stat);
               }}
               className={`
-                group
-                relative
-                overflow-hidden
-                rounded-xl
-                border
-                border-slate-200
-                border-t-4
-                ${stat.accent}
-                bg-white
-                p-5
-                text-left
-                shadow-sm
-                transition
-                duration-200
-                hover:-translate-y-0.5
-                hover:shadow-md
+                group relative overflow-hidden rounded-xl border
+                border-slate-200 border-t-4 ${stat.accent}
+                bg-white p-5 text-left shadow-sm transition duration-200
+                hover:-translate-y-0.5 hover:shadow-md
+                focus:outline-none focus:ring-2 focus:ring-emerald-500
               `}
             >
-
-              {/* Top */}
               <div className="flex items-start justify-between gap-3">
-
                 <div className="min-w-0">
-
                   <p className="max-w-[180px] text-[11px] font-bold leading-5 tracking-wide text-slate-500">
                     {stat.title}
                   </p>
-
                   <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
                     {stat.value}
                   </p>
-
                 </div>
 
                 <div
-                  className={`
-                    flex
-                    h-10
-                    w-10
-                    shrink-0
-                    items-center
-                    justify-center
-                    rounded-xl
-                    ${stat.iconBg}
-                    ${stat.iconColor}
-                  `}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${stat.iconBg} ${stat.iconColor}`}
                 >
-                  <Icon
-                    size={21}
-                    strokeWidth={2}
-                  />
+                  <Icon size={21} strokeWidth={2} />
                 </div>
-
               </div>
 
-              {/* Bottom */}
               <div className="mt-5 flex items-end justify-between gap-3">
-
                 <div className="flex items-center gap-2">
-
-                  {stat.percentage && (
-                    <>
-                      <ArrowUpRight
-                        size={17}
-                        className="text-emerald-600"
-                      />
-
-                      <span className="text-sm font-bold text-emerald-700">
-                        {stat.percentage}
-                      </span>
-                    </>
-                  )}
-
-                  {!stat.percentage && (
-                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-orange-500" />
-                  )}
-
+                  <ArrowUpRight
+                    size={17}
+                    className="text-emerald-600"
+                  />
+                  <span className="text-sm font-bold text-emerald-700">
+                    {stat.percentage}
+                  </span>
                 </div>
 
-                <div className="text-right">
-
-                  {stat.secondary && (
-                    <p className="text-xs font-semibold text-orange-700">
-                      {stat.secondary}
-                    </p>
-                  )}
-
-                  <p className="max-w-[130px] text-xs leading-4 text-slate-500">
-                    {stat.description}
-                  </p>
-
-                </div>
-
-              </div>
-
-            </button>
-          );
-        })}
-
-      </div>
-
-      {/* ================================================= */}
-      {/* MAIN CONTENT */}
-      {/* ================================================= */}
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(300px,0.9fr)]">
-
-        {/* ================================================= */}
-        {/* RECENT INCOMING WORK */}
-        {/* ================================================= */}
-
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-
-          {/* Header */}
-          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-
-            <div className="flex items-center gap-3">
-
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
-                <FileText size={20} />
-              </div>
-
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">
-                  Recent Incoming Works
-                </h2>
-
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Latest service requests and work assignments.
+                <p className="max-w-[130px] text-right text-xs leading-4 text-slate-500">
+                  {stat.description}
                 </p>
               </div>
 
-            </div>
-
-            <button
-              type="button"
-              onClick={() =>
-                navigate("/manager/incoming-work")
-              }
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
-            >
-              View All
-
-              <ArrowUpRight size={15} />
+              <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs font-semibold text-slate-400 transition group-hover:text-emerald-700">
+                <span>View records</span>
+                <ArrowRight size={15} />
+              </div>
             </button>
+          );
+        })}
+      </div>
 
-          </div>
-
-          {/* Table */}
-          <div className="mt-5 overflow-x-auto">
-
-            <table className="w-full min-w-[760px]">
-
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50">
-
-                  <th className="rounded-l-lg px-3 py-3 text-left text-[11px] font-bold text-slate-500">
-                    #
-                  </th>
-
-                  <th className="px-3 py-3 text-left text-[11px] font-bold text-slate-500">
-                    Customer
-                  </th>
-
-                  <th className="px-3 py-3 text-left text-[11px] font-bold text-slate-500">
-                    Service Type
-                  </th>
-
-                  <th className="px-3 py-3 text-left text-[11px] font-bold text-slate-500">
-                    Location
-                  </th>
-
-                  <th className="px-3 py-3 text-left text-[11px] font-bold text-slate-500">
-                    Priority
-                  </th>
-
-                  <th className="px-3 py-3 text-left text-[11px] font-bold text-slate-500">
-                    Status
-                  </th>
-
-                  <th className="rounded-r-lg px-3 py-3 text-left text-[11px] font-bold text-slate-500">
-                    Received On
-                  </th>
-
-                </tr>
-              </thead>
-
-              <tbody>
-
-                {recentWorks.map((work) => (
-                  <tr
-                    key={work.id}
-                    className="border-b border-slate-100 transition hover:bg-slate-50"
-                  >
-
-                    <td className="px-3 py-4 text-xs text-slate-500">
-                      {work.id}
-                    </td>
-
-                    <td className="px-3 py-4 text-xs font-semibold text-slate-800">
-                      {work.customer}
-                    </td>
-
-                    <td className="px-3 py-4 text-xs text-slate-600">
-                      {work.service}
-                    </td>
-
-                    <td className="px-3 py-4 text-xs text-slate-600">
-                      {work.location}
-                    </td>
-
-                    <td className="px-3 py-4">
-                      <PriorityBadge priority={work.priority} />
-                    </td>
-
-                    <td className="px-3 py-4">
-                      <StatusBadge status={work.status} />
-                    </td>
-
-                    <td className="px-3 py-4 text-xs text-slate-500">
-                      {work.date}
-                    </td>
-
-                  </tr>
-                ))}
-
-              </tbody>
-
-            </table>
-
-          </div>
-
-        </div>
-
-        {/* ================================================= */}
-        {/* QUICK ACTIONS */}
-        {/* ================================================= */}
-
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-
-          {/* Header */}
+      {/* Recent incoming works */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div className="flex items-center gap-3">
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-              <Zap size={20} />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
+              <FileText size={20} />
             </div>
 
             <div>
               <h2 className="text-lg font-bold text-slate-900">
-                Quick Actions
+                Recent Incoming Works
               </h2>
-
               <p className="mt-0.5 text-xs text-slate-500">
-                Manage your daily operations.
+                Latest service requests and work assignments.
               </p>
             </div>
-
           </div>
 
-          {/* Actions */}
-          <div className="mt-5 space-y-2">
-
-            {quickActions.map((action) => {
-              const Icon = action.icon;
-
-              return (
-                <button
-                  key={action.path}
-                  type="button"
-                  onClick={() => navigate(action.path)}
-                  className="group flex w-full items-center gap-3 rounded-xl border border-slate-100 bg-white p-2.5 text-left transition hover:border-slate-200 hover:bg-slate-50"
-                >
-
-                  <div
-                    className={`
-                      flex
-                      h-9
-                      w-9
-                      shrink-0
-                      items-center
-                      justify-center
-                      rounded-lg
-                      ${action.bg}
-                      ${action.color}
-                    `}
-                  >
-                    <Icon
-                      size={17}
-                      strokeWidth={2}
-                    />
-                  </div>
-
-                  <span className="flex-1 text-xs font-medium text-slate-800">
-                    {action.name}
-                  </span>
-
-                  <ChevronRight
-                    size={16}
-                    className="text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-700"
-                  />
-
-                </button>
-              );
-            })}
-
-          </div>
-
+          <button
+            type="button"
+            onClick={() => navigate("/manager/WorkAssignment")}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
+          >
+            View All
+            <ArrowUpRight size={15} />
+          </button>
         </div>
 
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full min-w-[760px]">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50">
+                {[
+                  "#",
+                  "Customer",
+                  "Service Type",
+                  "Location",
+                  "Priority",
+                  "Status",
+                  "Received On",
+                ].map((heading) => (
+                  <th
+                    key={heading}
+                    className="px-3 py-3 text-left text-[11px] font-bold text-slate-500"
+                  >
+                    {heading}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+
+            <tbody>
+              {recentWorks.slice(0, 5).map((work) => (
+                <tr
+                  key={work.id}
+                  className="border-b border-slate-100 transition hover:bg-slate-50"
+                >
+                  <td className="px-3 py-4 text-xs text-slate-500">
+                    {work.id}
+                  </td>
+                  <td className="px-3 py-4 text-xs font-semibold text-slate-800">
+                    {work.customer}
+                  </td>
+                  <td className="px-3 py-4 text-xs text-slate-600">
+                    {work.service}
+                  </td>
+                  <td className="px-3 py-4 text-xs text-slate-600">
+                    {work.location}
+                  </td>
+                  <td className="px-3 py-4">
+                    <PriorityBadge priority={work.priority} />
+                  </td>
+                  <td className="px-3 py-4">
+                    <StatusBadge status={work.status} />
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-xs text-slate-500">
+                    {work.date}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* ================================================= */}
-      {/* TODAY'S WORK SUMMARY */}
-      {/* ================================================= */}
+      {/* Statistics popup */}
+      {selectedStat && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-3 backdrop-blur-[2px] sm:p-6"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closePopup();
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="stats-modal-title"
+            className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+          >
+            {/* Popup header */}
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-5 sm:px-6">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                  {(() => {
+                    const Icon = selectedStat.icon;
+                    return <Icon size={22} />;
+                  })()}
+                </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="min-w-0">
+                  <h2
+                    id="stats-modal-title"
+                    className="truncate text-lg font-bold text-slate-900 sm:text-xl"
+                  >
+                    {selectedStat.title}
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Showing {Math.min(10, filteredRecords.length)} preview
+                    records · Total: {selectedStat.value}
+                  </p>
+                </div>
+              </div>
 
-        <SummaryCard
-          title="New Works"
-          value="12"
-          description="Received today"
-          icon={Download}
-          iconClass="bg-blue-50 text-blue-700"
-        />
+              <button
+                type="button"
+                onClick={closePopup}
+                aria-label="Close popup"
+                className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-800"
+              >
+                <X size={21} />
+              </button>
+            </div>
 
-        <SummaryCard
-          title="Assigned"
-          value="28"
-          description="Employees assigned"
-          icon={Users}
-          iconClass="bg-violet-50 text-violet-700"
-        />
+            {/* Summary cards */}
+            <div className="grid grid-cols-1 gap-3 bg-slate-50 p-4 sm:grid-cols-3 sm:p-5">
+              <SummaryCard label="Total" value={selectedStat.value} />
 
-        <SummaryCard
-          title="In Progress"
-          value="17"
-          description="Currently active"
-          icon={Wrench}
-          iconClass="bg-orange-50 text-orange-700"
-        />
+              <SummaryCard
+                label="Preview records"
+                value={String(Math.min(10, filteredRecords.length))}
+              />
 
-        <SummaryCard
-          title="Completed"
-          value="34"
-          description="Completed today"
-          icon={CheckCircle2}
-          iconClass="bg-emerald-50 text-emerald-700"
-        />
+              <SummaryCard
+                label="Category"
+                value={selectedStat.title}
+                highlighted
+              />
+            </div>
 
-      </div>
+            {/* Search */}
+            <div className="border-b border-slate-100 p-4 sm:px-6">
+              <div className="flex max-w-md items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 focus-within:border-emerald-500">
+                <Search size={17} className="shrink-0 text-slate-400" />
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search these records..."
+                  aria-label="Search preview records"
+                  className="w-full bg-transparent text-sm outline-none"
+                />
+              </div>
+            </div>
 
+            {/* Preview records table */}
+            <div className="min-h-0 flex-1 overflow-auto">
+              <table className="w-full min-w-[700px] text-left">
+                <thead className="sticky top-0 z-10 bg-slate-50">
+                  <tr className="text-[11px] font-bold uppercase text-slate-500">
+                    <th className="px-5 py-3">Record ID</th>
+                    <th className="px-5 py-3">Name</th>
+                    <th className="px-5 py-3">Details</th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3">Date</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {filteredRecords.slice(0, 10).map((work) => (
+                    <tr
+                      key={work.id}
+                      className="border-b border-slate-100 text-sm transition hover:bg-slate-50"
+                    >
+                      <td className="whitespace-nowrap px-5 py-4 font-semibold text-emerald-700">
+                        WRK-{String(work.id).padStart(4, "0")}
+                      </td>
+                      <td className="px-5 py-4 font-medium text-slate-800">
+                        {work.customer}
+                      </td>
+                      <td className="px-5 py-4 text-slate-600">
+                        <div>{work.service}</div>
+                        <div className="mt-1 text-xs text-slate-400">
+                          {work.location}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <StatusBadge status={work.status} />
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-4 text-slate-500">
+                        {work.date}
+                      </td>
+                    </tr>
+                  ))}
+
+                  {filteredRecords.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-5 py-12 text-center text-sm text-slate-500"
+                      >
+                        No matching records found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer */}
+            <div className="flex flex-col justify-between gap-3 border-t border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:px-6">
+              <p className="text-xs text-slate-500">
+                Showing {Math.min(10, filteredRecords.length)} of{" "}
+                {filteredRecords.length} preview records
+              </p>
+
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closePopup}
+                  className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                >
+                  Close
+                </button>
+
+                <button
+                  type="button"
+                  onClick={goToAllocatedPage}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-900"
+                >
+                  {destinationLabels[selectedStat.title]}
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-/* ===================================================== */
-/* PRIORITY BADGE */
-/* ===================================================== */
-
-interface PriorityBadgeProps {
-  priority: "High" | "Medium" | "Low";
+function SummaryCard({
+  label,
+  value,
+  highlighted = false,
+}: {
+  label: string;
+  value: string;
+  highlighted?: boolean;
+}) {
+  return (
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p
+        className={`mt-1 break-words ${
+          highlighted
+            ? "text-sm font-bold text-emerald-700"
+            : "text-xl font-bold text-slate-900"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
 }
 
-function PriorityBadge({
-  priority,
-}: PriorityBadgeProps) {
-  const styles = {
+function PriorityBadge({ priority }: { priority: WorkPriority }) {
+  const styles: Record<WorkPriority, string> = {
     High: "bg-red-100 text-red-700",
     Medium: "bg-amber-100 text-amber-700",
     Low: "bg-emerald-100 text-emerald-700",
@@ -663,112 +651,27 @@ function PriorityBadge({
 
   return (
     <span
-      className={`
-        inline-flex
-        rounded-full
-        px-3
-        py-1
-        text-[10px]
-        font-bold
-        ${styles[priority]}
-      `}
+      className={`inline-flex rounded-full px-3 py-1 text-[10px] font-bold ${styles[priority]}`}
     >
       {priority}
     </span>
   );
 }
 
-/* ===================================================== */
-/* STATUS BADGE */
-/* ===================================================== */
-
-interface StatusBadgeProps {
-  status: "New" | "Pending" | "Assigned";
-}
-
-function StatusBadge({
-  status,
-}: StatusBadgeProps) {
-  const styles = {
+function StatusBadge({ status }: { status: WorkStatus }) {
+  const styles: Record<WorkStatus, string> = {
     New: "bg-blue-100 text-blue-700",
-    Pending: "bg-slate-100 text-slate-700",
+    Pending: "bg-amber-100 text-amber-700",
     Assigned: "bg-emerald-100 text-emerald-700",
+    "In Progress": "bg-violet-100 text-violet-700",
+    Completed: "bg-emerald-100 text-emerald-700",
   };
 
   return (
     <span
-      className={`
-        inline-flex
-        rounded-full
-        px-3
-        py-1
-        text-[10px]
-        font-bold
-        ${styles[status]}
-      `}
+      className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-[10px] font-bold ${styles[status]}`}
     >
       {status}
     </span>
-  );
-}
-
-/* ===================================================== */
-/* SUMMARY CARD */
-/* ===================================================== */
-
-interface SummaryCardProps {
-  title: string;
-  value: string;
-  description: string;
-  icon: React.ElementType;
-  iconClass: string;
-}
-
-function SummaryCard({
-  title,
-  value,
-  description,
-  icon: Icon,
-  iconClass,
-}: SummaryCardProps) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-
-      <div
-        className={`
-          flex
-          h-10
-          w-10
-          shrink-0
-          items-center
-          justify-center
-          rounded-xl
-          ${iconClass}
-        `}
-      >
-        <Icon size={19} />
-      </div>
-
-      <div className="min-w-0">
-
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          {title}
-        </p>
-
-        <div className="flex items-baseline gap-2">
-
-          <p className="text-xl font-bold text-slate-900">
-            {value}
-          </p>
-
-          <p className="truncate text-[10px] text-slate-400">
-            {description}
-          </p>
-
-        </div>
-
-      </div>
-
-    </div>
   );
 }
