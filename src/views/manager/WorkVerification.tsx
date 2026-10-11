@@ -317,186 +317,320 @@ export default function WorkVerification() {
       </div>
 
       {/* Verification table */}
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 p-5">
-          <h2 className="font-bold text-slate-900">
-            Completed Work Submissions
-          </h2>
+<section className="w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  {/* Header and Filters */}
+  <div className="min-w-0 border-b border-slate-100 p-3 sm:p-5">
+    <h2 className="text-base font-bold text-slate-900 sm:text-lg">
+      Completed Work Submissions
+    </h2>
 
-          <p className="mt-1 text-xs text-slate-500">
-            Inspect employee evidence before making a verification decision.
+    <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
+      Inspect employee evidence before making a verification decision.
+    </p>
+
+    <div className="mt-4 grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="relative min-w-0">
+        <Search
+          size={16}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+        />
+
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search work, customer or employee..."
+          className="w-full min-w-0 rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+        />
+      </div>
+
+      <select
+        value={statusFilter}
+        onChange={(event) => setStatusFilter(event.target.value)}
+        className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+      >
+        <option value="All">All verification statuses</option>
+        <option value="Awaiting Review">Awaiting Review</option>
+        <option value="Approved">Approved</option>
+        <option value="Correction Requested">
+          Correction Requested
+        </option>
+      </select>
+    </div>
+  </div>
+
+  {/* Mobile and Tablet: Submission Cards */}
+  <div className="grid min-w-0 grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:hidden">
+    {filteredWorks.map((work) => (
+      <article
+        key={work.id}
+        className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4"
+      >
+        {/* Work Order and Verification */}
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="break-words text-sm font-bold text-slate-900">
+              {work.reference}
+            </p>
+
+            <p className="mt-2 flex min-w-0 items-start gap-1 break-words text-xs text-slate-500">
+              <MapPin size={13} className="mt-0.5 shrink-0" />
+              <span className="min-w-0 break-words">
+                {work.location}
+              </span>
+            </p>
+          </div>
+
+          <span
+            className={`max-w-[55%] shrink-0 whitespace-normal break-words rounded-full px-2 py-1 text-[10px] font-semibold ${verificationStyles[work.verificationStatus]}`}
+          >
+            {work.verificationStatus}
+          </span>
+        </div>
+
+        <div className="my-4 border-t border-slate-100" />
+
+        {/* Customer and Service */}
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Customer / Service
           </p>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="relative">
-              <Search
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
+          <p className="mt-1 break-words text-sm font-semibold text-slate-800">
+            {work.customer}
+          </p>
 
-              <input
-                value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
-                placeholder="Search work, customer or employee..."
-                className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600"
-              />
-            </div>
+          <p className="mt-1 break-words text-xs text-slate-600">
+            {work.service}
+          </p>
 
-            <select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value)
-              }
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
-            >
-              <option value="All">All verification statuses</option>
-              <option value="Awaiting Review">Awaiting Review</option>
-              <option value="Approved">Approved</option>
-              <option value="Correction Requested">
-                Correction Requested
-              </option>
-            </select>
+          <p className="mt-1 break-words text-[11px] text-slate-400">
+            {work.company}
+          </p>
+        </div>
+
+        {/* Employee Details */}
+        <div className="mt-4 min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Employees
+          </p>
+
+          <div className="mt-2 flex flex-wrap gap-2">
+            {work.employees.map((employee) => (
+              <span
+                key={employee}
+                className="inline-flex max-w-full min-w-0 items-start gap-1.5 rounded-lg bg-slate-50 px-2 py-1.5 text-xs text-slate-700"
+              >
+                <User
+                  size={13}
+                  className="mt-0.5 shrink-0 text-emerald-700"
+                />
+                <span className="min-w-0 break-words">
+                  {employee}
+                </span>
+              </span>
+            ))}
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[950px] text-left">
-            <thead className="bg-slate-50">
-              <tr>
-                {[
-                  "Work Order",
-                  "Customer / Service",
-                  "Employees",
-                  "Completed On",
-                  "Photos",
-                  "Verification",
-                  "Action",
-                ].map((heading) => (
-                  <th
-                    key={heading}
-                    className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500"
+        {/* Completion Date */}
+        <div className="mt-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Completed On
+          </p>
+
+          <p className="mt-1 break-words text-xs text-slate-700">
+            {work.completionDate}
+          </p>
+        </div>
+
+        {/* Photos */}
+        <div className="mt-4 rounded-lg bg-slate-50 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Evidence
+          </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              setPhotoPreview(work.photos[0] ?? null)
+            }
+            disabled={work.photos.length === 0}
+            className="mt-2 inline-flex max-w-full items-center gap-2 text-xs font-semibold text-emerald-800 hover:text-emerald-950 disabled:cursor-not-allowed disabled:text-slate-400"
+          >
+            <FileImage size={15} className="shrink-0" />
+            <span>
+              {work.photos.length} photo(s)
+            </span>
+          </button>
+        </div>
+
+        {/* Review Action */}
+        <div className="mt-4 border-t border-slate-100 pt-3">
+          <button
+            type="button"
+            onClick={() => openReview(work)}
+            className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-800"
+          >
+            <Eye size={15} />
+            Review Submission
+          </button>
+        </div>
+      </article>
+    ))}
+
+    {filteredWorks.length === 0 && (
+      <div className="col-span-full rounded-xl border border-slate-200 px-4 py-12 text-center">
+        <Search size={28} className="mx-auto text-slate-300" />
+
+        <p className="mt-3 text-sm font-semibold text-slate-700">
+          No submissions found
+        </p>
+
+        <p className="mt-1 text-xs text-slate-500">
+          Try another search or verification status.
+        </p>
+      </div>
+    )}
+  </div>
+
+  {/* Desktop: Full Table */}
+  <div className="hidden w-full min-w-0 overflow-x-auto lg:block">
+    <table className="w-full table-auto text-left text-xs">
+      <thead className="bg-slate-50">
+        <tr>
+          {[
+            "Work Order",
+            "Customer / Service",
+            "Employees",
+            "Completed On",
+            "Photos",
+            "Verification",
+            "Action",
+          ].map((heading) => (
+            <th
+              key={heading}
+              className="whitespace-nowrap px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 xl:px-4"
+            >
+              {heading}
+            </th>
+          ))}
+        </tr>
+      </thead>
+
+      <tbody>
+        {filteredWorks.map((work) => (
+          <tr
+            key={work.id}
+            className="border-t border-slate-100 hover:bg-slate-50"
+          >
+            <td className="max-w-[150px] break-words px-3 py-4 xl:px-4">
+              <p className="font-bold text-slate-900">
+                {work.reference}
+              </p>
+
+              <p className="mt-1 flex items-start gap-1 text-[10px] text-slate-500">
+                <MapPin size={11} className="mt-0.5 shrink-0" />
+                <span className="break-words">{work.location}</span>
+              </p>
+            </td>
+
+            <td className="max-w-[180px] break-words px-3 py-4 xl:px-4">
+              <p className="font-semibold text-slate-800">
+                {work.customer}
+              </p>
+
+              <p className="mt-1 break-words text-[11px] text-slate-500">
+                {work.service}
+              </p>
+
+              <p className="mt-1 break-words text-[10px] text-slate-400">
+                {work.company}
+              </p>
+            </td>
+
+            <td className="px-3 py-4 xl:px-4">
+              <div className="space-y-1">
+                {work.employees.map((employee) => (
+                  <p
+                    key={employee}
+                    className="flex items-start gap-1 whitespace-nowrap text-[11px] text-slate-600"
                   >
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredWorks.map((work) => (
-                <tr
-                  key={work.id}
-                  className="border-t border-slate-100 hover:bg-slate-50"
-                >
-                  <td className="px-4 py-4">
-                    <p className="text-xs font-bold text-slate-900">
-                      {work.reference}
-                    </p>
-
-                    <p className="mt-1 whitespace-nowrap text-[10px] text-slate-500">
-                      <MapPin
-                        size={11}
-                        className="mr-1 inline"
-                      />
-                      {work.location}
-                    </p>
-                  </td>
-
-                  <td className="max-w-48 px-4 py-4">
-                    <p className="text-xs font-semibold text-slate-800">
-                      {work.customer}
-                    </p>
-                    <p className="mt-1 text-[11px] text-slate-500">
-                      {work.service}
-                    </p>
-                    <p className="mt-1 text-[10px] text-slate-400">
-                      {work.company}
-                    </p>
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <div className="space-y-1">
-                      {work.employees.map((employee) => (
-                        <p
-                          key={employee}
-                          className="whitespace-nowrap text-[11px] text-slate-600"
-                        >
-                          <User
-                            size={12}
-                            className="mr-1 inline text-emerald-700"
-                          />
-                          {employee}
-                        </p>
-                      ))}
-                    </div>
-                  </td>
-
-                  <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-600">
-                    {work.completionDate}
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <button
-                      onClick={() =>
-                        setPhotoPreview(work.photos[0] ?? null)
-                      }
-                      disabled={work.photos.length === 0}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 hover:text-emerald-950 disabled:text-slate-400"
-                    >
-                      <FileImage size={15} />
-                      {work.photos.length} photo(s)
-                    </button>
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <span
-                      className={`whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-semibold ${verificationStyles[work.verificationStatus]}`}
-                    >
-                      {work.verificationStatus}
-                    </span>
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <button
-                      onClick={() => openReview(work)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-600 hover:text-emerald-800"
-                    >
-                      <Eye size={14} />
-                      Review
-                    </button>
-                  </td>
-                </tr>
-              ))}
-
-              {filteredWorks.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-14 text-center"
-                  >
-                    <Search
-                      size={28}
-                      className="mx-auto text-slate-300"
+                    <User
+                      size={12}
+                      className="mt-0.5 shrink-0 text-emerald-700"
                     />
-                    <p className="mt-3 text-sm font-semibold text-slate-700">
-                      No submissions found
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Try another search or verification status.
-                    </p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                    {employee}
+                  </p>
+                ))}
+              </div>
+            </td>
 
-        <div className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500">
-          Showing {filteredWorks.length} of {works.length} submissions
-        </div>
-      </section>
+            <td className="whitespace-nowrap px-3 py-4 text-slate-600 xl:px-4">
+              {work.completionDate}
+            </td>
+
+            <td className="px-3 py-4 xl:px-4">
+              <button
+                type="button"
+                onClick={() =>
+                  setPhotoPreview(work.photos[0] ?? null)
+                }
+                disabled={work.photos.length === 0}
+                className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-emerald-800 hover:text-emerald-950 disabled:text-slate-400"
+              >
+                <FileImage size={15} />
+                {work.photos.length} photo(s)
+              </button>
+            </td>
+
+            <td className="px-3 py-4 xl:px-4">
+              <span
+                className={`whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-semibold ${verificationStyles[work.verificationStatus]}`}
+              >
+                {work.verificationStatus}
+              </span>
+            </td>
+
+            <td className="px-3 py-4 xl:px-4">
+              <button
+                type="button"
+                onClick={() => openReview(work)}
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-600 hover:text-emerald-800"
+              >
+                <Eye size={14} />
+                Review
+              </button>
+            </td>
+          </tr>
+        ))}
+
+        {filteredWorks.length === 0 && (
+          <tr>
+            <td colSpan={7} className="px-4 py-14 text-center">
+              <Search size={28} className="mx-auto text-slate-300" />
+
+              <p className="mt-3 text-sm font-semibold text-slate-700">
+                No submissions found
+              </p>
+
+              <p className="mt-1 text-xs text-slate-500">
+                Try another search or verification status.
+              </p>
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+
+  {/* Record Count */}
+  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-3 py-3 text-xs text-slate-500 sm:px-5">
+    <span>
+      Showing {filteredWorks.length} of {works.length} submissions
+    </span>
+  </div>
+</section>
+
 
       {/* Review modal */}
       {selectedWork && (

@@ -472,10 +472,10 @@ export default function Attendance() {
       </div>
 
       {/* ATTENDANCE TABLE */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         {/* TABLE HEADER AND FILTERS */}
-        <div className="flex flex-col gap-4 border-b border-slate-200 p-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
+        <div className="flex min-w-0 flex-col gap-4 border-b border-slate-200 p-3 sm:p-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="min-w-0">
             <h2 className="text-base font-bold text-slate-900">
               Employee Attendance Records
             </h2>
@@ -485,8 +485,9 @@ export default function Attendance() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="relative">
+          <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:max-w-3xl xl:grid-cols-3">
+            {/* SEARCH */}
+            <div className="relative min-w-0 sm:col-span-2 xl:col-span-1">
               <Search
                 size={17}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -498,16 +499,17 @@ export default function Attendance() {
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search employees..."
                 aria-label="Search attendance records"
-                className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                className="w-full min-w-0 rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
               />
             </div>
 
-            <div className="relative">
+            {/* DEPARTMENT FILTER */}
+            <div className="relative min-w-0">
               <select
                 value={departmentFilter}
                 onChange={(event) => setDepartmentFilter(event.target.value)}
                 aria-label="Filter department"
-                className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-3 pr-9 text-sm text-slate-700 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                className="w-full min-w-0 appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-3 pr-9 text-sm text-slate-700 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
               >
                 <option value="All">All Departments</option>
                 {departments.map((department) => (
@@ -523,12 +525,13 @@ export default function Attendance() {
               />
             </div>
 
-            <div className="relative">
+            {/* STATUS FILTER */}
+            <div className="relative min-w-0">
               <select
                 value={statusFilter}
                 onChange={(event) => setStatusFilter(event.target.value)}
                 aria-label="Filter attendance status"
-                className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-3 pr-9 text-sm text-slate-700 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                className="w-full min-w-0 appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-3 pr-9 text-sm text-slate-700 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
               >
                 <option value="All">All Statuses</option>
                 <option value="Present">Present</option>
@@ -545,146 +548,285 @@ export default function Attendance() {
           </div>
         </div>
 
-        {/* TABLE */}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px] border-collapse text-left">
-            <thead>
-              <tr className="bg-slate-50">
-                {[
-                  "Employee",
-                  "Department",
-                  "Check In",
-                  "Check Out",
-                  "Working Hours",
-                  "Overtime",
-                  "Status",
-                  "Action",
-                ].map((heading) => (
-                  <th
-                    key={heading}
-                    className="px-5 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500"
-                  >
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+        {/* MOBILE AND TABLET CARDS */}
+        <div className="grid min-w-0 grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:hidden">
+          {filteredRecords.map((record) => (
+            <div
+              key={record.id}
+              className="min-w-0 rounded-xl border border-slate-200 p-3 transition hover:border-emerald-200 sm:p-4"
+            >
+              {/* EMPLOYEE */}
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800">
+                  {getInitials(record.name)}
+                </div>
 
-            <tbody className="divide-y divide-slate-100">
-              {filteredRecords.map((record) => (
-                <tr
-                  key={record.id}
-                  className="transition hover:bg-slate-50/80"
-                >
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800">
-                        {getInitials(record.name)}
-                      </div>
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-sm font-semibold text-slate-800">
+                    {record.name}
+                  </p>
 
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">
-                          {record.name}
-                        </p>
+                  <p className="mt-1 break-all text-xs text-slate-500">
+                    {record.employeeId}
+                  </p>
 
-                        <p className="mt-1 text-xs text-slate-500">
-                          {record.employeeId}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
+                  <p className="mt-1 break-words text-xs text-slate-500">
+                    {record.designation}
+                  </p>
+                </div>
 
-                  <td className="px-5 py-4">
-                    <p className="text-sm font-medium text-slate-700">
-                      {record.department}
-                    </p>
+                <div className="shrink-0">
+                  <StatusBadge status={record.status} />
+                </div>
+              </div>
 
-                    <p className="mt-1 text-xs text-slate-500">
-                      {record.designation}
-                    </p>
-                  </td>
+              {/* ATTENDANCE DETAILS */}
+              <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-4 border-t border-slate-100 pt-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                    Department
+                  </p>
+                  <p className="mt-1 break-words text-sm font-medium text-slate-700">
+                    {record.department}
+                  </p>
+                </div>
 
-                  <td className="px-5 py-4 text-sm text-slate-600">
-                    {record.checkIn}
-                  </td>
-
-                  <td className="px-5 py-4 text-sm text-slate-600">
-                    {record.checkOut}
-                  </td>
-
-                  <td className="px-5 py-4">
-                    <span className="text-sm font-semibold text-slate-700">
-                      {record.workingHours}
-                    </span>
-                  </td>
-
-                  <td className="px-5 py-4 text-sm text-slate-600">
-                    {record.overtime}
-                  </td>
-
-                  <td className="px-5 py-4">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                    Status
+                  </p>
+                  <div className="mt-1">
                     <StatusBadge status={record.status} />
-                  </td>
+                  </div>
+                </div>
 
-                  <td className="px-5 py-4">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedRecord(record)}
-                      title="View attendance details"
-                      aria-label={`View attendance for ${record.name}`}
-                      className="rounded-lg p-2 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
-                    >
-                      <Eye size={17} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                    Check In
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {record.checkIn}
+                  </p>
+                </div>
 
-              {filteredRecords.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-5 py-16 text-center">
-                    <CalendarDays
-                      size={32}
-                      className="mx-auto text-slate-300"
-                    />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                    Check Out
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {record.checkOut}
+                  </p>
+                </div>
 
-                    <p className="mt-3 text-sm font-semibold text-slate-700">
-                      No attendance records found
-                    </p>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                    Working Hours
+                  </p>
+                  <p className="mt-1 break-words text-sm font-semibold text-slate-700">
+                    {record.workingHours}
+                  </p>
+                </div>
 
-                    <p className="mt-1 text-xs text-slate-500">
-                      Try another date or adjust your filters.
-                    </p>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                    Overtime
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {record.overtime}
+                  </p>
+                </div>
+              </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearch("");
-                        setDepartmentFilter("All");
-                        setStatusFilter("All");
-                      }}
-                      className="mt-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
-                    >
-                      Clear filters
-                    </button>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              {/* ACTION */}
+              <div className="mt-4 flex justify-end border-t border-slate-100 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedRecord(record)}
+                  title="View attendance details"
+                  aria-label={`View attendance for ${record.name}`}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                >
+                  <Eye size={16} />
+                  View Details
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* EMPTY STATE */}
+          {filteredRecords.length === 0 && (
+            <div className="col-span-full px-3 py-12 text-center">
+              <CalendarDays
+                size={32}
+                className="mx-auto text-slate-300"
+              />
+
+              <p className="mt-3 text-sm font-semibold text-slate-700">
+                No attendance records found
+              </p>
+
+              <p className="mt-1 text-xs text-slate-500">
+                Try another date or adjust your filters.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setDepartmentFilter("All");
+                  setStatusFilter("All");
+                }}
+                className="mt-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* FOOTER */}
-        <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50/70 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-slate-500">
-            Showing {filteredRecords.length} of {dateRecords.length} records
-          </p>
+        {/* DESKTOP TABLE */}
+        <div className="hidden min-w-0 w-full lg:block">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="bg-slate-50">
+                  {[
+                    "Employee",
+                    "Department",
+                    "Check In",
+                    "Check Out",
+                    "Working Hours",
+                    "Overtime",
+                    "Status",
+                    "Action",
+                  ].map((heading) => (
+                    <th
+                      key={heading}
+                      className="whitespace-nowrap px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500 xl:px-5"
+                    >
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
 
-          <p className="text-xs text-slate-400">
-            Attendance data for {formatDate(selectedDate)}
-          </p>
+              <tbody className="divide-y divide-slate-100">
+                {filteredRecords.map((record) => (
+                  <tr
+                    key={record.id}
+                    className="transition hover:bg-slate-50/80"
+                  >
+                    <td className="px-4 py-4 xl:px-5">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800">
+                          {getInitials(record.name)}
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="break-words text-sm font-semibold text-slate-800">
+                            {record.name}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {record.employeeId}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-4 xl:px-5">
+                      <p className="text-sm font-medium text-slate-700">
+                        {record.department}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {record.designation}
+                      </p>
+                    </td>
+
+                    <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-600">
+                      {record.checkIn}
+                    </td>
+
+                    <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-600">
+                      {record.checkOut}
+                    </td>
+
+                    <td className="whitespace-nowrap px-4 py-4">
+                      <span className="text-sm font-semibold text-slate-700">
+                        {record.workingHours}
+                      </span>
+                    </td>
+
+                    <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-600">
+                      {record.overtime}
+                    </td>
+
+                    <td className="px-4 py-4">
+                      <StatusBadge status={record.status} />
+                    </td>
+
+                    <td className="px-4 py-4">
+                      <div className="flex justify-center">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRecord(record)}
+                          title="View attendance details"
+                          aria-label={`View attendance for ${record.name}`}
+                          className="rounded-lg p-2 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
+                        >
+                          <Eye size={17} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+                {filteredRecords.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-16 text-center">
+                      <CalendarDays
+                        size={32}
+                        className="mx-auto text-slate-300"
+                      />
+
+                      <p className="mt-3 text-sm font-semibold text-slate-700">
+                        No attendance records found
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-500">
+                        Try another date or adjust your filters.
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearch("");
+                          setDepartmentFilter("All");
+                          setStatusFilter("All");
+                        }}
+                        className="mt-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+                      >
+                        Clear filters
+                      </button>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+
+  {/* FOOTER */}
+  <div className="flex min-w-0 flex-col gap-1 border-t border-slate-200 bg-slate-50/70 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:px-5">
+    <p className="break-words text-xs text-slate-500">
+      Showing {filteredRecords.length} of {dateRecords.length} records
+    </p>
+
+    <p className="text-xs text-slate-400">
+      Attendance data for {formatDate(selectedDate)}
+    </p>
+  </div>
+</div>
+
 
       {/* ATTENDANCE DETAILS MODAL */}
       {selectedRecord && (

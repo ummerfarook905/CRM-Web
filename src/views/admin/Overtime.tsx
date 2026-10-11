@@ -511,245 +511,382 @@ export default function Overtime() {
       )}
 
       {/* REQUEST TABLE */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        {/* TABLE HEADER AND FILTERS */}
-        <div className="flex flex-col gap-4 border-b border-slate-200 p-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <h2 className="text-base font-bold text-slate-900">
-              Overtime Requests
-            </h2>
+<div className="w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  {/* HEADER AND FILTERS */}
+  <div className="flex flex-col gap-4 border-b border-slate-200 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
+    <div className="min-w-0">
+      <h2 className="text-base font-bold text-slate-900">
+        Overtime Requests
+      </h2>
 
-            <p className="mt-1 text-xs text-slate-500">
-              {filteredRequests.length} of {requests.length} requests
+      <p className="mt-1 text-xs text-slate-500">
+        {filteredRequests.length} of {requests.length} requests
+      </p>
+    </div>
+
+    {/* RESPONSIVE FILTERS */}
+    <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:w-auto xl:flex xl:flex-wrap">
+      <div className="relative min-w-0 xl:w-52">
+        <Search
+          size={17}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+        />
+
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search requests..."
+          aria-label="Search overtime requests"
+          className="w-full min-w-0 rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+        />
+      </div>
+
+      <div className="min-w-0 xl:w-44">
+        <SelectFilter
+          label="Department"
+          value={departmentFilter}
+          onChange={setDepartmentFilter}
+          options={[
+            { label: "All Departments", value: "All" },
+            ...departments.map((department) => ({
+              label: department,
+              value: department,
+            })),
+          ]}
+        />
+      </div>
+
+      <div className="min-w-0 xl:w-40">
+        <SelectFilter
+          label="Status"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { label: "All Statuses", value: "All" },
+            { label: "Pending", value: "Pending" },
+            { label: "Approved", value: "Approved" },
+            { label: "Rejected", value: "Rejected" },
+          ]}
+        />
+      </div>
+
+      <div className="min-w-0 xl:w-40">
+        <SelectFilter
+          label="Date range"
+          value={dateFilter}
+          onChange={setDateFilter}
+          options={[
+            { label: "All Dates", value: "All" },
+            { label: "Today", value: "Today" },
+            { label: "Last 7 Days", value: "Last 7 Days" },
+          ]}
+        />
+      </div>
+    </div>
+  </div>
+
+  {/* MOBILE AND TABLET CARDS */}
+  <div className="divide-y divide-slate-100 lg:hidden">
+    {filteredRequests.map((request) => (
+      <div
+        key={request.id}
+        className="min-w-0 space-y-4 p-4 transition hover:bg-slate-50/70 sm:p-5"
+      >
+        {/* EMPLOYEE */}
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800">
+            {getInitials(request.employeeName)}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="break-words text-sm font-semibold text-slate-800">
+              {request.employeeName}
+            </p>
+
+            <p className="mt-1 break-words text-xs text-slate-500">
+              {request.employeeId} · {request.id}
+            </p>
+
+            <p className="mt-1 break-words text-xs text-slate-500">
+              {request.department}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="relative">
-              <Search
-                size={17}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search requests..."
-                aria-label="Search overtime requests"
-                className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-              />
-            </div>
-
-            <SelectFilter
-              label="Department"
-              value={departmentFilter}
-              onChange={setDepartmentFilter}
-              options={[
-                { label: "All Departments", value: "All" },
-                ...departments.map((department) => ({
-                  label: department,
-                  value: department,
-                })),
-              ]}
-            />
-
-            <SelectFilter
-              label="Status"
-              value={statusFilter}
-              onChange={setStatusFilter}
-              options={[
-                { label: "All Statuses", value: "All" },
-                { label: "Pending", value: "Pending" },
-                { label: "Approved", value: "Approved" },
-                { label: "Rejected", value: "Rejected" },
-              ]}
-            />
-
-            <SelectFilter
-              label="Date range"
-              value={dateFilter}
-              onChange={setDateFilter}
-              options={[
-                { label: "All Dates", value: "All" },
-                { label: "Today", value: "Today" },
-                { label: "Last 7 Days", value: "Last 7 Days" },
-              ]}
-            />
+          <div className="shrink-0">
+            <StatusBadge status={request.status} />
           </div>
         </div>
 
-        {/* TABLE */}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1150px] border-collapse text-left">
-            <thead>
-              <tr className="bg-slate-50">
-                {[
-                  "Employee",
-                  "Request Date",
-                  "Regular Hours",
-                  "Overtime",
-                  "Reason",
-                  "Status",
-                  "Actions",
-                ].map((heading) => (
-                  <th
-                    key={heading}
-                    className="px-5 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500"
-                  >
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+        {/* REQUEST DETAILS */}
+        <div className="grid grid-cols-2 gap-x-3 gap-y-4 rounded-lg bg-slate-50 p-3 sm:grid-cols-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              Request Date
+            </p>
+            <p className="mt-1 flex items-start gap-1.5 break-words text-xs text-slate-600">
+              <CalendarDays
+                size={14}
+                className="mt-0.5 shrink-0 text-slate-400"
+              />
+              {formatDate(request.date)}
+            </p>
+          </div>
 
-            <tbody className="divide-y divide-slate-100">
-              {filteredRequests.map((request) => (
-                <tr
-                  key={request.id}
-                  className="transition hover:bg-slate-50/80"
-                >
-                  {/* EMPLOYEE */}
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800">
-                        {getInitials(request.employeeName)}
-                      </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              Regular Hours
+            </p>
+            <p className="mt-1 break-words text-sm font-medium text-slate-700">
+              {formatHours(request.regularHours)}
+            </p>
+          </div>
 
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">
-                          {request.employeeName}
-                        </p>
-
-                        <p className="mt-1 text-xs text-slate-500">
-                          {request.employeeId} · {request.id}
-                        </p>
-
-                        <p className="mt-1 text-xs text-slate-500">
-                          {request.department}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* DATE */}
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <CalendarDays
-                        size={15}
-                        className="shrink-0 text-slate-400"
-                      />
-                      {formatDate(request.date)}
-                    </div>
-                  </td>
-
-                  {/* REGULAR HOURS */}
-                  <td className="px-5 py-4 text-sm text-slate-600">
-                    {formatHours(request.regularHours)}
-                  </td>
-
-                  {/* OVERTIME HOURS */}
-                  <td className="px-5 py-4">
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-violet-50 px-2.5 py-1.5 text-xs font-bold text-violet-700">
-                      <Timer size={14} />
-                      {formatHours(request.overtimeHours)}
-                    </span>
-                  </td>
-
-                  {/* REASON */}
-                  <td className="max-w-[220px] px-5 py-4">
-                    <p className="line-clamp-2 text-sm leading-5 text-slate-600">
-                      {request.reason}
-                    </p>
-                  </td>
-
-                  {/* STATUS */}
-                  <td className="px-5 py-4">
-                    <StatusBadge status={request.status} />
-                  </td>
-
-                  {/* ACTIONS */}
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-1">
-                      <IconButton
-                        label="View request"
-                        icon={Eye}
-                        onClick={() => {
-                          setSelectedRequest(request);
-                          setActionError("");
-                        }}
-                      />
-
-                      {request.status === "Pending" && (
-                        <>
-                          <IconButton
-                            label="Approve request"
-                            icon={Check}
-                            success
-                            onClick={() => approveRequest(request)}
-                          />
-
-                          <IconButton
-                            label="Reject request"
-                            icon={X}
-                            danger
-                            onClick={() => openRejectDialog(request)}
-                          />
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-
-              {filteredRequests.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-5 py-16 text-center">
-                    <Clock3
-                      size={32}
-                      className="mx-auto text-slate-300"
-                    />
-
-                    <p className="mt-3 text-sm font-semibold text-slate-700">
-                      No overtime requests found
-                    </p>
-
-                    <p className="mt-1 text-xs text-slate-500">
-                      Try changing your search or filters.
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearch("");
-                        setStatusFilter("All");
-                        setDepartmentFilter("All");
-                        setDateFilter("All");
-                      }}
-                      className="mt-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
-                    >
-                      Clear filters
-                    </button>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              Overtime
+            </p>
+            <span className="mt-1 inline-flex max-w-full items-center gap-1 rounded-md bg-violet-50 px-2 py-1.5 text-xs font-bold text-violet-700">
+              <Timer size={13} className="shrink-0" />
+              {formatHours(request.overtimeHours)}
+            </span>
+          </div>
         </div>
 
-        {/* TABLE FOOTER */}
-        <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50/70 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-slate-500">
-            Showing {filteredRequests.length} request
-            {filteredRequests.length === 1 ? "" : "s"}
+        {/* REASON */}
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+            Reason
           </p>
+          <p className="mt-1 break-words text-sm leading-5 text-slate-600">
+            {request.reason}
+          </p>
+        </div>
 
-          <p className="text-xs text-slate-400">
-            Approved: {approvedRequests.length} · Rejected:{" "}
-            {rejectedRequests.length}
-          </p>
+        {/* ACTIONS */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+          <IconButton
+            label="View request"
+            icon={Eye}
+            onClick={() => {
+              setSelectedRequest(request);
+              setActionError("");
+            }}
+          />
+
+          {request.status === "Pending" && (
+            <>
+              <IconButton
+                label="Approve request"
+                icon={Check}
+                success
+                onClick={() => approveRequest(request)}
+              />
+
+              <IconButton
+                label="Reject request"
+                icon={X}
+                danger
+                onClick={() => openRejectDialog(request)}
+              />
+            </>
+          )}
         </div>
       </div>
+    ))}
+
+    {/* MOBILE EMPTY STATE */}
+    {filteredRequests.length === 0 && (
+      <div className="px-4 py-12 text-center">
+        <Clock3 size={32} className="mx-auto text-slate-300" />
+
+        <p className="mt-3 text-sm font-semibold text-slate-700">
+          No overtime requests found
+        </p>
+
+        <p className="mt-1 text-xs text-slate-500">
+          Try changing your search or filters.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => {
+            setSearch("");
+            setStatusFilter("All");
+            setDepartmentFilter("All");
+            setDateFilter("All");
+          }}
+          className="mt-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+        >
+          Clear filters
+        </button>
+      </div>
+    )}
+  </div>
+
+  {/* DESKTOP TABLE */}
+  <div className="hidden w-full overflow-x-auto lg:block">
+    <table className="w-full border-collapse text-left">
+      <thead>
+        <tr className="bg-slate-50">
+          {[
+            "Employee",
+            "Request Date",
+            "Regular Hours",
+            "Overtime",
+            "Reason",
+            "Status",
+            "Actions",
+          ].map((heading) => (
+            <th
+              key={heading}
+              className="whitespace-nowrap px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500 xl:px-5"
+            >
+              {heading}
+            </th>
+          ))}
+        </tr>
+      </thead>
+
+      <tbody className="divide-y divide-slate-100">
+        {filteredRequests.map((request) => (
+          <tr
+            key={request.id}
+            className="transition hover:bg-slate-50/80"
+          >
+            <td className="px-4 py-4 xl:px-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800">
+                  {getInitials(request.employeeName)}
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-800">
+                    {request.employeeName}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {request.employeeId} · {request.id}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {request.department}
+                  </p>
+                </div>
+              </div>
+            </td>
+
+            <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-600 xl:px-5">
+              <div className="flex items-center gap-2">
+                <CalendarDays
+                  size={15}
+                  className="shrink-0 text-slate-400"
+                />
+                {formatDate(request.date)}
+              </div>
+            </td>
+
+            <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-600 xl:px-5">
+              {formatHours(request.regularHours)}
+            </td>
+
+            <td className="whitespace-nowrap px-4 py-4 xl:px-5">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-violet-50 px-2.5 py-1.5 text-xs font-bold text-violet-700">
+                <Timer size={14} />
+                {formatHours(request.overtimeHours)}
+              </span>
+            </td>
+
+            <td className="max-w-[220px] px-4 py-4 xl:px-5">
+              <p className="line-clamp-2 break-words text-sm leading-5 text-slate-600">
+                {request.reason}
+              </p>
+            </td>
+
+            <td className="whitespace-nowrap px-4 py-4 xl:px-5">
+              <StatusBadge status={request.status} />
+            </td>
+
+            <td className="px-4 py-4 xl:px-5">
+              <div className="flex items-center gap-1">
+                <IconButton
+                  label="View request"
+                  icon={Eye}
+                  onClick={() => {
+                    setSelectedRequest(request);
+                    setActionError("");
+                  }}
+                />
+
+                {request.status === "Pending" && (
+                  <>
+                    <IconButton
+                      label="Approve request"
+                      icon={Check}
+                      success
+                      onClick={() => approveRequest(request)}
+                    />
+
+                    <IconButton
+                      label="Reject request"
+                      icon={X}
+                      danger
+                      onClick={() => openRejectDialog(request)}
+                    />
+                  </>
+                )}
+              </div>
+            </td>
+          </tr>
+        ))}
+
+        {filteredRequests.length === 0 && (
+          <tr>
+            <td colSpan={7} className="px-5 py-16 text-center">
+              <Clock3
+                size={32}
+                className="mx-auto text-slate-300"
+              />
+
+              <p className="mt-3 text-sm font-semibold text-slate-700">
+                No overtime requests found
+              </p>
+
+              <p className="mt-1 text-xs text-slate-500">
+                Try changing your search or filters.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setStatusFilter("All");
+                  setDepartmentFilter("All");
+                  setDateFilter("All");
+                }}
+                className="mt-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+              >
+                Clear filters
+              </button>
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+
+  {/* FOOTER */}
+  <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+    <p className="text-xs text-slate-500">
+      Showing {filteredRequests.length} request
+      {filteredRequests.length === 1 ? "" : "s"}
+    </p>
+
+    <p className="break-words text-xs text-slate-400">
+      Approved: {approvedRequests.length} · Rejected:{" "}
+      {rejectedRequests.length}
+    </p>
+  </div>
+</div>
+
 
       {/* VIEW REQUEST MODAL */}
       {selectedRequest && (

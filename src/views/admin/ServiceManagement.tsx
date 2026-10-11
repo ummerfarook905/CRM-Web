@@ -556,202 +556,357 @@ export default function ServiceManagement() {
         </div>
 
         {/* Bookings */}
-        {activeTab === "bookings" && (
-          <>
-            <div className="flex flex-col gap-3 border-b border-slate-100 p-5 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="font-bold text-slate-900">
-                  Service Requests & Bookings
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  Approve requests, reject requests, schedule work and assign staff.
+
+{activeTab === "bookings" && (
+  <>
+    {/* Header and Filters */}
+    <div className="flex min-w-0 flex-col gap-4 border-b border-slate-100 p-3 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+      <div className="min-w-0">
+        <h2 className="text-base font-bold text-slate-900 sm:text-lg">
+          Service Requests & Bookings
+        </h2>
+        <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
+          Approve requests, reject requests, schedule work and assign staff.
+        </p>
+      </div>
+
+      <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:w-auto lg:flex-1 lg:max-w-xl">
+        <div className="relative min-w-0">
+          <Search
+            size={16}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search bookings..."
+            className="w-full min-w-0 rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          />
+        </div>
+
+        <div className="relative min-w-0">
+          <Filter
+            size={15}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          />
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="w-full min-w-0 appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-8 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          >
+            <option value="All">All statuses</option>
+            <option value="Pending">Pending</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
+            <option value="Scheduled">Scheduled</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {/* MOBILE AND TABLET: Booking Cards */}
+    <div className="grid min-w-0 grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:hidden">
+      {filteredBookings.map((booking) => {
+        const service = getService(booking.serviceId);
+
+        return (
+          <article
+            key={booking.id}
+            className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
+            {/* Customer and Status */}
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h3 className="break-words text-sm font-bold text-slate-900">
+                  {booking.customer}
+                </h3>
+                <p className="mt-1 break-words text-xs text-slate-500">
+                  {booking.reference}
+                </p>
+                <p className="mt-1 break-words text-xs text-slate-500">
+                  {booking.company}
                 </p>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <div className="relative">
-                  <Search
-                    size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search bookings..."
-                    className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 sm:w-64"
-                  />
-                </div>
+              <span
+                className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${statusStyles[booking.status]}`}
+              >
+                {booking.status}
+              </span>
+            </div>
 
-                <div className="relative">
-                  <Filter
-                    size={15}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-                  <select
-                    value={statusFilter}
-                    onChange={(event) =>
-                      setStatusFilter(event.target.value)
-                    }
-                    className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-7 text-sm outline-none focus:border-emerald-600 sm:w-44"
-                  >
-                    <option value="All">All statuses</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Rejected">Rejected</option>
-                    <option value="Scheduled">Scheduled</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
-                  </select>
-                </div>
+            <div className="my-4 border-t border-slate-100" />
+
+            {/* Booking Details */}
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Service
+                </p>
+                <p className="mt-1 break-words text-xs font-medium text-slate-800">
+                  {service?.name ?? "Service unavailable"}
+                </p>
+                <p className="mt-1 break-words text-[11px] text-slate-500">
+                  {service?.category}
+                </p>
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Location
+                </p>
+                <p className="mt-1 flex min-w-0 items-start gap-1 break-words text-xs text-slate-700">
+                  <MapPin size={13} className="mt-0.5 shrink-0" />
+                  <span className="min-w-0 break-words">
+                    {booking.location}
+                  </span>
+                </p>
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Requested Date
+                </p>
+                <p className="mt-1 break-words text-xs text-slate-700">
+                  {booking.requestedDate}
+                </p>
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Assigned To
+                </p>
+                <p className="mt-1 break-words text-xs text-slate-700">
+                  {booking.assignedTo || "Unassigned"}
+                </p>
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px] text-left">
-                <thead className="bg-slate-50">
-                  <tr>
-                    {[
-                      "Booking / Customer",
-                      "Service",
-                      "Location",
-                      "Requested",
-                      "Status",
-                      "Assigned To",
-                      "Actions",
-                    ].map((heading) => (
-                      <th
-                        key={heading}
-                        className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500"
-                      >
-                        {heading}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
+            {/* Actions */}
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+              <button
+                type="button"
+                onClick={() => setSelectedBooking(booking)}
+                className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <Eye size={14} />
+                View
+              </button>
 
-                <tbody>
-                  {filteredBookings.map((booking) => {
-                    const service = getService(booking.serviceId);
+              {booking.status === "Pending" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => approveBooking(booking)}
+                    className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                  >
+                    <Check size={14} />
+                    Approve
+                  </button>
 
-                    return (
-                      <tr
-                        key={booking.id}
-                        className="border-t border-slate-100 hover:bg-slate-50"
-                      >
-                        <td className="px-4 py-4">
-                          <p className="text-xs font-bold text-slate-900">
-                            {booking.customer}
-                          </p>
-                          <p className="mt-1 text-[11px] text-slate-500">
-                            {booking.reference} · {booking.company}
-                          </p>
-                        </td>
+                  <button
+                    type="button"
+                    onClick={() => rejectBooking(booking)}
+                    className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-100"
+                  >
+                    <X size={14} />
+                    Reject
+                  </button>
+                </>
+              )}
 
-                        <td className="max-w-52 px-4 py-4">
-                          <p className="text-xs font-medium text-slate-700">
-                            {service?.name ?? "Service unavailable"}
-                          </p>
-                          <p className="mt-1 text-[10px] text-slate-400">
-                            {service?.category}
-                          </p>
-                        </td>
+              {booking.status !== "Rejected" &&
+                booking.status !== "Completed" &&
+                booking.status !== "In Progress" && (
+                  <button
+                    type="button"
+                    onClick={() => openSchedule(booking)}
+                    className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-100"
+                  >
+                    <CalendarDays size={14} />
+                    Schedule
+                  </button>
+                )}
+            </div>
+          </article>
+        );
+      })}
 
-                        <td className="px-4 py-4">
-                          <span className="flex items-center gap-1 text-xs text-slate-600">
-                            <MapPin size={13} />
-                            {booking.location}
-                          </span>
-                        </td>
+      {filteredBookings.length === 0 && (
+        <div className="col-span-full rounded-xl border border-slate-200 px-4 py-12 text-center">
+          <ClipboardList
+            size={28}
+            className="mx-auto text-slate-300"
+          />
+          <p className="mt-3 text-sm font-semibold text-slate-700">
+            No bookings found
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Try changing your search or status filter.
+          </p>
+        </div>
+      )}
+    </div>
 
-                        <td className="px-4 py-4 text-xs text-slate-600">
-                          {booking.requestedDate}
-                        </td>
+    {/* DESKTOP: Full Table */}
+    <div className="hidden min-w-0 w-full overflow-x-auto lg:block">
+      <table className="w-full table-auto text-left text-xs">
+        <thead className="bg-slate-50">
+          <tr>
+            {[
+              "Booking / Customer",
+              "Service",
+              "Location",
+              "Requested",
+              "Status",
+              "Assigned To",
+              "Actions",
+            ].map((heading) => (
+              <th
+                key={heading}
+                className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 xl:px-4"
+              >
+                {heading}
+              </th>
+            ))}
+          </tr>
+        </thead>
 
-                        <td className="px-4 py-4">
-                          <span className={`whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-semibold ${statusStyles[booking.status]}`}>
-                            {booking.status}
-                          </span>
-                        </td>
+        <tbody>
+          {filteredBookings.map((booking) => {
+            const service = getService(booking.serviceId);
 
-                        <td className="px-4 py-4 text-xs text-slate-600">
-                          {booking.assignedTo || (
-                            <span className="text-slate-400">
-                              Unassigned
-                            </span>
-                          )}
-                        </td>
+            return (
+              <tr
+                key={booking.id}
+                className="border-t border-slate-100 hover:bg-slate-50"
+              >
+                <td className="max-w-[190px] break-words px-3 py-4 xl:px-4">
+                  <p className="font-bold text-slate-900">
+                    {booking.customer}
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    {booking.reference} · {booking.company}
+                  </p>
+                </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-1">
-                            <button
-                              title="View booking"
-                              onClick={() => setSelectedBooking(booking)}
-                              className="rounded-md p-2 text-slate-500 hover:bg-blue-50 hover:text-blue-700"
-                            >
-                              <Eye size={15} />
-                            </button>
+                <td className="max-w-[180px] break-words px-3 py-4 xl:px-4">
+                  <p className="font-medium text-slate-700">
+                    {service?.name ?? "Service unavailable"}
+                  </p>
+                  <p className="mt-1 text-[10px] text-slate-400">
+                    {service?.category}
+                  </p>
+                </td>
 
-                            {booking.status === "Pending" && (
-                              <>
-                                <button
-                                  title="Approve request"
-                                  onClick={() => approveBooking(booking)}
-                                  className="rounded-md p-2 text-emerald-700 hover:bg-emerald-50"
-                                >
-                                  <Check size={15} />
-                                </button>
-                                <button
-                                  title="Reject request"
-                                  onClick={() => rejectBooking(booking)}
-                                  className="rounded-md p-2 text-red-600 hover:bg-red-50"
-                                >
-                                  <X size={15} />
-                                </button>
-                              </>
-                            )}
+                <td className="px-3 py-4 xl:px-4">
+                  <span className="flex items-center gap-1 text-slate-600">
+                    <MapPin size={13} className="shrink-0" />
+                    {booking.location}
+                  </span>
+                </td>
 
-                            {booking.status !== "Rejected" &&
-                              booking.status !== "Completed" &&
-                              booking.status !== "In Progress" && (
-                                <button
-                                  title="Schedule and assign service"
-                                  onClick={() => openSchedule(booking)}
-                                  className="rounded-md p-2 text-violet-700 hover:bg-violet-50"
-                                >
-                                  <CalendarDays size={15} />
-                                </button>
-                              )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                <td className="whitespace-nowrap px-3 py-4 text-slate-600 xl:px-4">
+                  {booking.requestedDate}
+                </td>
 
-                  {filteredBookings.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-12 text-center">
-                        <ClipboardList
-                          size={28}
-                          className="mx-auto text-slate-300"
-                        />
-                        <p className="mt-3 text-sm font-semibold text-slate-700">
-                          No bookings found
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          Try changing your search or status filter.
-                        </p>
-                      </td>
-                    </tr>
+                <td className="px-3 py-4 xl:px-4">
+                  <span
+                    className={`whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-semibold ${statusStyles[booking.status]}`}
+                  >
+                    {booking.status}
+                  </span>
+                </td>
+
+                <td className="max-w-[140px] break-words px-3 py-4 text-slate-600 xl:px-4">
+                  {booking.assignedTo || (
+                    <span className="text-slate-400">Unassigned</span>
                   )}
-                </tbody>
-              </table>
-            </div>
+                </td>
 
-            <div className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500">
-              Showing {filteredBookings.length} of {bookings.length} bookings
-            </div>
-          </>
-        )}
+                <td className="px-3 py-4 xl:px-4">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      title="View booking"
+                      onClick={() => setSelectedBooking(booking)}
+                      className="rounded-md p-2 text-slate-500 hover:bg-blue-50 hover:text-blue-700"
+                    >
+                      <Eye size={15} />
+                    </button>
+
+                    {booking.status === "Pending" && (
+                      <>
+                        <button
+                          type="button"
+                          title="Approve request"
+                          onClick={() => approveBooking(booking)}
+                          className="rounded-md p-2 text-emerald-700 hover:bg-emerald-50"
+                        >
+                          <Check size={15} />
+                        </button>
+
+                        <button
+                          type="button"
+                          title="Reject request"
+                          onClick={() => rejectBooking(booking)}
+                          className="rounded-md p-2 text-red-600 hover:bg-red-50"
+                        >
+                          <X size={15} />
+                        </button>
+                      </>
+                    )}
+
+                    {booking.status !== "Rejected" &&
+                      booking.status !== "Completed" &&
+                      booking.status !== "In Progress" && (
+                        <button
+                          type="button"
+                          title="Schedule and assign service"
+                          onClick={() => openSchedule(booking)}
+                          className="rounded-md p-2 text-violet-700 hover:bg-violet-50"
+                        >
+                          <CalendarDays size={15} />
+                        </button>
+                      )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+
+          {filteredBookings.length === 0 && (
+            <tr>
+              <td colSpan={7} className="px-4 py-12 text-center">
+                <ClipboardList
+                  size={28}
+                  className="mx-auto text-slate-300"
+                />
+                <p className="mt-3 text-sm font-semibold text-slate-700">
+                  No bookings found
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Try changing your search or status filter.
+                </p>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+
+    {/* Booking Count */}
+    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-3 py-3 text-xs text-slate-500 sm:px-5">
+      <span>
+        Showing {filteredBookings.length} of {bookings.length} bookings
+      </span>
+    </div>
+  </>
+)}
+
+
 
         {/* Service catalogue */}
         {activeTab === "services" && (

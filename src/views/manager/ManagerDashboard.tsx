@@ -365,18 +365,19 @@ export default function ManagerDashboard() {
       </div>
 
       {/* Recent incoming works */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
+      <div className="w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5">
+        {/* HEADER */}
+        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
               <FileText size={20} />
             </div>
 
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900 sm:text-lg">
                 Recent Incoming Works
               </h2>
-              <p className="mt-0.5 text-xs text-slate-500">
+              <p className="mt-0.5 text-xs leading-5 text-slate-500">
                 Latest service requests and work assignments.
               </p>
             </div>
@@ -385,15 +386,95 @@ export default function ManagerDashboard() {
           <button
             type="button"
             onClick={() => navigate("/manager/WorkAssignment")}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
+            className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100 sm:w-auto"
           >
             View All
             <ArrowUpRight size={15} />
           </button>
         </div>
 
-        <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[760px]">
+        {/* MOBILE AND TABLET CARDS */}
+        <div className="mt-5 divide-y divide-slate-100 lg:hidden">
+          {recentWorks.slice(0, 5).map((work) => (
+            <div
+              key={work.id}
+              className="min-w-0 space-y-3 py-4 first:pt-0 last:pb-0"
+            >
+              {/* CUSTOMER AND ID */}
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-semibold text-slate-800">
+                    {work.customer}
+                  </p>
+                  <p className="mt-1 break-words text-xs text-slate-500">
+                    Request #{work.id}
+                  </p>
+                </div>
+
+                <div className="shrink-0">
+                  <PriorityBadge priority={work.priority} />
+                </div>
+              </div>
+
+              {/* DETAILS */}
+              <div className="grid min-w-0 grid-cols-2 gap-3 rounded-lg bg-slate-50 p-3 sm:grid-cols-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    Service Type
+                  </p>
+                  <p className="mt-1 break-words text-xs leading-5 text-slate-700">
+                    {work.service}
+                  </p>
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    Location
+                  </p>
+                  <p className="mt-1 break-words text-xs leading-5 text-slate-700">
+                    {work.location}
+                  </p>
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    Received On
+                  </p>
+                  <p className="mt-1 break-words text-xs leading-5 text-slate-700">
+                    {work.date}
+                  </p>
+                </div>
+              </div>
+
+              {/* STATUS */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-medium text-slate-500">
+                  Status
+                </span>
+                <StatusBadge status={work.status} />
+              </div>
+            </div>
+          ))}
+
+          {recentWorks.length === 0 && (
+            <div className="py-10 text-center">
+              <FileText
+                size={30}
+                className="mx-auto text-slate-300"
+              />
+              <p className="mt-3 text-sm font-semibold text-slate-700">
+                No incoming works found
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                New service requests will appear here.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* DESKTOP TABLE */}
+        <div className="mt-5 hidden w-full overflow-x-auto lg:block">
+          <table className="w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50">
                 {[
@@ -407,7 +488,7 @@ export default function ManagerDashboard() {
                 ].map((heading) => (
                   <th
                     key={heading}
-                    className="px-3 py-3 text-left text-[11px] font-bold text-slate-500"
+                    className="whitespace-nowrap px-3 py-3 text-left text-[11px] font-bold text-slate-500"
                   >
                     {heading}
                   </th>
@@ -421,33 +502,57 @@ export default function ManagerDashboard() {
                   key={work.id}
                   className="border-b border-slate-100 transition hover:bg-slate-50"
                 >
-                  <td className="px-3 py-4 text-xs text-slate-500">
+                  <td className="whitespace-nowrap px-3 py-4 text-xs text-slate-500">
                     {work.id}
                   </td>
+
                   <td className="px-3 py-4 text-xs font-semibold text-slate-800">
                     {work.customer}
                   </td>
+
                   <td className="px-3 py-4 text-xs text-slate-600">
                     {work.service}
                   </td>
+
                   <td className="px-3 py-4 text-xs text-slate-600">
                     {work.location}
                   </td>
-                  <td className="px-3 py-4">
+
+                  <td className="whitespace-nowrap px-3 py-4">
                     <PriorityBadge priority={work.priority} />
                   </td>
-                  <td className="px-3 py-4">
+
+                  <td className="whitespace-nowrap px-3 py-4">
                     <StatusBadge status={work.status} />
                   </td>
+
                   <td className="whitespace-nowrap px-3 py-4 text-xs text-slate-500">
                     {work.date}
                   </td>
                 </tr>
               ))}
+
+              {recentWorks.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-3 py-12 text-center">
+                    <FileText
+                      size={30}
+                      className="mx-auto text-slate-300"
+                    />
+                    <p className="mt-3 text-sm font-semibold text-slate-700">
+                      No incoming works found
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      New service requests will appear here.
+                    </p>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
 
       {/* Statistics popup */}
       {selectedStat && (

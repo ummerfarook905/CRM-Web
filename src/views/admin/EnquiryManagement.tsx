@@ -504,36 +504,39 @@ export default function EnquiryManagement() {
 
       {/* Enquiry table */}
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-slate-200 p-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
+
+      <section className="w-full min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+
+        {/* Header */}
+        <div className="flex min-w-0 flex-col gap-4 border-b border-slate-200 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
             <h2 className="font-bold text-slate-900">
               Customer Enquiries
             </h2>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs leading-5 text-slate-500">
               View enquiries, contact customers, and assign service teams.
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative">
+          {/* Search and Filter */}
+          <div className="grid min-w-0 grid-cols-1 gap-3 min-[480px]:grid-cols-[minmax(0,1fr)_auto] lg:flex lg:shrink-0">
+            <div className="relative min-w-0">
               <Search
                 size={16}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
               />
-
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search enquiries..."
-                className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 sm:w-64"
+                className="w-full min-w-0 rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 lg:w-64"
               />
             </div>
 
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
+              className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 min-[480px]:w-auto"
             >
               <option value="All">All Statuses</option>
               <option value="New">New</option>
@@ -544,18 +547,148 @@ export default function EnquiryManagement() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Mobile Cards */}
+        <div className="space-y-3 p-3 sm:p-4 md:hidden">
+          {filteredEnquiries.length === 0 ? (
+            <div className="px-3 py-10 text-center">
+              <Search size={28} className="mx-auto text-slate-300" />
+              <p className="mt-3 text-sm font-semibold text-slate-700">
+                No enquiries found
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Try changing the search or status filter.
+              </p>
+            </div>
+          ) : (
+            filteredEnquiries.map((enquiry) => (
+              <article
+                key={enquiry.id}
+                className="min-w-0 rounded-xl border border-slate-200 p-3 transition hover:border-emerald-200 sm:p-4"
+              >
+                {/* Enquiry and Customer */}
+                <div className="flex min-w-0 items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-sm font-bold text-emerald-800">
+                      {enquiry.reference}
+                    </p>
+                    <p className="mt-1 break-words text-sm font-semibold text-slate-900">
+                      {enquiry.customerName}
+                    </p>
+                    <p className="mt-1 break-words text-xs text-slate-500">
+                      {enquiry.company}
+                    </p>
+                    <p className="mt-1 flex items-start gap-1 text-xs text-slate-500">
+                      <MapPin size={13} className="mt-0.5 shrink-0" />
+                      <span className="break-words">{enquiry.location}</span>
+                    </p>
+                  </div>
+
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${statusStyles[enquiry.status]}`}
+                  >
+                    {enquiry.status}
+                  </span>
+                </div>
+
+                {/* Details */}
+                <div className="mt-4 grid min-w-0 grid-cols-1 gap-3 border-t border-slate-100 pt-3 min-[380px]:grid-cols-2">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                      Service
+                    </p>
+                    <p className="mt-1 break-words text-xs leading-5 text-slate-700">
+                      {enquiry.service}
+                    </p>
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                      Received
+                    </p>
+                    <p className="mt-1 break-words text-xs text-slate-700">
+                      {enquiry.receivedDate}
+                    </p>
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                      Priority
+                    </p>
+                    <div className="mt-1">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${priorityStyles[enquiry.priority]}`}
+                      >
+                        {enquiry.priority}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                      Assigned Team
+                    </p>
+                    <p className="mt-1 break-words text-xs text-slate-700">
+                      {enquiry.assignedManager || "No manager"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {enquiry.assignedEmployees.length} employee(s)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="mt-4 flex min-w-0 flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                  <IconButton
+                    title="View enquiry"
+                    onClick={() => setSelected(enquiry)}
+                  >
+                    <Eye size={15} />
+                  </IconButton>
+
+                  <IconButton
+                    title="Call customer"
+                    onClick={() => callCustomer(enquiry)}
+                  >
+                    <Phone size={15} />
+                  </IconButton>
+
+                  <IconButton
+                    title="Email customer"
+                    onClick={() => emailCustomer(enquiry)}
+                  >
+                    <Mail size={15} />
+                  </IconButton>
+
+                  {enquiry.status !== "Converted" && (
+                    <button
+                      type="button"
+                      title="Create service and assign team"
+                      onClick={() => openCreateService(enquiry)}
+                      className="ml-auto inline-flex max-w-full items-center justify-center gap-1.5 rounded-md bg-emerald-800 px-2.5 py-2 text-[11px] font-semibold text-white transition hover:bg-emerald-900"
+                    >
+                      <FilePlus2 size={14} className="shrink-0" />
+                      <span>Create Service</span>
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        {/* Desktop Table */}
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[1050px] text-left">
             <thead className="bg-slate-50">
               <tr className="text-xs uppercase tracking-wide text-slate-500">
-                <th className="px-5 py-4 font-semibold">Enquiry</th>
-                <th className="px-5 py-4 font-semibold">Customer</th>
-                <th className="px-5 py-4 font-semibold">Service</th>
-                <th className="px-5 py-4 font-semibold">Received</th>
-                <th className="px-5 py-4 font-semibold">Priority</th>
-                <th className="px-5 py-4 font-semibold">Status</th>
-                <th className="px-5 py-4 font-semibold">Assigned Team</th>
-                <th className="px-5 py-4 text-right font-semibold">
+                <th className="whitespace-nowrap px-5 py-4 font-semibold">Enquiry</th>
+                <th className="whitespace-nowrap px-5 py-4 font-semibold">Customer</th>
+                <th className="whitespace-nowrap px-5 py-4 font-semibold">Service</th>
+                <th className="whitespace-nowrap px-5 py-4 font-semibold">Received</th>
+                <th className="whitespace-nowrap px-5 py-4 font-semibold">Priority</th>
+                <th className="whitespace-nowrap px-5 py-4 font-semibold">Status</th>
+                <th className="whitespace-nowrap px-5 py-4 font-semibold">Assigned Team</th>
+                <th className="whitespace-nowrap px-5 py-4 text-right font-semibold">
                   Actions
                 </th>
               </tr>
@@ -591,13 +724,13 @@ export default function EnquiryManagement() {
                     </p>
                   </td>
 
-                  <td className="px-5 py-4 text-sm text-slate-600">
+                  <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
                     {enquiry.receivedDate}
                   </td>
 
                   <td className="px-5 py-4">
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${priorityStyles[enquiry.priority]}`}
+                      className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${priorityStyles[enquiry.priority]}`}
                     >
                       {enquiry.priority}
                     </span>
@@ -605,14 +738,14 @@ export default function EnquiryManagement() {
 
                   <td className="px-5 py-4">
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[enquiry.status]}`}
+                      className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[enquiry.status]}`}
                     >
                       {enquiry.status}
                     </span>
                   </td>
 
                   <td className="px-5 py-4">
-                    <p className="text-sm text-slate-700">
+                    <p className="whitespace-nowrap text-sm text-slate-700">
                       {enquiry.assignedManager || "No manager"}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
@@ -645,9 +778,10 @@ export default function EnquiryManagement() {
 
                       {enquiry.status !== "Converted" && (
                         <button
+                          type="button"
                           title="Create service and assign team"
                           onClick={() => openCreateService(enquiry)}
-                          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-800 px-2.5 py-2 text-[11px] font-semibold text-white transition hover:bg-emerald-900"
+                          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-emerald-800 px-2.5 py-2 text-[11px] font-semibold text-white transition hover:bg-emerald-900"
                         >
                           <FilePlus2 size={14} />
                           Create Service
@@ -661,10 +795,7 @@ export default function EnquiryManagement() {
               {filteredEnquiries.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-12 text-center">
-                    <Search
-                      className="mx-auto text-slate-300"
-                      size={28}
-                    />
+                    <Search size={28} className="mx-auto text-slate-300" />
                     <p className="mt-3 text-sm font-semibold text-slate-700">
                       No enquiries found
                     </p>
@@ -678,10 +809,12 @@ export default function EnquiryManagement() {
           </table>
         </div>
 
-        <div className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500">
+        {/* Footer */}
+        <div className="border-t border-slate-200 px-4 py-3 text-xs text-slate-500 sm:px-5">
           Showing {filteredEnquiries.length} of {enquiries.length} enquiries
         </div>
       </section>
+
 
       {/* Enquiry details modal */}
 

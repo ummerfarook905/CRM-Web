@@ -451,37 +451,34 @@ export default function WorkMonitoring() {
       </section>
 
       {/* Monitoring table */}
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 p-5">
-          <h2 className="font-bold text-slate-900">
+      <section className="w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        {/* Header and Filters */}
+        <div className="min-w-0 border-b border-slate-100 p-3 sm:p-5">
+          <h2 className="text-base font-bold text-slate-900 sm:text-lg">
             Work Status & Completion Tracking
           </h2>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
             Inspect job progress, employee status, photos and completion remarks.
           </p>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="relative">
+          <div className="mt-4 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="relative min-w-0">
               <Search
                 size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
               />
               <input
                 value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
+                onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search work, customer, employee..."
-                className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600"
+                className="w-full min-w-0 rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
               />
             </div>
 
             <select
               value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value)
-              }
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
             >
               <option value="All">All work statuses</option>
               <option value="Assigned">Assigned</option>
@@ -491,20 +488,173 @@ export default function WorkMonitoring() {
             </select>
 
             <button
+              type="button"
               onClick={() => {
                 setSearch("");
                 setStatusFilter("All");
                 setEmployeeFilter("All");
               }}
-              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              className="w-full min-w-0 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 sm:col-span-2 xl:col-span-1"
             >
               Reset Filters
             </button>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1050px] text-left">
+        {/* MOBILE AND TABLET: Responsive Work Cards */}
+        <div className="grid min-w-0 grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:hidden">
+          {filteredWorks.map((work) => (
+            <article
+              key={work.id}
+              className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4"
+            >
+              {/* Work Order Header */}
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-sm font-bold text-slate-900">
+                    {work.reference}
+                  </p>
+                  <p className="mt-1 flex items-start gap-1 break-words text-xs text-slate-500">
+                    <MapPin size={13} className="mt-0.5 shrink-0" />
+                    <span className="min-w-0 break-words">{work.location}</span>
+                  </p>
+                </div>
+
+                <span
+                  className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${statusStyles[work.status]}`}
+                >
+                  {work.status}
+                </span>
+              </div>
+
+              <div className="my-4 border-t border-slate-100" />
+
+              {/* Customer and Service */}
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Customer / Service
+                </p>
+                <p className="mt-1 break-words text-sm font-semibold text-slate-800">
+                  {work.customer}
+                </p>
+                <p className="mt-1 break-words text-xs text-slate-600">
+                  {work.service}
+                </p>
+                <p className="mt-1 break-words text-[11px] text-slate-400">
+                  {work.company}
+                </p>
+              </div>
+
+              {/* Employee Information */}
+              <div className="mt-4 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    Assigned Employees
+                  </p>
+                  <div className="mt-2 space-y-2">
+                    {work.employee.map((name) => (
+                      <p
+                        key={name}
+                        className="flex min-w-0 items-start gap-1.5 break-words text-xs text-slate-600"
+                      >
+                        <Users
+                          size={13}
+                          className="mt-0.5 shrink-0 text-emerald-700"
+                        />
+                        <span className="min-w-0 break-words">{name}</span>
+                      </p>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    Employee Status
+                  </p>
+                  <div className="mt-2">
+                    <span
+                      className={`inline-block max-w-full break-words rounded-full px-2 py-1 text-[10px] font-semibold ${employeeStyles[work.employeeStatus]}`}
+                    >
+                      {work.employeeStatus}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    Due Date
+                  </p>
+                  <p className="mt-1 break-words text-xs text-slate-700">
+                    {work.dueDate}
+                  </p>
+                  <span
+                    className={`mt-2 inline-block rounded-full px-2 py-1 text-[10px] font-semibold ${priorityStyles[work.priority]}`}
+                  >
+                    {work.priority}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      Progress
+                    </p>
+                    <span className="text-xs font-bold text-slate-700">
+                      {work.progress}%
+                    </span>
+                  </div>
+                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-emerald-600 transition-all"
+                      style={{
+                        width: `${work.progress}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Evidence */}
+              <div className="mt-4 min-w-0 rounded-lg bg-slate-50 p-3">
+                <p className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                  <FileImage size={15} className="shrink-0 text-emerald-700" />
+                  {work.photos.length} photo(s)
+                </p>
+                <p className="mt-1 break-words text-xs leading-5 text-slate-500">
+                  {work.completionRemarks || "No remarks"}
+                </p>
+              </div>
+
+              {/* Monitor Action */}
+              <div className="mt-4 border-t border-slate-100 pt-3">
+                <button
+                  type="button"
+                  onClick={() => openDetails(work)}
+                  className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-800"
+                >
+                  <Eye size={15} />
+                  Monitor Work
+                </button>
+              </div>
+            </article>
+          ))}
+
+          {filteredWorks.length === 0 && (
+            <div className="col-span-full rounded-xl border border-slate-200 px-4 py-12 text-center">
+              <Search size={28} className="mx-auto text-slate-300" />
+              <p className="mt-3 text-sm font-semibold text-slate-700">
+                No work orders found
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Change your search or filters and try again.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* DESKTOP: Full Work Tracking Table */}
+        <div className="hidden w-full min-w-0 overflow-x-auto lg:block">
+          <table className="w-full table-auto text-left text-xs">
             <thead className="bg-slate-50">
               <tr>
                 {[
@@ -520,7 +670,7 @@ export default function WorkMonitoring() {
                 ].map((heading) => (
                   <th
                     key={heading}
-                    className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500"
+                    className="whitespace-nowrap px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 xl:px-4"
                   >
                     {heading}
                   </th>
@@ -534,41 +684,34 @@ export default function WorkMonitoring() {
                   key={work.id}
                   className="border-t border-slate-100 hover:bg-slate-50"
                 >
-                  <td className="px-4 py-4">
-                    <p className="text-xs font-bold text-slate-900">
-                      {work.reference}
-                    </p>
-                    <p className="mt-1 text-[10px] text-slate-500">
-                      <MapPin
-                        size={11}
-                        className="mr-1 inline"
-                      />
-                      {work.location}
+                  <td className="max-w-[150px] break-words px-3 py-4 xl:px-4">
+                    <p className="font-bold text-slate-900">{work.reference}</p>
+                    <p className="mt-1 flex items-start gap-1 text-[10px] text-slate-500">
+                      <MapPin size={11} className="mt-0.5 shrink-0" />
+                      <span className="break-words">{work.location}</span>
                     </p>
                   </td>
 
-                  <td className="max-w-48 px-4 py-4">
-                    <p className="text-xs font-semibold text-slate-800">
-                      {work.customer}
-                    </p>
-                    <p className="mt-1 text-[11px] text-slate-500">
+                  <td className="max-w-[180px] break-words px-3 py-4 xl:px-4">
+                    <p className="font-semibold text-slate-800">{work.customer}</p>
+                    <p className="mt-1 break-words text-[11px] text-slate-500">
                       {work.service}
                     </p>
-                    <p className="mt-1 text-[10px] text-slate-400">
+                    <p className="mt-1 break-words text-[10px] text-slate-400">
                       {work.company}
                     </p>
                   </td>
 
-                  <td className="px-4 py-4">
+                  <td className="px-3 py-4 xl:px-4">
                     <div className="space-y-1">
                       {work.employee.map((name) => (
                         <p
                           key={name}
-                          className="whitespace-nowrap text-[11px] text-slate-600"
+                          className="flex items-start gap-1 whitespace-nowrap text-[11px] text-slate-600"
                         >
                           <Users
                             size={12}
-                            className="mr-1 inline text-emerald-700"
+                            className="mt-0.5 shrink-0 text-emerald-700"
                           />
                           {name}
                         </p>
@@ -576,16 +719,16 @@ export default function WorkMonitoring() {
                     </div>
                   </td>
 
-                  <td className="px-4 py-4">
+                  <td className="px-3 py-4 xl:px-4">
                     <span
-                      className={`whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-semibold ${employeeStyles[work.employeeStatus]}`}
+                      className={`rounded-full px-2 py-1 text-[10px] font-semibold ${employeeStyles[work.employeeStatus]}`}
                     >
                       {work.employeeStatus}
                     </span>
                   </td>
 
-                  <td className="whitespace-nowrap px-4 py-4">
-                    <p className="text-xs text-slate-700">
+                  <td className="px-3 py-4 xl:px-4">
+                    <p className="whitespace-nowrap text-xs text-slate-700">
                       {work.dueDate}
                     </p>
                     <span
@@ -595,12 +738,10 @@ export default function WorkMonitoring() {
                     </span>
                   </td>
 
-                  <td className="px-4 py-4">
+                  <td className="px-3 py-4 xl:px-4">
                     <div className="w-24">
                       <div className="mb-1 flex justify-between text-[10px]">
-                        <span className="text-slate-500">
-                          Progress
-                        </span>
+                        <span className="text-slate-500">Progress</span>
                         <span className="font-bold text-slate-700">
                           {work.progress}%
                         </span>
@@ -608,15 +749,13 @@ export default function WorkMonitoring() {
                       <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
                         <div
                           className="h-full rounded-full bg-emerald-600 transition-all"
-                          style={{
-                            width: `${work.progress}%`,
-                          }}
+                          style={{ width: `${work.progress}%` }}
                         />
                       </div>
                     </div>
                   </td>
 
-                  <td className="px-4 py-4">
+                  <td className="px-3 py-4 xl:px-4">
                     <span
                       className={`whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-semibold ${statusStyles[work.status]}`}
                     >
@@ -624,23 +763,24 @@ export default function WorkMonitoring() {
                     </span>
                   </td>
 
-                  <td className="px-4 py-4">
+                  <td className="max-w-[170px] px-3 py-4 xl:px-4">
                     <div className="flex items-center gap-2 text-xs text-slate-600">
                       <FileImage
                         size={15}
-                        className="text-emerald-700"
+                        className="shrink-0 text-emerald-700"
                       />
                       {work.photos.length} photo(s)
                     </div>
-                    <p className="mt-1 max-w-28 truncate text-[10px] text-slate-400">
+                    <p className="mt-1 break-words text-[10px] text-slate-400">
                       {work.completionRemarks || "No remarks"}
                     </p>
                   </td>
 
-                  <td className="px-4 py-4">
+                  <td className="px-3 py-4 xl:px-4">
                     <button
+                      type="button"
                       onClick={() => openDetails(work)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-600 hover:text-emerald-800"
+                      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-600 hover:text-emerald-800"
                     >
                       <Eye size={14} />
                       Monitor
@@ -651,14 +791,8 @@ export default function WorkMonitoring() {
 
               {filteredWorks.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={9}
-                    className="px-4 py-14 text-center"
-                  >
-                    <Search
-                      size={28}
-                      className="mx-auto text-slate-300"
-                    />
+                  <td colSpan={9} className="px-4 py-14 text-center">
+                    <Search size={28} className="mx-auto text-slate-300" />
                     <p className="mt-3 text-sm font-semibold text-slate-700">
                       No work orders found
                     </p>
@@ -672,10 +806,14 @@ export default function WorkMonitoring() {
           </table>
         </div>
 
-        <div className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500">
-          Showing {filteredWorks.length} of {works.length} work orders
+        {/* Record Count */}
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-3 py-3 text-xs text-slate-500 sm:px-5">
+          <span>
+            Showing {filteredWorks.length} of {works.length} work orders
+          </span>
         </div>
       </section>
+
 
       {/* Work monitoring modal */}
       {selectedWork && (

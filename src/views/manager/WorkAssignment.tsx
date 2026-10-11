@@ -406,232 +406,389 @@ export default function WorkAssignment() {
       </div>
 
       {/* Work orders */}
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-slate-100 p-5">
-          <div>
-            <h2 className="font-bold text-slate-900">
-              Incoming Work & Assignments
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              View service details, set priorities and assign one or more employees.
+<section className="w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  {/* HEADER AND FILTERS */}
+  <div className="flex min-w-0 flex-col gap-4 border-b border-slate-100 p-4 sm:p-5">
+    <div>
+      <h2 className="text-base font-bold text-slate-900">
+        Incoming Work & Assignments
+      </h2>
+      <p className="mt-1 text-xs leading-5 text-slate-500">
+        View service details, set priorities and assign one or more employees.
+      </p>
+    </div>
+
+    {/* RESPONSIVE FILTERS */}
+    <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="relative min-w-0">
+        <Search
+          size={16}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+        />
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search work orders..."
+          aria-label="Search work orders"
+          className="w-full min-w-0 rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600"
+        />
+      </div>
+
+      <select
+        value={statusFilter}
+        onChange={(event) => setStatusFilter(event.target.value)}
+        aria-label="Filter by status"
+        className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
+      >
+        <option value="All">All statuses</option>
+        <option value="Incoming">Incoming</option>
+        <option value="Assigned">Assigned</option>
+        <option value="Scheduled">Scheduled</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Completed">Completed</option>
+      </select>
+
+      <select
+        value={priorityFilter}
+        onChange={(event) => setPriorityFilter(event.target.value)}
+        aria-label="Filter by priority"
+        className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
+      >
+        <option value="All">All priorities</option>
+        <option value="Urgent">Urgent</option>
+        <option value="High">High</option>
+        <option value="Medium">Medium</option>
+        <option value="Low">Low</option>
+      </select>
+
+      <button
+        type="button"
+        onClick={() => {
+          setSearch("");
+          setStatusFilter("All");
+          setPriorityFilter("All");
+        }}
+        className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+      >
+        Clear Filters
+      </button>
+    </div>
+  </div>
+
+  {/* MOBILE AND TABLET CARDS */}
+  <div className="divide-y divide-slate-100 lg:hidden">
+    {filteredWork.map((work) => (
+      <article
+        key={work.id}
+        className="min-w-0 space-y-4 p-4 transition hover:bg-slate-50/70 sm:p-5"
+      >
+        {/* WORK ORDER HEADER */}
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="break-words text-sm font-bold text-slate-900">
+              {work.reference}
+            </p>
+            <p className="mt-1 break-words text-[10px] text-slate-500">
+              Requested {work.requestedDate}
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="relative sm:col-span-2 xl:col-span-1">
-              <Search
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <input
-                value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
-                placeholder="Search work orders..."
-                className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600"
-              />
+          <span
+            className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${priorityStyles[work.priority]}`}
+          >
+            {work.priority}
+          </span>
+        </div>
+
+        {/* CUSTOMER DETAILS */}
+        <div className="min-w-0">
+          <p className="break-words text-sm font-semibold text-slate-800">
+            {work.customer}
+          </p>
+          <p className="mt-1 break-words text-xs text-slate-600">
+            {work.service}
+          </p>
+          <p className="mt-1 break-words text-[11px] text-slate-400">
+            {work.company}
+          </p>
+        </div>
+
+        {/* WORK DETAILS */}
+        <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-4 rounded-lg bg-slate-50 p-3 sm:grid-cols-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              Location
+            </p>
+            <p className="mt-1 flex min-w-0 items-start gap-1.5 break-words text-xs leading-5 text-slate-600">
+              <MapPin size={13} className="mt-0.5 shrink-0" />
+              {work.location}
+            </p>
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              Work Date
+            </p>
+            <p className="mt-1 break-words text-xs leading-5 text-slate-700">
+              {work.workDate || "Not scheduled"}
+            </p>
+            {work.workDate && (
+              <p className="mt-1 break-words text-[10px] text-slate-500">
+                {work.workTime}
+              </p>
+            )}
+          </div>
+
+          <div className="col-span-2 min-w-0 sm:col-span-1">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              Status
+            </p>
+            <div className="mt-1">
+              <span
+                className={`inline-flex max-w-full whitespace-normal break-words rounded-full px-2 py-1 text-[10px] font-semibold ${statusStyles[work.status]}`}
+              >
+                {work.status}
+              </span>
             </div>
-
-            <select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value)
-              }
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
-            >
-              <option value="All">All statuses</option>
-              <option value="Incoming">Incoming</option>
-              <option value="Assigned">Assigned</option>
-              <option value="Scheduled">Scheduled</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Completed">Completed</option>
-            </select>
-
-            <select
-              value={priorityFilter}
-              onChange={(event) =>
-                setPriorityFilter(event.target.value)
-              }
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
-            >
-              <option value="All">All priorities</option>
-              <option value="Urgent">Urgent</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
-            </select>
-
-            <button
-              onClick={() => {
-                setSearch("");
-                setStatusFilter("All");
-                setPriorityFilter("All");
-              }}
-              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-            >
-              Clear Filters
-            </button>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1050px] text-left">
-            <thead className="bg-slate-50">
-              <tr>
-                {[
-                  "Work Order",
-                  "Customer / Service",
-                  "Location",
-                  "Work Date",
-                  "Priority",
-                  "Status",
-                  "Assigned Employees",
-                  "Actions",
-                ].map((heading) => (
-                  <th
-                    key={heading}
-                    className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500"
-                  >
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+        {/* ASSIGNED EMPLOYEES */}
+        <div className="min-w-0">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+            Assigned Employees
+          </p>
 
-            <tbody>
-              {filteredWork.map((work) => (
-                <tr
-                  key={work.id}
-                  className="border-t border-slate-100 hover:bg-slate-50"
+          {work.employees.length ? (
+            <div className="flex min-w-0 flex-wrap gap-2">
+              {work.employees.map((employee) => (
+                <span
+                  key={employee}
+                  className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600"
                 >
-                  <td className="px-4 py-4">
-                    <p className="text-xs font-bold text-slate-900">
-                      {work.reference}
-                    </p>
-                    <p className="mt-1 text-[10px] text-slate-500">
-                      Requested {work.requestedDate}
-                    </p>
-                  </td>
-
-                  <td className="max-w-56 px-4 py-4">
-                    <p className="text-xs font-semibold text-slate-800">
-                      {work.customer}
-                    </p>
-                    <p className="mt-1 text-[11px] text-slate-500">
-                      {work.service}
-                    </p>
-                    <p className="mt-1 text-[10px] text-slate-400">
-                      {work.company}
-                    </p>
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <span className="flex items-center gap-1 text-xs text-slate-600">
-                      <MapPin size={13} />
-                      {work.location}
-                    </span>
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <p className="text-xs font-medium text-slate-700">
-                      {work.workDate || "Not scheduled"}
-                    </p>
-                    {work.workDate && (
-                      <p className="mt-1 text-[10px] text-slate-500">
-                        {work.workTime}
-                      </p>
-                    )}
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <span
-                      className={`rounded-full px-2 py-1 text-[10px] font-semibold ${priorityStyles[work.priority]}`}
-                    >
-                      {work.priority}
-                    </span>
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <span
-                      className={`whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-semibold ${statusStyles[work.status]}`}
-                    >
-                      {work.status}
-                    </span>
-                  </td>
-
-                  <td className="max-w-40 px-4 py-4">
-                    {work.employees.length ? (
-                      <div className="space-y-1">
-                        {work.employees.map((employee) => (
-                          <p
-                            key={employee}
-                            className="flex items-center gap-1 text-[11px] text-slate-600"
-                          >
-                            <UserRound
-                              size={12}
-                              className="shrink-0 text-emerald-700"
-                            />
-                            {employee}
-                          </p>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-400">
-                        Unassigned
-                      </span>
-                    )}
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-1">
-                      <button
-                        title="View service details"
-                        onClick={() => setDetailsWork(work)}
-                        className="rounded-md p-2 text-slate-500 hover:bg-blue-50 hover:text-blue-700"
-                      >
-                        <ClipboardList size={15} />
-                      </button>
-
-                      {work.status !== "Completed" && (
-                        <button
-                          title="Assign and schedule work"
-                          onClick={() => openAssignment(work)}
-                          className="inline-flex items-center gap-1 rounded-md bg-emerald-800 px-2.5 py-2 text-[10px] font-semibold text-white hover:bg-emerald-900"
-                        >
-                          <Plus size={13} />
-                          Assign
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                  <UserRound
+                    size={12}
+                    className="shrink-0 text-emerald-700"
+                  />
+                  <span className="break-words">{employee}</span>
+                </span>
               ))}
+            </div>
+          ) : (
+            <span className="text-xs text-slate-400">
+              Unassigned
+            </span>
+          )}
+        </div>
 
-              {filteredWork.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-14 text-center">
-                    <ClipboardList
-                      size={30}
-                      className="mx-auto text-slate-300"
-                    />
-                    <p className="mt-3 text-sm font-semibold text-slate-700">
-                      No work orders found
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Try another search or filter.
-                    </p>
-                  </td>
-                </tr>
+        {/* ACTIONS */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+          <button
+            type="button"
+            title="View service details"
+            aria-label={`View details for ${work.reference}`}
+            onClick={() => setDetailsWork(work)}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-blue-50 hover:text-blue-700"
+          >
+            <ClipboardList size={15} />
+            View Details
+          </button>
+
+          {work.status !== "Completed" && (
+            <button
+              type="button"
+              title="Assign and schedule work"
+              onClick={() => openAssignment(work)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-900"
+            >
+              <Plus size={14} />
+              Assign
+            </button>
+          )}
+        </div>
+      </article>
+    ))}
+
+    {/* MOBILE EMPTY STATE */}
+    {filteredWork.length === 0 && (
+      <div className="px-4 py-12 text-center">
+        <ClipboardList
+          size={30}
+          className="mx-auto text-slate-300"
+        />
+        <p className="mt-3 text-sm font-semibold text-slate-700">
+          No work orders found
+        </p>
+        <p className="mt-1 text-xs text-slate-500">
+          Try another search or filter.
+        </p>
+      </div>
+    )}
+  </div>
+
+  {/* DESKTOP TABLE */}
+  <div className="hidden w-full overflow-x-auto lg:block">
+    <table className="w-full border-collapse text-left">
+      <thead className="bg-slate-50">
+        <tr>
+          {[
+            "Work Order",
+            "Customer / Service",
+            "Location",
+            "Work Date",
+            "Priority",
+            "Status",
+            "Assigned Employees",
+            "Actions",
+          ].map((heading) => (
+            <th
+              key={heading}
+              className="whitespace-nowrap px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 xl:px-4"
+            >
+              {heading}
+            </th>
+          ))}
+        </tr>
+      </thead>
+
+      <tbody>
+        {filteredWork.map((work) => (
+          <tr
+            key={work.id}
+            className="border-t border-slate-100 hover:bg-slate-50"
+          >
+            <td className="whitespace-nowrap px-3 py-4 xl:px-4">
+              <p className="text-xs font-bold text-slate-900">
+                {work.reference}
+              </p>
+              <p className="mt-1 text-[10px] text-slate-500">
+                Requested {work.requestedDate}
+              </p>
+            </td>
+
+            <td className="max-w-56 px-3 py-4 xl:px-4">
+              <p className="break-words text-xs font-semibold text-slate-800">
+                {work.customer}
+              </p>
+              <p className="mt-1 break-words text-[11px] text-slate-500">
+                {work.service}
+              </p>
+              <p className="mt-1 break-words text-[10px] text-slate-400">
+                {work.company}
+              </p>
+            </td>
+
+            <td className="max-w-40 px-3 py-4 xl:px-4">
+              <span className="flex items-start gap-1 break-words text-xs text-slate-600">
+                <MapPin size={13} className="mt-0.5 shrink-0" />
+                {work.location}
+              </span>
+            </td>
+
+            <td className="whitespace-nowrap px-3 py-4 xl:px-4">
+              <p className="text-xs font-medium text-slate-700">
+                {work.workDate || "Not scheduled"}
+              </p>
+              {work.workDate && (
+                <p className="mt-1 text-[10px] text-slate-500">
+                  {work.workTime}
+                </p>
               )}
-            </tbody>
-          </table>
-        </div>
+            </td>
 
-        <div className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500">
-          Showing {filteredWork.length} of {workOrders.length} work orders
-        </div>
-      </section>
+            <td className="whitespace-nowrap px-3 py-4 xl:px-4">
+              <span
+                className={`rounded-full px-2 py-1 text-[10px] font-semibold ${priorityStyles[work.priority]}`}
+              >
+                {work.priority}
+              </span>
+            </td>
+
+            <td className="whitespace-nowrap px-3 py-4 xl:px-4">
+              <span
+                className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusStyles[work.status]}`}
+              >
+                {work.status}
+              </span>
+            </td>
+
+            <td className="max-w-40 px-3 py-4 xl:px-4">
+              {work.employees.length ? (
+                <div className="space-y-1">
+                  {work.employees.map((employee) => (
+                    <p
+                      key={employee}
+                      className="flex items-start gap-1 break-words text-[11px] text-slate-600"
+                    >
+                      <UserRound
+                        size={12}
+                        className="mt-0.5 shrink-0 text-emerald-700"
+                      />
+                      {employee}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs text-slate-400">
+                  Unassigned
+                </span>
+              )}
+            </td>
+
+            <td className="whitespace-nowrap px-3 py-4 xl:px-4">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  title="View service details"
+                  aria-label={`View details for ${work.reference}`}
+                  onClick={() => setDetailsWork(work)}
+                  className="rounded-md p-2 text-slate-500 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  <ClipboardList size={15} />
+                </button>
+
+                {work.status !== "Completed" && (
+                  <button
+                    type="button"
+                    title="Assign and schedule work"
+                    onClick={() => openAssignment(work)}
+                    className="inline-flex items-center gap-1 rounded-md bg-emerald-800 px-2.5 py-2 text-[10px] font-semibold text-white hover:bg-emerald-900"
+                  >
+                    <Plus size={13} />
+                    Assign
+                  </button>
+                )}
+              </div>
+            </td>
+          </tr>
+        ))}
+
+        {filteredWork.length === 0 && (
+          <tr>
+            <td colSpan={8} className="px-4 py-14 text-center">
+              <ClipboardList
+                size={30}
+                className="mx-auto text-slate-300"
+              />
+              <p className="mt-3 text-sm font-semibold text-slate-700">
+                No work orders found
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Try another search or filter.
+              </p>
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+
+  {/* FOOTER */}
+  <div className="border-t border-slate-200 px-4 py-3 text-xs text-slate-500 sm:px-5">
+    Showing {filteredWork.length} of {workOrders.length} work orders
+  </div>
+</section>
+
 
       {/* Assignment modal */}
       {selectedWork && (
