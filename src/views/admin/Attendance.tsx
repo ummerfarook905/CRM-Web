@@ -8,7 +8,6 @@ import {
   Clock3,
   CalendarDays,
   Search,
-  Download,
   ChevronDown,
   Eye,
   X,
@@ -190,11 +189,6 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
-function escapeCsv(value: string | number): string {
-  const text = String(value);
-  return `"${text.replace(/"/g, '""')}"`;
-}
-
 export default function Attendance() {
   const [records] =
     useState<AttendanceRecord[]>(loadAttendance);
@@ -265,54 +259,6 @@ export default function Attendance() {
     });
   }, [dateRecords, search, departmentFilter, statusFilter]);
 
-  function exportCsv() {
-    const headers = [
-      "Employee ID",
-      "Employee Name",
-      "Department",
-      "Designation",
-      "Date",
-      "Check In",
-      "Check Out",
-      "Working Hours",
-      "Overtime",
-      "Status",
-      "Location",
-    ];
-
-    const rows = filteredRecords.map((record) => [
-      record.employeeId,
-      record.name,
-      record.department,
-      record.designation,
-      record.date,
-      record.checkIn,
-      record.checkOut,
-      record.workingHours,
-      record.overtime,
-      record.status,
-      record.location,
-    ]);
-
-    const csv = [headers, ...rows]
-      .map((row) => row.map(escapeCsv).join(","))
-      .join("\r\n");
-
-    const blob = new Blob(["\uFEFF" + csv], {
-      type: "text/csv;charset=utf-8;",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = `attendance-${selectedDate}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-
   return (
     <div className="min-w-0 space-y-6">
       {/* PAGE HEADER */}
@@ -330,15 +276,6 @@ export default function Attendance() {
             Monitor daily attendance, working hours and employee check-ins.
           </p>
         </div>
-
-        <button
-          type="button"
-          onClick={exportCsv}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
-        >
-          <Download size={17} />
-          Export CSV
-        </button>
       </div>
 
       {/* DATE FILTER */}
