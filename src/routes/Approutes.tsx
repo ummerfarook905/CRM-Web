@@ -27,6 +27,8 @@ import WorkVerification from "../views/manager/WorkVerification";
 import Employees from "../views/admin/Employees";
 import Overtime from "../views/admin/Overtime";
 import Attendance from "../views/admin/Attendance";
+import Overtime1 from "../views/manager/Overtime1";
+import EnquiryManagement1 from "../views/manager/EnquiryManagement1";
 
 
 export default function AppRoutes() {
@@ -139,6 +141,7 @@ export default function AppRoutes() {
             path="WorkVerification"
             element={<WorkVerification />}
           />
+          
 
         </Route>
       </Route>
@@ -185,6 +188,16 @@ export default function AppRoutes() {
           <Route
             path="WorkVerification"
             element={<WorkVerification />}
+          />
+
+          <Route
+            path="Overtime1"
+            element={<Overtime1 />}
+          />
+
+          <Route
+            path="Enquiries1"
+            element={<EnquiryManagement1 />}
           />
 
         </Route>
