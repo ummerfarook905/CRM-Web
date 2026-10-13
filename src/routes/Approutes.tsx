@@ -29,6 +29,8 @@ import Overtime from "../views/admin/Overtime";
 import Attendance from "../views/admin/Attendance";
 import Overtime1 from "../views/manager/Overtime1";
 import EnquiryManagement1 from "../views/manager/EnquiryManagement1";
+import ClientDirectory from "../views/manager/ClientDirectory";
+import ServiceManagement1 from "../views/manager/ServiceManagement1";
 
 
 export default function AppRoutes() {
@@ -198,6 +200,16 @@ export default function AppRoutes() {
           <Route
             path="Enquiries1"
             element={<EnquiryManagement1 />}
+          />
+
+          <Route
+            path="Client Directory"
+            element={<ClientDirectory />}
+          />
+
+          <Route
+            path="ServiceManagement"
+            element={<ServiceManagement1 />}
           />
 
         </Route>

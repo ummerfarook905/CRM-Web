@@ -8,6 +8,7 @@ import {
   Search,
   User,
   Users,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -352,6 +353,28 @@ export default function CustomerManagement() {
     setShowForm(true);
   };
 
+  const handleDeleteCustomer = (customer: Customer) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${customer.name} (${customer.customerCode})?`,
+    );
+
+    if (!confirmed) return;
+
+    setCustomers((current) =>
+      current.filter((item) => item.id !== customer.id),
+    );
+
+    if (selectedCustomer?.id === customer.id) {
+      setSelectedCustomer(null);
+      setShowDetails(false);
+    }
+
+    if (editingCustomer?.id === customer.id) {
+      setEditingCustomer(null);
+      setShowForm(false);
+    }
+  };
+
   const openEditCustomer = (
     customer: Customer
   ) => {
@@ -606,6 +629,17 @@ export default function CustomerManagement() {
                         <Edit3 size={16} />
                         Edit
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCustomer(customer)}
+                        title="Delete customer"
+                        aria-label={`Delete ${customer.name}`}
+                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100"
+                      >
+                        <Trash2 size={16} />
+                        Delete
+                      </button>
                     </div>
                   </div>
                 ))
@@ -730,6 +764,15 @@ export default function CustomerManagement() {
                               className="rounded-lg p-2 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
                             >
                               <Edit3 size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCustomer(customer)}
+                              title="Delete customer"
+                              aria-label={`Delete ${customer.name}`}
+                              className="rounded-lg p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+                            >
+                              <Trash2 size={16} />
                             </button>
                           </div>
                         </td>

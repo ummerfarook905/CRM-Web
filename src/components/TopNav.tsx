@@ -159,7 +159,7 @@ export default function TopNav({
                   : "/manager/WorkAssignment",
               )
             }
-            className="hidden shrink-0 items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-800 sm:flex"
+            className="hidden shrink-0 items-center gap-1.5 rounded-md bg-emerald-800 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-800 sm:flex"
           >
             <Plus size={15} />
             New Work Order
@@ -210,7 +210,7 @@ export default function TopNav({
                 </p>
               </div>
 
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-xs font-bold text-white">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-xs font-bold text-white">
                 {name.charAt(0).toUpperCase()}
               </div>
 

@@ -7,6 +7,8 @@ import {
   FileText,
   LogOut,
   Menu,
+  Building2,
+  PanelsTopLeft,
   X,
 } from "lucide-react";
 
@@ -42,6 +44,16 @@ export default function ManagerSideNav() {
           name: "Work Orders & Enquiries",
           path: "/manager/Enquiries1",
           icon: ClipboardList,
+        },
+        {
+          name: "Client Directory",
+          path: "/manager/Client Directory",
+          icon: Building2,
+        },
+        {
+          name: "Service Requests & Bookings",
+          path: "/manager/ServiceManagement",
+          icon: PanelsTopLeft,
         },
       ],
     },
