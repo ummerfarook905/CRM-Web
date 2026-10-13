@@ -1,14 +1,9 @@
 
 import {
   LayoutDashboard,
-  Activity,
   ClipboardList,
   Clock,
   Camera,
-  Settings2,
-  Users,
-  Wrench,
-  ShieldCheck,
   FileText,
   LogOut,
   Menu,
