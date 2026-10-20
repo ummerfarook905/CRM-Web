@@ -4,6 +4,8 @@ import {
   Routes,
 } from "react-router-dom";
 
+import { useAppSelector } from "../app/Hooks";
+
 import Login from "../views/auth/Login";
 
 import AdminLayout from "../layouts/AdminLayout";
@@ -18,7 +20,6 @@ import Unauthorized from "../views/errors/Unauthorized";
 
 import ProtectedRoute from "../components/ProtectedRoute";
 
-import AuthViewModel from "../viewmodels/auth/AuthViewModel";
 import EnquiryManagement from "../views/admin/EnquiryManagement";
 import ServiceManagement from "../views/admin/ServiceManagement";
 import WorkAssignment from "../views/manager/WorkAssignment";
@@ -34,10 +35,9 @@ import ServiceManagement1 from "../views/manager/ServiceManagement1";
 
 
 export default function AppRoutes() {
-  const isAuthenticated =
-    AuthViewModel.isAuthenticated();
-
-  const user = AuthViewModel.getCurrentUser();
+  const { isAuthenticated, user } = useAppSelector(
+    (state) => state.auth
+  );
 
   const getDefaultRoute = () => {
     if (!isAuthenticated || !user) {
@@ -64,7 +64,7 @@ export default function AppRoutes() {
       <Route
         path="/login"
         element={
-          isAuthenticated ? (
+          isAuthenticated && user ? (
             <Navigate
               to={getDefaultRoute()}
               replace

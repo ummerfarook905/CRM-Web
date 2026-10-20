@@ -1,7 +1,7 @@
 export type Role = "admin" | "manager";
 
 export interface User {
-  id: number;
+  id: string | number;
   name: string;
   email: string;
   role: Role;
@@ -15,4 +15,12 @@ export interface LoginCredentials {
 export interface AuthResponse {
   user: User;
   token: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  loading: boolean;
+  error: string | null;
 }

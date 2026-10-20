@@ -1,38 +1,38 @@
+
+import { store } from "../../app/Store";
 import AuthService from "../../services/AuthService";
-import type {
-  LoginCredentials,
-  User,
-} from "../../models/auth/User";
+import { logout } from "../../store/auth/AuthSlice";
+
+import type { Role, User } from "../../models/auth/User";
 
 class AuthViewModel {
-  login(credentials: LoginCredentials): User | null {
-    const response = AuthService.login(credentials);
-
-    if (!response) {
-      return null;
-    }
-
-    return response.user;
+  getDashboardPath(role: Role): string {
+    return role === "admin"
+      ? "/admin/dashboard"
+      : "/manager/dashboard";
   }
 
-  logout(): void {
-    AuthService.logout();
+  hasRole(
+    user: User | null,
+    role: Role
+  ): boolean {
+    return user?.role === role;
   }
 
   getCurrentUser(): User | null {
-    return AuthService.getCurrentUser();
+    return store.getState().auth.user;
   }
 
-  getToken(): string | null {
-    return AuthService.getToken();
-  }
+  logout(): void {
+    const { token } = store.getState().auth;
 
-  isAuthenticated(): boolean {
-    return AuthService.isAuthenticated();
-  }
+    store.dispatch(logout());
 
-  hasRole(role: "admin" | "manager"): boolean {
-    return AuthService.hasRole(role);
+    // Best-effort server-side logout; the local session is
+    // already cleared.
+    AuthService.logout(token).catch(() => {
+      // Ignore logout API failures.
+    });
   }
 }
 

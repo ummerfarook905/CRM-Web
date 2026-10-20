@@ -1,24 +1,25 @@
+
 import { Navigate, Outlet } from "react-router-dom";
-import AuthViewModel from "../viewmodels/auth/AuthViewModel";
+import { useAppSelector } from "../app/Hooks";
+
 import type { Role } from "../models/auth/User";
 
 interface ProtectedRouteProps {
-  allowedRole?: Role;
+  allowedRole: Role;
 }
 
 export default function ProtectedRoute({
   allowedRole,
 }: ProtectedRouteProps) {
-  const isAuthenticated = AuthViewModel.isAuthenticated();
-  const user = AuthViewModel.getCurrentUser();
+  const { user, isAuthenticated } = useAppSelector(
+    (state) => state.auth
+  );
 
-  // User is not logged in
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
 
-  // User doesn't have permission
-  if (allowedRole && user.role !== allowedRole) {
+  if (user.role !== allowedRole) {
     return <Navigate to="/unauthorized" replace />;
   }
 

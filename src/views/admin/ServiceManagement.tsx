@@ -14,7 +14,31 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect,useMemo, useState } from "react";
+
+import {
+  useAppDispatch,
+  useAppSelector,
+} from "../../app/Hooks";
+
+import {
+  fetchServices,
+  createService,
+  updateService as updateServiceApi,
+} from "../../services/ServicesSlice";
+
+import {
+  fetchBookings,
+  updateBooking as updateBookingApi,
+} from "../../services/BookingsSlice";
+
+import type { Booking } from "../../services/BookingsSlice";
+
+import {
+  fetchCategories,
+  createCategory,
+} from "../../services/CategoriesSlice";
+
 
 type ServiceStatus =
   | "Pending"
@@ -24,7 +48,6 @@ type ServiceStatus =
   | "In Progress"
   | "Completed";
 
-type Priority = "Low" | "Medium" | "High";
 
 interface Service {
   id: number;
@@ -33,163 +56,11 @@ interface Service {
   description: string;
   duration: string;
   price: number;
+  image?: string;
+  requiresMaintenance?: boolean;
+  defaultMaintenanceFrequency?: string;
   status: "Active" | "Inactive";
 }
-
-interface Booking {
-  id: number;
-  reference: string;
-  customer: string;
-  company: string;
-  serviceId: number;
-  location: string;
-  requestedDate: string;
-  scheduledDate: string;
-  scheduledTime: string;
-  priority: Priority;
-  status: ServiceStatus;
-  assignedTo: string;
-  notes: string;
-}
-
-const initialCategories = [
-  "Maintenance",
-  "Installation",
-  "Repair",
-  "Inspection",
-  "Annual Maintenance Contract",
-];
-
-const initialServices: Service[] = [
-  {
-    id: 1,
-    name: "RO System Maintenance",
-    category: "Maintenance",
-    description:
-      "Routine inspection and maintenance of industrial RO systems.",
-    duration: "2 hours",
-    price: 2500,
-    status: "Active",
-  },
-  {
-    id: 2,
-    name: "Water Treatment Plant Installation",
-    category: "Installation",
-    description:
-      "Installation, testing and commissioning of water treatment plants.",
-    duration: "1 day",
-    price: 15000,
-    status: "Active",
-  },
-  {
-    id: 3,
-    name: "Filter Replacement",
-    category: "Repair",
-    description:
-      "Replacement and testing of water filtration components.",
-    duration: "1 hour",
-    price: 1200,
-    status: "Active",
-  },
-  {
-    id: 4,
-    name: "System Inspection",
-    category: "Inspection",
-    description:
-      "Equipment inspection and water system performance verification.",
-    duration: "90 minutes",
-    price: 1800,
-    status: "Active",
-  },
-  {
-    id: 5,
-    name: "Annual Maintenance Contract",
-    category: "Annual Maintenance Contract",
-    description:
-      "Scheduled preventive maintenance under an annual contract.",
-    duration: "As scheduled",
-    price: 25000,
-    status: "Active",
-  },
-];
-
-const initialBookings: Booking[] = [
-  {
-    id: 1,
-    reference: "SR-1001",
-    customer: "Rajesh Kumar",
-    company: "ABC Industries",
-    serviceId: 1,
-    location: "Chennai",
-    requestedDate: "2026-10-10",
-    scheduledDate: "",
-    scheduledTime: "",
-    priority: "High",
-    status: "Pending",
-    assignedTo: "",
-    notes: "RO system pressure is low. Inspection required.",
-  },
-  {
-    id: 2,
-    reference: "SR-1002",
-    customer: "Anil Thomas",
-    company: "GreenTech Pvt Ltd",
-    serviceId: 2,
-    location: "Coimbatore",
-    requestedDate: "2026-10-09",
-    scheduledDate: "2026-10-12",
-    scheduledTime: "10:00",
-    priority: "High",
-    status: "Scheduled",
-    assignedTo: "John Mathew",
-    notes: "Coordinate site access with the facility manager.",
-  },
-  {
-    id: 3,
-    reference: "SR-1003",
-    customer: "Priya Menon",
-    company: "Sunrise Apartments",
-    serviceId: 3,
-    location: "Madurai",
-    requestedDate: "2026-10-08",
-    scheduledDate: "",
-    scheduledTime: "",
-    priority: "Medium",
-    status: "Approved",
-    assignedTo: "",
-    notes: "Replace filters and verify output quality.",
-  },
-  {
-    id: 4,
-    reference: "SR-1004",
-    customer: "Arun Joseph",
-    company: "Global Foods",
-    serviceId: 4,
-    location: "Thrissur",
-    requestedDate: "2026-10-07",
-    scheduledDate: "",
-    scheduledTime: "",
-    priority: "Low",
-    status: "Rejected",
-    assignedTo: "",
-    notes: "Customer requested a date outside the available service window.",
-  },
-  {
-    id: 5,
-    reference: "SR-1005",
-    customer: "Suresh Nair",
-    company: "Sri Hospitals",
-    serviceId: 5,
-    location: "Kochi",
-    requestedDate: "2026-10-06",
-    scheduledDate: "2026-10-15",
-    scheduledTime: "14:00",
-    priority: "Medium",
-    status: "In Progress",
-    assignedTo: "Meera Joseph",
-    notes: "Perform the scheduled AMC inspection.",
-  },
-];
 
 const teamMembers = [
   "John Mathew",
@@ -209,14 +80,26 @@ const statusStyles: Record<ServiceStatus, string> = {
 };
 
 export default function ServiceManagement() {
-  const [services, setServices] =
-    useState<Service[]>(initialServices);
 
-  const [bookings, setBookings] =
-    useState<Booking[]>(initialBookings);
+  const dispatch = useAppDispatch();
 
-  const [categories, setCategories] =
-    useState<string[]>(initialCategories);
+  useEffect(() => {
+  dispatch(fetchServices());
+  dispatch(fetchBookings());
+  dispatch(fetchCategories());
+  }, [dispatch]);
+
+  const services = useAppSelector(
+    (state) => state.services.items
+  );
+
+  const bookings = useAppSelector(
+    (state) => state.bookings.items
+  );
+
+  const categories = useAppSelector(
+    (state) => state.categories.items
+  );
 
   const [activeTab, setActiveTab] =
     useState<"bookings" | "services" | "categories">(
@@ -246,11 +129,14 @@ export default function ServiceManagement() {
 
   const [serviceForm, setServiceForm] = useState({
     name: "",
-    category: initialCategories[0],
+    category: "",
     description: "",
     duration: "2 hours",
     price: "0",
     status: "Active" as Service["status"],
+    image: "",
+    requiresMaintenance: false,
+    defaultMaintenanceFrequency: "",
   });
 
   const [scheduleForm, setScheduleForm] = useState({
@@ -292,18 +178,24 @@ export default function ServiceManagement() {
     });
   }, [bookings, services, search, statusFilter]);
 
-  const updateBooking = (
-    id: number,
-    updates: Partial<Booking>
-  ) => {
-    setBookings((current) =>
-      current.map((booking) =>
-        booking.id === id
-          ? { ...booking, ...updates }
-          : booking
-      )
-    );
-  };
+  const handleBookingUpdate = async (
+      id: number,
+      updates: Partial<Booking>
+    ) => {
+      try {
+        await dispatch(
+          updateBookingApi({ id, updates })
+        ).unwrap();
+
+        setNotice("Booking updated successfully.");
+      } catch (error) {
+        setNotice(
+          typeof error === "string"
+            ? error
+            : "Failed to update booking."
+        );
+      }
+    };
 
   const openAddService = () => {
     setEditingService(null);
@@ -314,6 +206,9 @@ export default function ServiceManagement() {
       duration: "2 hours",
       price: "0",
       status: "Active",
+      image: "",
+      requiresMaintenance: false,
+      defaultMaintenanceFrequency: "",
     });
     setServiceModal(true);
   };
@@ -327,81 +222,112 @@ export default function ServiceManagement() {
       duration: service.duration,
       price: String(service.price),
       status: service.status,
+      image: service.image ?? "",
+      requiresMaintenance: service.requiresMaintenance ?? false,
+      defaultMaintenanceFrequency: service.defaultMaintenanceFrequency ?? "",
     });
     setServiceModal(true);
   };
 
-  const saveService = (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
+  
+const saveService = async (
+  event: React.FormEvent<HTMLFormElement>
+) => {
+  event.preventDefault();
 
-    const price = Number(serviceForm.price);
+  const price = Number(serviceForm.price);
 
-    if (
-      !serviceForm.name.trim() ||
-      !serviceForm.category ||
-      !Number.isFinite(price) ||
-      price < 0
-    ) {
-      return;
-    }
+  if (
+    !serviceForm.name.trim() ||
+    !serviceForm.category ||
+    !Number.isFinite(price) ||
+    price < 0
+  ) {
+    setNotice("Please enter valid service details.");
+    return;
+  }
 
+  const payload = {
+    name: serviceForm.name.trim(),
+    category: serviceForm.category,
+    description: serviceForm.description.trim(),
+    duration: serviceForm.duration,
+    price,
+    status: serviceForm.status,
+    image: serviceForm.image,
+    requiresMaintenance: serviceForm.requiresMaintenance,
+    defaultMaintenanceFrequency:
+      serviceForm.requiresMaintenance
+        ? serviceForm.defaultMaintenanceFrequency
+        : "",
+  };
+
+  try {
     if (editingService) {
-      setServices((current) =>
-        current.map((service) =>
-          service.id === editingService.id
-            ? {
-                ...service,
-                ...serviceForm,
-                name: serviceForm.name.trim(),
-                description: serviceForm.description.trim(),
-                price,
-              }
-            : service
-        )
-      );
+      await dispatch(
+        updateServiceApi({
+          ...editingService,
+          ...payload,
+        })
+      ).unwrap();
+
       setNotice("Service updated successfully.");
     } else {
-      setServices((current) => [
-        ...current,
-        {
-          id: Date.now(),
-          ...serviceForm,
-          name: serviceForm.name.trim(),
-          description: serviceForm.description.trim(),
-          price,
-        },
-      ]);
+      await dispatch(
+        createService(payload)
+      ).unwrap();
+
       setNotice("Service added successfully.");
     }
 
     setServiceModal(false);
-  };
+  } catch (error) {
+  console.error("Save service error:", error);
 
-  const addCategory = (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
+  setNotice(
+    typeof error === "string"
+      ? error
+      : "Failed to save service. Check the browser console."
+  );
+}
+};
 
-    const value = categoryName.trim();
 
-    if (!value) return;
+  
+const addCategory = async (
+  event: React.FormEvent<HTMLFormElement>
+) => {
+  event.preventDefault();
 
-    if (
-      categories.some(
-        (category) =>
-          category.toLowerCase() === value.toLowerCase()
-      )
-    ) {
-      setNotice("That category already exists.");
-      return;
-    }
+  const value = categoryName.trim();
 
-    setCategories((current) => [...current, value]);
+  if (!value) return;
+
+  if (
+    categories.some(
+      (category) =>
+        category.toLowerCase() === value.toLowerCase()
+    )
+  ) {
+    setNotice("That category already exists.");
+    return;
+  }
+
+  try {
+    await dispatch(createCategory(value)).unwrap();
+
     setCategoryName("");
+    setCategoryModal(false);
     setNotice("Category added successfully.");
-  };
+  } catch (error) {
+    setNotice(
+      typeof error === "string"
+        ? error
+        : "Failed to create category."
+    );
+  }
+};
+
 
   const openSchedule = (booking: Booking) => {
     setScheduleBooking(booking);
@@ -414,7 +340,7 @@ export default function ServiceManagement() {
     });
   };
 
-  const saveSchedule = (
+  const saveSchedule = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
@@ -428,27 +354,42 @@ export default function ServiceManagement() {
       return;
     }
 
-    updateBooking(scheduleBooking.id, {
-      scheduledDate: scheduleForm.date,
-      scheduledTime: scheduleForm.time,
-      assignedTo: scheduleForm.assignedTo,
-      notes: scheduleForm.notes,
-      status: "Scheduled",
-    });
+    try {
+      await dispatch(
+        updateBookingApi({
+          id: scheduleBooking.id,
+          updates: {
+            scheduledDate: scheduleForm.date,
+            scheduledTime: scheduleForm.time,
+            assignedTo: scheduleForm.assignedTo,
+            notes: scheduleForm.notes,
+            status: "Scheduled",
+          },
+        })
+      ).unwrap();
 
-    setScheduleBooking(null);
-    setNotice("Service scheduled and assigned successfully.");
+      setScheduleBooking(null);
+      setNotice("Service scheduled and assigned successfully.");
+    } catch (error) {
+      setNotice(
+        typeof error === "string"
+          ? error
+          : "Failed to schedule service."
+      );
+    }
   };
 
-  const approveBooking = (booking: Booking) => {
-    updateBooking(booking.id, { status: "Approved" });
-    setNotice(`${booking.reference} approved.`);
-  };
+  const approveBooking = async (booking: Booking) => {
+  await handleBookingUpdate(booking.id, {
+    status: "Approved",
+  });
+};
 
-  const rejectBooking = (booking: Booking) => {
-    updateBooking(booking.id, { status: "Rejected" });
-    setNotice(`${booking.reference} rejected.`);
-  };
+const rejectBooking = async (booking: Booking) => {
+  await handleBookingUpdate(booking.id, {
+    status: "Rejected",
+  });
+};
 
   const tabClass = (tab: typeof activeTab) =>
     `border-b-2 px-4 py-3 text-sm font-semibold transition ${
@@ -1112,6 +1053,166 @@ export default function ServiceManagement() {
                 }
                 placeholder="Enter price"
               />
+
+              
+              {/* Service image upload */}
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                  Service Image
+                </label>
+
+                <label
+                  htmlFor="service-image-upload"
+                  className="flex min-h-[125px] w-full cursor-pointer flex-col
+                    items-center justify-center rounded-xl border-2 border-dashed
+                    border-emerald-400 bg-emerald-50/40 px-4 py-5 text-center
+                    transition-colors hover:border-emerald-600 hover:bg-emerald-50"
+                >
+                  {serviceForm.image ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <img
+                        src={serviceForm.image}
+                        alt="Service preview"
+                        className="h-20 w-28 rounded-lg border border-slate-200 object-cover"
+                      />
+
+                      <span className="text-sm font-semibold text-emerald-700">
+                        Change service image
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Upload icon */}
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="26"
+                        height="26"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mb-2 text-emerald-600"
+                      >
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <path d="m21 15-5-5L5 21" />
+                        <path d="M16 3v6" />
+                        <path d="M13 6h6" />
+                      </svg>
+
+                      <span className="text-sm font-semibold text-slate-800">
+                        Upload service image
+                      </span>
+
+                      <span className="mt-1 text-xs text-slate-400">
+                        JPG, PNG or WEBP images
+                      </span>
+                    </>
+                  )}
+
+                  <input
+                    id="service-image-upload"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+
+                      const reader = new FileReader();
+
+                      reader.onload = () => {
+                        setServiceForm((current) => ({
+                          ...current,
+                          image: String(reader.result ?? ""),
+                        }));
+                      };
+
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+
+                {serviceForm.image && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setServiceForm((current) => ({
+                        ...current,
+                        image: "",
+                      }));
+
+                      const input = document.getElementById(
+                        "service-image-upload"
+                      ) as HTMLInputElement | null;
+
+                      if (input) input.value = "";
+                    }}
+                    className="mt-2 rounded-lg border border-slate-200 px-3 py-2
+                      text-xs font-medium text-red-600 transition-colors
+                      hover:bg-red-50"
+                  >
+                    Remove image
+                  </button>
+                )}
+              </div>
+
+              {/* Maintenance settings */}
+              <div className="rounded-xl border border-slate-200 p-4">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={serviceForm.requiresMaintenance}
+                    onChange={(event) =>
+                      setServiceForm((current) => ({
+                        ...current,
+                        requiresMaintenance: event.target.checked,
+                        defaultMaintenanceFrequency: event.target.checked
+                          ? current.defaultMaintenanceFrequency
+                          : "",
+                      }))
+                    }
+                    className="mt-0.5 h-4 w-4"
+                  />
+
+                  <span>
+                    <span className="block text-sm font-semibold text-slate-800">
+                      Requires Maintenance
+                    </span>
+                    <span className="mt-1 block text-xs text-slate-500">
+                      Enable this if the service needs recurring maintenance.
+                    </span>
+                  </span>
+                </label>
+
+                {serviceForm.requiresMaintenance && (
+                  <div className="mt-4">
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                      Default Maintenance Frequency
+                    </label>
+
+                    <select
+                      required
+                      value={serviceForm.defaultMaintenanceFrequency}
+                      onChange={(event) =>
+                        setServiceForm((current) => ({
+                          ...current,
+                          defaultMaintenanceFrequency: event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
+                    >
+                      <option value="">Select maintenance frequency</option>
+                      <option value="Monthly">Monthly</option>
+                      <option value="Every 3 Months">Every 3 Months</option>
+                      <option value="Every 6 Months">Every 6 Months</option>
+                      <option value="Annually">Annually</option>
+                    </select>
+                  </div>
+                )}
+              </div>
 
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-slate-700">

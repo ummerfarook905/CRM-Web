@@ -5,68 +5,71 @@ import {
   Mail,
   Shield,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect,useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+import { useAppDispatch, useAppSelector } from "../../app/Hooks";
+import { loginUser, clearAuthError } from "../../store/auth/AuthSlice";
 import AuthViewModel from "../../viewmodels/auth/AuthViewModel";
 
 export default function Login() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+
+  const {
+    user,
+    loading,
+    error,
+    isAuthenticated,
+  } = useAppSelector((state) => state.auth);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [showPassword, setShowPassword] =
     useState(false);
 
-  const [error, setError] = useState("");
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      navigate(
+        AuthViewModel.getDashboardPath(user.role),
+        { replace: true }
+      );
+    }
+  }, [isAuthenticated, user, navigate]);
 
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = (
+  
+  const handleSubmit = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
 
-    setError("");
-    setLoading(true);
-
-    setTimeout(() => {
-      const user = AuthViewModel.login({
-        email,
+    const result = await dispatch(
+      loginUser({
+        email: email.trim(),
         password,
-      });
+      })
+    );
 
-      setLoading(false);
-
-      if (!user) {
-        setError(
-          "Invalid email or password. Please try again."
-        );
-        return;
-      }
-
-      if (user.role === "admin") {
-        navigate("/admin/dashboard", {
-          replace: true,
-        });
-      } else if (user.role === "manager") {
-        navigate("/manager/dashboard", {
-          replace: true,
-        });
-      }
-    }, 500);
+    if (loginUser.fulfilled.match(result)) {
+      navigate(
+        AuthViewModel.getDashboardPath(
+          result.payload.user.role
+        ),
+        { replace: true }
+      );
+    }
   };
 
   const fillAdminCredentials = () => {
-    setEmail("admin@example.com");
-    setPassword("admin123");
-    setError("");
+    setEmail("admin@specterra.com");
+    setPassword("Spectra-Z1rMbYmFA1a");
+    dispatch(clearAuthError());
   };
 
   const fillManagerCredentials = () => {
     setEmail("manager@example.com");
     setPassword("manager123");
-    setError("");
+    dispatch(clearAuthError());
   };
 
   return (
@@ -207,14 +210,6 @@ export default function Login() {
                 <p className="font-semibold text-indigo-700">
                   Admin
                 </p>
-
-                <p className="mt-1 text-xs text-slate-500">
-                  admin@example.com
-                </p>
-
-                <p className="text-xs text-slate-500">
-                  admin123
-                </p>
               </button>
 
               <button
@@ -224,14 +219,6 @@ export default function Login() {
               >
                 <p className="font-semibold text-emerald-700">
                   Manager
-                </p>
-
-                <p className="mt-1 text-xs text-slate-500">
-                  manager@example.com
-                </p>
-
-                <p className="text-xs text-slate-500">
-                  manager123
                 </p>
               </button>
             </div>
