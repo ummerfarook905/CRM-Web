@@ -1,12 +1,14 @@
 
-import {
-  createAsyncThunk,
-  createSlice,
-} from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { api } from "../api/axios";
 
+export interface Category {
+  id: string;
+  name: string;
+}
+
 interface CategoriesState {
-  items: string[];
+  items: Category[];
   loading: boolean;
   error: string | null;
 }
@@ -17,68 +19,77 @@ const initialState: CategoriesState = {
   error: null,
 };
 
-// Assumed endpoint: GET /api/v1/service-categories
+const normalizeCategory = (item: any): Category | null => {
+  if (!item || typeof item === "string" || item.id == null || !item.name) {
+    return null;
+  }
+
+  return {
+    id: String(item.id),
+    name: String(item.name),
+  };
+};
+
 export const fetchCategories = createAsyncThunk<
-  string[],
+  Category[],
   void,
   { rejectValue: string }
 >("categories/fetchAll", async (_, { rejectWithValue }) => {
   try {
-    const response = await api.get(
-      "/service-categories"
-    );
-
+    const response = await api.get("/service-categories");
     const result = response.data?.data ?? response.data;
-    const items = Array.isArray(result)
-      ? result
-      : result.categories;
+    const items = Array.isArray(result) ? result : result?.categories;
 
     if (!Array.isArray(items)) {
+      return rejectWithValue("The categories API did not return a list.");
+    }
+
+    const categories = items.map(normalizeCategory);
+
+    if (categories.some((category) => category === null)) {
       return rejectWithValue(
-        "The categories API did not return a list."
+        "Each category response must contain an id and name."
       );
     }
 
-    return items.map((item: any) =>
-      typeof item === "string" ? item : item.name
-    );
+    return categories as Category[];
   } catch (error: any) {
     return rejectWithValue(
-      error.response?.data?.message ??
-        "Failed to fetch categories."
+      error.response?.data?.message ?? "Failed to fetch categories."
     );
   }
 });
 
-// Assumed endpoint: POST /api/v1/service-categories
-
 export const createCategory = createAsyncThunk<
-  string,
+  Category,
   string,
   { rejectValue: string }
->(
-  "categories/create",
-  async (name, { rejectWithValue }) => {
-    try {
-      const response = await api.post("/service-categories", {
-        name: name.trim(),
-      });
+>("categories/create", async (name, { rejectWithValue }) => {
+  try {
+    const response = await api.post("/service-categories", {
+      name: name.trim(),
+    });
 
-      const result = response.data?.data ?? response.data;
-      const category = result?.category ?? result;
+    const result = response.data?.data ?? response.data;
+    const category = normalizeCategory(result?.category ?? result);
 
-      return typeof category === "string"
-        ? category
-        : category?.name ?? rejectWithValue("Category name missing from API response.");
-    } catch (error: any) {
+    if (!category) {
       return rejectWithValue(
-        error.response?.data?.message ??
-          "Failed to create category."
+        "The category response must contain an id and name."
       );
     }
-  }
-);
 
+    return category;
+  } catch (error: any) {
+    const message = error.response?.data?.message;
+
+    return rejectWithValue(
+      Array.isArray(message)
+        ? message.join(", ")
+        : message ?? "Failed to create category."
+    );
+  }
+});
 
 const categoriesSlice = createSlice({
   name: "categories",
@@ -96,22 +107,20 @@ const categoriesSlice = createSlice({
       })
       .addCase(fetchCategories.rejected, (state, action) => {
         state.loading = false;
-        state.error =
-          action.payload ?? "Failed to fetch categories.";
+        state.error = action.payload ?? "Failed to fetch categories.";
       })
       .addCase(createCategory.fulfilled, (state, action) => {
         const exists = state.items.some(
-          (item) =>
-            item.toLowerCase() === action.payload.toLowerCase()
+          (item) => item.id === action.payload.id
         );
 
         if (!exists) {
           state.items.push(action.payload);
         }
+        state.error = null;
       })
       .addCase(createCategory.rejected, (state, action) => {
-        state.error =
-          action.payload ?? "Failed to create category.";
+        state.error = action.payload ?? "Failed to create category.";
       });
   },
 });

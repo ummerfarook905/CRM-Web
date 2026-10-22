@@ -1,22 +1,13 @@
-
-import {
-  createAsyncThunk,
-  createSlice,
-} from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { api } from "../api/axios";
 
-export interface Service {
-  id: number;
-  name: string;
-  category: string;
-  description: string;
-  duration: string;
-  price: number;
-  image?: string;
-  requiresMaintenance: boolean;
-  defaultMaintenanceFrequency: string;
-  status: "Active" | "Inactive";
-}
+import type {
+  Service,
+  CreateServicePayload,
+  ApiService,
+} from "../models/admin/Service";
+
+
 
 interface ServicesState {
   items: Service[];
@@ -30,7 +21,21 @@ const initialState: ServicesState = {
   error: null,
 };
 
-// GET /api/v1/services
+/** Convert the backend response into the fields your existing UI uses */
+const mapApiService = (service: ApiService): Service => ({
+  id: service.id,
+  name: service.name,
+  category: service.category?.name ?? "",
+  categoryId: service.categoryId,
+  description: service.description,
+  duration: service.estimatedDuration,
+  price: Number(service.basePrice),
+  image: service.image ?? "",
+  requiresMaintenance: service.requiresMaintenance,
+  defaultMaintenanceFrequency: service.defaultMaintenanceFrequency,
+  status: service.isActive ? "Active" : "Inactive",
+});
+
 export const fetchServices = createAsyncThunk<
   Service[],
   void,
@@ -38,126 +43,67 @@ export const fetchServices = createAsyncThunk<
 >("services/fetchAll", async (_, { rejectWithValue }) => {
   try {
     const response = await api.get("/services");
-
-    // Adjust if your API returns { data: { services: [] } }
     const result = response.data?.data ?? response.data;
-    const items = Array.isArray(result)
-      ? result
-      : result.services;
+    const items = Array.isArray(result) ? result : result.services;
 
     if (!Array.isArray(items)) {
-      return rejectWithValue(
-        "The services API did not return a list."
-      );
+      return rejectWithValue("The services API did not return a list.");
     }
 
-    return items;
+    return items.map(mapApiService);
   } catch (error: any) {
     return rejectWithValue(
-      error.response?.data?.message ??
-        "Failed to fetch services."
+      error.response?.data?.message ?? "Failed to fetch services."
     );
   }
 });
 
-// POST /api/v1/services
 export const createService = createAsyncThunk<
   Service,
-  Omit<Service, "id">,
+  CreateServicePayload,
   { rejectValue: string }
->(
-  "services/create",
-  async (payload, { rejectWithValue }) => {
-    try {
-      const savedSession = localStorage.getItem("crm.auth.session");
+>("services/create", async (payload, { rejectWithValue }) => {
+  try {
+    const response = await api.post("/services", payload);
+    const result = response.data?.data ?? response.data;
+    const service = result?.service ?? result;
 
-      if (!savedSession) {
-        return rejectWithValue("Login session not found. Please log in again.");
-      }
-
-      const session = JSON.parse(savedSession);
-      const token = session?.token;
-
-      if (!token) {
-        return rejectWithValue("Access token not found in localStorage.");
-      }
-
-      console.log("Creating service with payload:", {
-        ...payload,
-        image: payload.image ? "[Image provided]" : "",
-      });
-
-      const response = await api.post("/services", payload, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      const result = response.data?.data ?? response.data;
-      const service = result?.service ?? result;
-
-      if (!service || typeof service !== "object" || service.id == null) {
-        console.error("Unexpected create-service response:", response.data);
-        return rejectWithValue(
-          "The API response does not contain a valid created service."
-        );
-      }
-
-      return service as Service;
-    } catch (error: any) {
-      const data = error.response?.data;
-
-      console.error("Service API status:", error.response?.status);
-      console.error("Full backend response:", JSON.stringify(data, null, 2));
-
-      // Show every validation error returned by the backend.
-      const fieldErrors = data?.errors?.fields;
-
-      if (Array.isArray(fieldErrors)) {
-        console.table(fieldErrors);
-      }
-
-      const message = Array.isArray(fieldErrors)
-    ? fieldErrors
-        .map((item: any) =>
-          typeof item === "string"
-            ? item
-            : `${item.field ?? item.property ?? "Field"}: ${
-                item.message ?? item.constraints
-                  ? JSON.stringify(item.message ?? item.constraints)
-                  : JSON.stringify(item)
-              }`
-        )
-        .join("\n")
-    : Array.isArray(data?.message)
-      ? data.message.join(", ")
-      : data?.message || "Failed to create service.";
-
+    if (!service || service.id == null) {
       return rejectWithValue(
-        message);
+        "The API response does not contain a valid created service."
+      );
     }
-  }
-);
 
-// PATCH /api/v1/services/:id
+    return mapApiService(service as ApiService);
+  } catch (error: any) {
+    const data = error.response?.data;
+    const messages = data?.message;
+
+    return rejectWithValue(
+      Array.isArray(messages)
+        ? messages.join(", ")
+        : messages ?? "Failed to create service."
+    );
+  }
+});
+
 export const updateService = createAsyncThunk<
   Service,
-  Service,
+  { id: number | string } & Partial<CreateServicePayload>,
   { rejectValue: string }
 >("services/update", async (service, { rejectWithValue }) => {
   try {
-    const response = await api.patch(
-      `/services/${service.id}`,
-      service
-    );
-
+    const { id, ...payload } = service;
+    const response = await api.patch(`/services/${id}`, payload);
     const result = response.data?.data ?? response.data;
-    return result.service ?? result;
+    return mapApiService((result?.service ?? result) as ApiService);
   } catch (error: any) {
+    const messages = error.response?.data?.message;
+
     return rejectWithValue(
-      error.response?.data?.message ??
-        "Failed to update service."
+      Array.isArray(messages)
+        ? messages.join(", ")
+        : messages ?? "Failed to update service."
     );
   }
 });
@@ -182,15 +128,14 @@ const servicesSlice = createSlice({
       })
       .addCase(fetchServices.rejected, (state, action) => {
         state.loading = false;
-        state.error =
-          action.payload ?? "Failed to fetch services.";
+        state.error = action.payload ?? "Failed to fetch services.";
       })
       .addCase(createService.fulfilled, (state, action) => {
         state.items.unshift(action.payload);
+        state.error = null;
       })
       .addCase(createService.rejected, (state, action) => {
-        state.error =
-          action.payload ?? "Failed to create service.";
+        state.error = action.payload ?? "Failed to create service.";
       })
       .addCase(updateService.fulfilled, (state, action) => {
         const index = state.items.findIndex(
@@ -200,10 +145,10 @@ const servicesSlice = createSlice({
         if (index !== -1) {
           state.items[index] = action.payload;
         }
+        state.error = null;
       })
       .addCase(updateService.rejected, (state, action) => {
-        state.error =
-          action.payload ?? "Failed to update service.";
+        state.error = action.payload ?? "Failed to update service.";
       });
   },
 });

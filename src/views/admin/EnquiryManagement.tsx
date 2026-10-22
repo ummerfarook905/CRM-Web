@@ -20,131 +20,37 @@ import {
 
 import {
   useEffect,
-  useMemo,
   useState,
   type ElementType,
   type FormEvent,
   type ReactNode,
 } from "react";
 
+import { useAppDispatch, useAppSelector } from "../../app/Hooks";
+
+import { useEnquiryManagementViewModel } from "../../viewmodels/admin/UseEnquiryManagementModel";
+
+import {
+  addEnquiry as addEnquiryApi,
+  updateEnquiryApi,
+  clearEnquiryError,
+  type Enquiry,
+  type Priority,
+  type EnquiryStatus,
+} from "../../services/EnquiriesSlice";
+
+import {
+  fetchServiceRequests,
+  createServiceRequestApi,
+} from "../../services/ServiceRequestsSlice";
+
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
-type EnquiryStatus = "New" | "Contacted" | "Assigned" | "Converted";
-type Priority = "Low" | "Medium" | "High";
-
-interface Enquiry {
-  id: number;
-  reference: string;
-  customerName: string;
-  company: string;
-  phone: string;
-  email: string;
-  service: string;
-  location: string;
-  message: string;
-  receivedDate: string;
-  priority: Priority;
-  status: EnquiryStatus;
-  assignedManager: string;
-  assignedEmployees: string[];
-}
-
-interface ServiceRequest {
-  id: string;
-  enquiryReference: string;
-  customerName: string;
-  company: string;
-  phone: string;
-  email: string;
-  service: string;
-  location: string;
-  serviceDate: string;
-  notes: string;
-  assignedManager: string;
-  assignedEmployees: string[];
-  status: "Scheduled";
-  createdAt: string;
-}
-
 /* -------------------------------------------------------------------------- */
 /* Demo data                                                                   */
 /* -------------------------------------------------------------------------- */
-
-const initialEnquiries: Enquiry[] = [
-  {
-    id: 1,
-    reference: "ENQ-1001",
-    customerName: "Rajesh Kumar",
-    company: "ABC Industries",
-    phone: "+919876543210",
-    email: "rajesh@example.com",
-    service: "RO System Maintenance",
-    location: "Chennai",
-    message:
-      "We need maintenance for our industrial RO water treatment system. Please arrange an inspection.",
-    receivedDate: "2026-10-08",
-    priority: "High",
-    status: "New",
-    assignedManager: "",
-    assignedEmployees: [],
-  },
-  {
-    id: 2,
-    reference: "ENQ-1002",
-    customerName: "Anil Thomas",
-    company: "GreenTech Pvt Ltd",
-    phone: "+919847012345",
-    email: "anil@example.com",
-    service: "Water Treatment Plant Installation",
-    location: "Coimbatore",
-    message:
-      "We are planning a new water treatment plant and would like a site visit and quotation.",
-    receivedDate: "2026-10-08",
-    priority: "High",
-    status: "Assigned",
-    assignedManager: "Arun Mathew",
-    assignedEmployees: ["Employee 001 - Nikhil"],
-  },
-  {
-    id: 3,
-    reference: "ENQ-1003",
-    customerName: "Priya Menon",
-    company: "Sunrise Apartments",
-    phone: "+919847156789",
-    email: "priya@example.com",
-    service: "Annual Maintenance Contract",
-    location: "Madurai",
-    message:
-      "Please share AMC plans and the maintenance schedule for our apartment RO plant.",
-    receivedDate: "2026-10-07",
-    priority: "Medium",
-    status: "Contacted",
-    assignedManager: "Arun Mathew",
-    assignedEmployees: [],
-  },
-  {
-    id: 4,
-    reference: "ENQ-1004",
-    customerName: "Suresh Nair",
-    company: "Sri Hospitals",
-    phone: "+919995077889",
-    email: "suresh@example.com",
-    service: "Filter Replacement",
-    location: "Kochi",
-    message:
-      "We need replacement filters for our existing water purification system.",
-    receivedDate: "2026-10-06",
-    priority: "Low",
-    status: "Converted",
-    assignedManager: "Meera Joseph",
-    assignedEmployees: [
-      "Employee 002 - Adil",
-      "Employee 003 - Suresh",
-    ],
-  },
-];
 
 const managers = [
   "Arun Mathew",
@@ -182,17 +88,22 @@ const today = () => new Date().toISOString().slice(0, 10);
 /* -------------------------------------------------------------------------- */
 
 export default function EnquiryManagement() {
-  const [enquiries, setEnquiries] = useState<Enquiry[]>(() => {
-    try {
-      const saved = localStorage.getItem("admin_enquiries");
-      return saved ? (JSON.parse(saved) as Enquiry[]) : initialEnquiries;
-    } catch {
-      return initialEnquiries;
-    }
-  });
 
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const {
+  enquiries,
+  filteredEnquiries,
+  loading: enquiriesLoading,
+  search,
+  setSearch,
+  statusFilter,
+  setStatusFilter,
+  totalEnquiries,
+  newEnquiries,
+  assignedEnquiries,
+  convertedEnquiries,
+} = useEnquiryManagementViewModel();
+
+  const dispatch = useAppDispatch();
 
   const [selected, setSelected] = useState<Enquiry | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -200,11 +111,7 @@ export default function EnquiryManagement() {
 
   const [serviceDate, setServiceDate] = useState(today());
   const [serviceNotes, setServiceNotes] = useState("");
-
-  // Temporary UI state only; this value is not saved to localStorage.
-  const [servicePriority, setServicePriority] =
-    useState<Priority>("Medium");
-
+  const [servicePriority, setServicePriority] = useState<Priority>("Medium");
   const [assignedManager, setAssignedManager] = useState("");
   const [assignedEmployees, setAssignedEmployees] = useState<string[]>([]);
   const [assignmentError, setAssignmentError] = useState("");
@@ -220,79 +127,64 @@ export default function EnquiryManagement() {
     priority: "Medium" as Priority,
   });
 
+  const { items: rawServiceRequests } = useAppSelector(
+    (state) => state.serviceRequests,
+  );
+  const serviceRequests = Array.isArray(rawServiceRequests)
+    ? rawServiceRequests
+    : [];
+
   useEffect(() => {
-    localStorage.setItem("admin_enquiries", JSON.stringify(enquiries));
-  }, [enquiries]);
+    void dispatch(fetchServiceRequests());
+  }, [dispatch]);
 
-  const filteredEnquiries = useMemo(() => {
-    const query = search.toLowerCase().trim();
+    const updateEnquiry = async (
+      id: string,
+      updates: Partial<Enquiry>
+    ) => {
+      try {
+        const updated = await dispatch(
+          updateEnquiryApi({ id, updates })
+        ).unwrap();
 
-    return enquiries.filter((enquiry) => {
-      const searchableValues = [
-        enquiry.reference,
-        enquiry.customerName,
-        enquiry.company,
-        enquiry.phone,
-        enquiry.email,
-        enquiry.service,
-        enquiry.location,
-        enquiry.assignedManager,
-        ...enquiry.assignedEmployees,
-      ];
-
-      const matchesSearch =
-        !query ||
-        searchableValues.some((value) =>
-          value.toLowerCase().includes(query),
+        setSelected((current) =>
+          current?.id === id ? updated : current
         );
 
-      const matchesStatus =
-        statusFilter === "All" || enquiry.status === statusFilter;
+        return true;
+      } catch {
+        return false;
+      }
+    };
 
-      return matchesSearch && matchesStatus;
-    });
-  }, [enquiries, search, statusFilter]);
-
-  const updateEnquiry = (
-    id: number,
-    updates: Partial<Enquiry>,
-  ) => {
-    setEnquiries((current) =>
-      current.map((enquiry) =>
-        enquiry.id === id ? { ...enquiry, ...updates } : enquiry,
-      ),
-    );
-
-    setSelected((current) =>
-      current?.id === id ? { ...current, ...updates } : current,
-    );
-  };
 
   /* Receive a new enquiry */
 
-  const addEnquiry = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  
+    
+const addEnquiry = async (
+  event: FormEvent<HTMLFormElement>
+) => {
+  event.preventDefault();
 
-    const nextNumber =
-      Math.max(
-        1000,
-        ...enquiries.map((enquiry) => {
-          const number = Number(enquiry.reference.replace("ENQ-", ""));
-          return Number.isFinite(number) ? number : 1000;
-        }),
-      ) + 1;
+  dispatch(clearEnquiryError());
 
-    const newEnquiry: Enquiry = {
-      ...form,
-      id: Date.now(),
-      reference: `ENQ-${nextNumber}`,
-      receivedDate: today(),
-      status: "New",
-      assignedManager: "",
-      assignedEmployees: [],
-    };
+  if (!form.customerName.trim() || !form.phone.trim()) {
+    console.error("Customer name and phone are required.");
+    return;
+  }
 
-    setEnquiries((current) => [newEnquiry, ...current]);
+  try {
+    await dispatch(
+      addEnquiryApi({
+        name: form.customerName.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim() || null,
+        serviceId: null,
+        serviceLocationId: null,
+        message: form.message.trim() || null,
+      })
+    ).unwrap();
 
     setForm({
       customerName: "",
@@ -306,7 +198,12 @@ export default function EnquiryManagement() {
     });
 
     setShowForm(false);
-  };
+  } catch (error) {
+    console.error("Failed to save enquiry:", error);
+  }
+};
+
+
 
   /* Open the Create Service modal */
 
@@ -324,14 +221,13 @@ export default function EnquiryManagement() {
     setServicePriority(enquiry.priority || "Medium");
 
     setAssignedManager(enquiry.assignedManager || "");
-    setAssignedEmployees(enquiry.assignedEmployees || []);
+    setAssignedEmployees(Array.isArray(enquiry.assignedEmployees) ? enquiry.assignedEmployees : []);
     setAssignmentError("");
     setShowService(true);
   };
 
   /* Create one service request */
-
-  const createService = () => {
+  const createService = async () => {
     if (!selected || !serviceDate) {
       setAssignmentError("Please select a service date.");
       return;
@@ -339,29 +235,23 @@ export default function EnquiryManagement() {
 
     if (!assignedManager && assignedEmployees.length === 0) {
       setAssignmentError(
-        "Select a manager or at least one employee before creating the service.",
+        "Select a manager or at least one employee before creating the service."
       );
       return;
     }
 
+    setAssignmentError("");
+
+    const existingService = serviceRequests.some(
+      (serviceRequest) => serviceRequest.enquiryReference === selected.reference,
+    );
+    if (existingService) {
+      setAssignmentError("A service request already exists for this enquiry.");
+      return;
+    }
+
     try {
-      const existingServices: ServiceRequest[] = JSON.parse(
-        localStorage.getItem("admin_service_requests") || "[]",
-      );
-
-      const alreadyCreated = existingServices.some(
-        (service) => service.enquiryReference === selected.reference,
-      );
-
-      if (alreadyCreated) {
-        setAssignmentError(
-          "A service request already exists for this enquiry.",
-        );
-        return;
-      }
-
-      const newService: ServiceRequest = {
-        id: `SRV-${Date.now()}`,
+      const payload = {
         enquiryReference: selected.reference,
         customerName: selected.customerName,
         company: selected.company,
@@ -371,28 +261,28 @@ export default function EnquiryManagement() {
         location: selected.location,
         serviceDate,
         notes: serviceNotes.trim(),
-
-        // Service priority is intentionally NOT included here.
-
         assignedManager,
         assignedEmployees,
-        status: "Scheduled",
-        createdAt: new Date().toISOString(),
+        status: "Scheduled" as const,
       };
 
-      localStorage.setItem(
-        "admin_service_requests",
-        JSON.stringify([newService, ...existingServices]),
-      );
+      await dispatch(
+        createServiceRequestApi(payload)
+      ).unwrap();
 
-      updateEnquiry(selected.id, {
-        status: "Converted",
-        assignedManager,
-        assignedEmployees,
-      });
+      await dispatch(
+        updateEnquiryApi({
+          id: selected.id,
+          updates: {
+            status: "Converted",
+            assignedManager,
+            assignedEmployees,
+          },
+        })
+      ).unwrap();
 
-      setShowService(false);
       setSelected(null);
+      setShowService(false);
       setServiceDate(today());
       setServiceNotes("");
       setServicePriority("Medium");
@@ -400,13 +290,16 @@ export default function EnquiryManagement() {
       setAssignedEmployees([]);
       setAssignmentError("");
 
-      alert("Service request created and team assigned successfully.");
-    } catch {
+      alert("Service request created successfully.");
+    } catch (error) {
       setAssignmentError(
-        "Could not save the service request. Please try again.",
+        typeof error === "string"
+          ? error
+          : "Could not create the service request. Please try again."
       );
     }
   };
+
 
   const callCustomer = (enquiry: Enquiry) => {
     window.location.href = `tel:${enquiry.phone}`;
@@ -418,9 +311,9 @@ export default function EnquiryManagement() {
     )}`;
   };
 
-  const markContacted = (enquiry: Enquiry) => {
-    updateEnquiry(enquiry.id, { status: "Contacted" });
-    setSelected(null);
+  const markContacted = async (enquiry: Enquiry) => {
+    const saved = await updateEnquiry(enquiry.id, { status: "Contacted" });
+    if (saved) setSelected(null);
   };
 
   const toggleEmployee = (employee: string) => {
@@ -466,12 +359,17 @@ export default function EnquiryManagement() {
         </button>
       </div>
 
+      {enquiriesLoading && (
+        <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          Loading enquiries...
+        </div>
+      )}
       {/* Summary cards */}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           title="Total Enquiries"
-          value={enquiries.length}
+          value={totalEnquiries}
           icon={MessageCircle}
           accent="border-emerald-900"
           iconStyle="bg-emerald-50 text-emerald-800"
@@ -479,7 +377,7 @@ export default function EnquiryManagement() {
 
         <SummaryCard
           title="New Enquiries"
-          value={enquiries.filter((e) => e.status === "New").length}
+          value={newEnquiries}
           icon={Clock}
           accent="border-blue-500"
           iconStyle="bg-blue-50 text-blue-700"
@@ -487,7 +385,7 @@ export default function EnquiryManagement() {
 
         <SummaryCard
           title="Assigned"
-          value={enquiries.filter((e) => e.status === "Assigned").length}
+          value={assignedEnquiries}
           icon={UserRoundCheck}
           accent="border-violet-500"
           iconStyle="bg-violet-50 text-violet-700"
@@ -495,7 +393,7 @@ export default function EnquiryManagement() {
 
         <SummaryCard
           title="Converted to Service"
-          value={enquiries.filter((e) => e.status === "Converted").length}
+          value={convertedEnquiries}
           icon={CheckCircle}
           accent="border-lime-500"
           iconStyle="bg-lime-50 text-lime-700"
@@ -535,7 +433,7 @@ export default function EnquiryManagement() {
 
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
+              onChange={(event) => setStatusFilter(event.target.value as "All" | EnquiryStatus)}
               className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 min-[480px]:w-auto"
             >
               <option value="All">All Statuses</option>
@@ -631,7 +529,7 @@ export default function EnquiryManagement() {
                       {enquiry.assignedManager || "No manager"}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
-                      {enquiry.assignedEmployees.length} employee(s)
+                      {(Array.isArray(enquiry.assignedEmployees) ? enquiry.assignedEmployees.length : 0)} employee(s)
                     </p>
                   </div>
                 </div>
@@ -749,7 +647,7 @@ export default function EnquiryManagement() {
                       {enquiry.assignedManager || "No manager"}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
-                      {enquiry.assignedEmployees.length} employee(s)
+                      {(Array.isArray(enquiry.assignedEmployees) ? enquiry.assignedEmployees.length : 0)} employee(s)
                     </p>
                   </td>
 
@@ -858,7 +756,7 @@ export default function EnquiryManagement() {
               <Detail
                 label="Assigned Employees"
                 value={
-                  selected.assignedEmployees.length
+                  Array.isArray(selected.assignedEmployees) && selected.assignedEmployees.length > 0
                     ? selected.assignedEmployees.join(", ")
                     : "Not assigned"
                 }
