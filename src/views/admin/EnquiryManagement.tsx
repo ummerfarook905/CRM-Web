@@ -716,7 +716,7 @@ const addEnquiry = async (
 
       {/* Enquiry details modal */}
 
-      {selected && !showService && (
+      {selected && !showService &&  (
         <Modal
           title="Enquiry Details"
           onClose={() => setSelected(null)}

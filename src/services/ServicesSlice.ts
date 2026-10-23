@@ -77,13 +77,20 @@ export const createService = createAsyncThunk<
     return mapApiService(service as ApiService);
   } catch (error: any) {
     const data = error.response?.data;
-    const messages = data?.message;
+    console.error("Create service failed:", {
+    status: error.response?.status,
+    response: data,
+  });
 
-    return rejectWithValue(
-      Array.isArray(messages)
-        ? messages.join(", ")
-        : messages ?? "Failed to create service."
-    );
+  const messages = data?.message;
+
+  return rejectWithValue(
+    Array.isArray(messages)
+      ? messages.join(", ")
+      : typeof messages === "string"
+        ? messages
+        : "Failed to create service. Check the console."
+  );
   }
 });
 
@@ -104,6 +111,35 @@ export const updateService = createAsyncThunk<
       Array.isArray(messages)
         ? messages.join(", ")
         : messages ?? "Failed to update service."
+    );
+  }
+});
+
+export const deleteService = createAsyncThunk<
+  number | string,
+  number | string,
+  { rejectValue: string }
+>("services/delete", async (id, { rejectWithValue }) => {
+  try {
+    await api.delete(`/services/${id}`);
+
+    // Return the deleted service ID
+    return id;
+  } catch (error: any) {
+    const data = error.response?.data;
+    const messages = data?.message;
+
+    console.error("Delete service failed:", {
+      status: error.response?.status,
+      response: data,
+    });
+
+    return rejectWithValue(
+      Array.isArray(messages)
+        ? messages.join(", ")
+        : typeof messages === "string"
+          ? messages
+          : "Failed to delete service."
     );
   }
 });
@@ -149,7 +185,18 @@ const servicesSlice = createSlice({
       })
       .addCase(updateService.rejected, (state, action) => {
         state.error = action.payload ?? "Failed to update service.";
+      })
+      .addCase(deleteService.fulfilled, (state, action) => {
+        state.items = state.items.filter(
+          (service) => service.id !== action.payload
+        );
+
+        state.error = null;
+      })
+      .addCase(deleteService.rejected, (state, action) => {
+        state.error = action.payload ?? "Failed to delete service.";
       });
+      
   },
 });
 

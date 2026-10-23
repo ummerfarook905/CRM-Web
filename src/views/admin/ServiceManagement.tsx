@@ -12,6 +12,7 @@ import {
   Search,
   Settings2,
   Wrench,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -352,6 +353,7 @@ export default function ServiceManagement() {
                   key={service.id}
                   service={service}
                   onEdit={() => vm.openEditService(service)}
+                  onDelete={() => vm.handleDeleteService(service.id)}
                 />
               ))}
 
@@ -377,7 +379,7 @@ export default function ServiceManagement() {
 
               <button
                 type="button"
-                onClick={() => vm.setCategoryModal(true)}
+                onClick={vm.openAddCategory}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-900"
               >
                 <Plus size={16} />
@@ -410,9 +412,36 @@ export default function ServiceManagement() {
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs font-bold text-slate-400">
-                      {count}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-xs font-bold text-slate-400">
+                        {count}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => vm.openEditCategory(category)}
+                        title="Edit category"
+                        aria-label={`Edit category ${category.name}`}
+                        className="rounded-lg p-2 text-emerald-700 transition hover:bg-emerald-50"
+                      >
+                        <Edit size={16} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void vm.handleDeleteCategory(category.id)}
+                        disabled={count > 0}
+                        title={
+                          count > 0
+                            ? "Cannot delete a category that has services"
+                            : "Delete category"
+                        }
+                        className="rounded-lg p-2 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label={`Delete category ${category.name}`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -472,32 +501,58 @@ export default function ServiceManagement() {
                 </select>
               </div>
 
-              <Field
-                label="Duration"
-                required
-                value={vm.serviceForm.duration}
-                onChange={(value) =>
-                  vm.setServiceForm((current) => ({
-                    ...current,
-                    duration: value,
-                  }))
-                }
-                placeholder="e.g. 2 hours"
-              />
+              <div>
+                <label
+                  htmlFor="duration"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Estimated Duration (minutes)
+                </label>
 
-              <Field
-                label="Price (₹)"
-                type="number"
-                required
-                value={vm.serviceForm.price}
-                onChange={(value) =>
-                  vm.setServiceForm((current) => ({
-                    ...current,
-                    price: value,
-                  }))
-                }
-                placeholder="0"
-              />
+                <input
+                  id="duration"
+                  type="number"
+                  min="5"
+                  max="1440"
+                  step="1"
+                  value={vm.serviceForm.duration}
+                  onChange={(e) =>
+                    vm.setServiceForm((prev) => ({
+                      ...prev,
+                      duration: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter duration in minutes"
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="basePrice"
+                  className="mb-1.5 block text-xs font-semibold text-slate-700"
+                >
+                  Base Price (₹) *
+                </label>
+
+                <input
+                  id="basePrice"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  required
+                  value={vm.serviceForm.price}
+                  onChange={(event) =>
+                    vm.setServiceForm((current) => ({
+                      ...current,
+                      price: event.target.value,
+                    }))
+                  }
+                  placeholder="Enter base price"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                />
+              </div>
 
               <div className="sm:col-span-2">
                 <label className="mb-1.5 block text-xs font-semibold text-slate-700">
@@ -575,10 +630,12 @@ export default function ServiceManagement() {
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
                     >
                       <option value="">Select frequency</option>
-                      <option value="Monthly">Monthly</option>
-                      <option value="Quarterly">Quarterly</option>
-                      <option value="Half-Yearly">Half-Yearly</option>
-                      <option value="Yearly">Yearly</option>
+                      <option value="WEEKLY">Weekly</option>
+                      <option value="MONTHLY">Monthly</option>
+                      <option value="QUARTERLY">Quarterly</option>
+                      <option value="HALF_YEARLY">Half-Yearly</option>
+                      <option value="YEARLY">Yearly</option>
+                      <option value="CUSTOM">Custom</option>
                     </select>
                   </div>
                 )}
@@ -603,12 +660,19 @@ export default function ServiceManagement() {
           </form>
         </Modal>
       )}
-
-      {/* Add Category modal */}
+      
+      {/* Add / Edit Category modal */}
       {vm.categoryModal && (
         <Modal
-          title="Add Service Category"
-          onClose={() => vm.setCategoryModal(false)}
+          title={
+            vm.editingCategory
+              ? "Edit Service Category"
+              : "Add Service Category"
+          }
+          onClose={() => {
+            vm.setCategoryModal(false);
+            vm.setCategoryName("");
+          }}
         >
           <form onSubmit={vm.addCategory} className="space-y-4">
             <Field
@@ -622,21 +686,26 @@ export default function ServiceManagement() {
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
-                onClick={() => vm.setCategoryModal(false)}
+                onClick={() => {
+                  vm.setCategoryModal(false);
+                  vm.setCategoryName("");
+                }}
                 className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
+
               <button
                 type="submit"
                 className="rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-900"
               >
-                Add Category
+                {vm.editingCategory ? "Save Changes" : "Add Category"}
               </button>
             </div>
           </form>
         </Modal>
       )}
+
 
       {/* Schedule modal */}
       {vm.scheduleBooking && (
@@ -946,9 +1015,11 @@ function BookingCard({
 function ServiceCard({
   service,
   onEdit,
+  onDelete,
 }: {
   service: Service;
   onEdit: () => void;
+  onDelete: () => void;
 }) {
   return (
     <article className="min-w-0 overflow-hidden rounded-xl border border-slate-200">
@@ -1012,6 +1083,14 @@ function ServiceCard({
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
         >
           <Edit size={14} /> Edit Service
+        </button>
+
+        <button
+          type="button"
+          onClick={onDelete}
+          className="mt-2 w-full rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-100"
+        >
+          Delete Service
         </button>
       </div>
     </article>

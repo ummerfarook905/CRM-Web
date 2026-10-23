@@ -91,6 +91,58 @@ export const createCategory = createAsyncThunk<
   }
 });
 
+export const updateCategory = createAsyncThunk<
+  Category,
+  { id: string; name: string },
+  { rejectValue: string }
+>("categories/update", async ({ id, name }, { rejectWithValue }) => {
+  try {
+    const response = await api.patch(`/service-categories/${id}`, {
+      name: name.trim(),
+    });
+
+    const result = response.data?.data ?? response.data;
+    const category = normalizeCategory(result?.category ?? result);
+
+    if (!category) {
+      return rejectWithValue(
+        "The updated category response must contain an id and name."
+      );
+    }
+
+    return category;
+  } catch (error: any) {
+    const message = error.response?.data?.message;
+
+    return rejectWithValue(
+      Array.isArray(message)
+        ? message.join(", ")
+        : message ?? "Failed to update category."
+    );
+  }
+});
+
+
+export const deleteCategory = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>("categories/delete", async (id, { rejectWithValue }) => {
+  try {
+    await api.delete(`/service-categories/${id}`);
+    return id;
+  } catch (error: any) {
+    const message = error.response?.data?.message;
+
+    return rejectWithValue(
+      Array.isArray(message)
+        ? message.join(", ")
+        : message ?? "Failed to delete category."
+    );
+  }
+});
+
+
 const categoriesSlice = createSlice({
   name: "categories",
   initialState,
@@ -121,6 +173,32 @@ const categoriesSlice = createSlice({
       })
       .addCase(createCategory.rejected, (state, action) => {
         state.error = action.payload ?? "Failed to create category.";
+      })
+      .addCase(updateCategory.fulfilled, (state, action) => {
+        const index = state.items.findIndex(
+          (category) => category.id === action.payload.id
+        );
+
+        if (index !== -1) {
+          state.items[index] = action.payload;
+        }
+
+        state.error = null;
+      })
+      .addCase(updateCategory.rejected, (state, action) => {
+        state.error = action.payload ?? "Failed to update category.";
+      })
+      .addCase(deleteCategory.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(deleteCategory.fulfilled, (state, action) => {
+        state.items = state.items.filter(
+          (category) => category.id !== action.payload
+        );
+        state.error = null;
+      })
+      .addCase(deleteCategory.rejected, (state, action) => {
+        state.error = action.payload ?? "Failed to delete category.";
       });
   },
 });

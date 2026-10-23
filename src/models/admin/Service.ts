@@ -18,7 +18,7 @@ export interface CreateServicePayload {
   name: string;
   categoryId: string;
   description: string;
-  estimatedDuration: string;
+  estimatedDuration: number;
   basePrice: number;
   image?: string | null;
   requiresMaintenance: boolean;

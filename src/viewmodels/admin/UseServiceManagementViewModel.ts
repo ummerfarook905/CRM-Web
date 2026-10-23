@@ -7,6 +7,7 @@ import {
 } from "../../app/Hooks";
 
 import {
+  deleteService,
   fetchServices,
   createService,
   updateService,
@@ -24,9 +25,13 @@ import {
 
 import type { Booking } from "../../services/BookingsSlice";
 
+import type { Category } from "../../services/CategoriesSlice";
+
 import {
   fetchCategories,
   createCategory,
+  deleteCategory,
+  updateCategory,
 } from "../../services/CategoriesSlice";
 
 
@@ -36,7 +41,7 @@ const initialServiceForm = {
   name: "",
   category: "",
   description: "",
-  duration: "2 hours",
+  duration: "120",
   price: "0",
   status: "Active" as Service["status"],
   requiresMaintenance: false,
@@ -75,8 +80,10 @@ export function useServiceManagementViewModel() {
 
   const [editingService, setEditingService] =
     useState<Service | null>(null);
-
+  
   const [categoryName, setCategoryName] = useState("");
+  const [editingCategory, setEditingCategory] =
+  useState<Category | null>(null);
   const [notice, setNotice] = useState("");
 
   const [serviceForm, setServiceForm] = useState(initialServiceForm);
@@ -216,8 +223,8 @@ export function useServiceManagementViewModel() {
         name: serviceForm.name.trim(),
         categoryId: serviceForm.category,
         description: serviceForm.description.trim(),
-        estimatedDuration: serviceForm.duration,
-        basePrice: price,
+        estimatedDuration: Number(serviceForm.duration),
+        basePrice: Number(serviceForm.price),
         image: null,
         requiresMaintenance: serviceForm.requiresMaintenance,
         defaultMaintenanceFrequency: serviceForm.requiresMaintenance
@@ -251,39 +258,130 @@ export function useServiceManagementViewModel() {
     }
   };
 
+  const handleDeleteService = async (id: number | string) => {
+  const confirmed = window.confirm(
+    "Are you sure you want to delete this service?"
+  );
+
+  if (!confirmed) return;
+
+  try {
+    await dispatch(deleteService(id)).unwrap();
+    setNotice("Service deleted successfully.");
+  } catch (error) {
+    setNotice(
+      typeof error === "string"
+        ? error
+        : "Failed to delete service."
+    );
+  }
+};
+
   // Category actions
-  const addCategory = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
+  
+const openAddCategory = () => {
+  setEditingCategory(null);
+  setCategoryName("");
+  setCategoryModal(true);
+};
 
-    const value = categoryName.trim();
+const openEditCategory = (category: Category) => {
+  setEditingCategory(category);
+  setCategoryName(category.name);
+  setCategoryModal(true);
+};
 
-    if (!value) return;
+const addCategory = async (
+  event: React.FormEvent<HTMLFormElement>
+) => {
+  event.preventDefault();
 
-    if (
-      categories.some(
-        (category) =>
-          category.name.toLowerCase() === value.toLowerCase()
-      )
-    ) {
-      setNotice("That category already exists.");
+  const value = categoryName.trim();
+
+  if (!value) {
+    setNotice("Please enter a category name.");
+    return;
+  }
+
+  const duplicate = categories.some(
+    (category) =>
+      category.name.toLowerCase() === value.toLowerCase() &&
+      category.id !== editingCategory?.id
+  );
+
+  if (duplicate) {
+    setNotice("That category already exists.");
+    return;
+  }
+
+  try {
+    if (editingCategory) {
+      await dispatch(
+        updateCategory({
+          id: editingCategory.id,
+          name: value,
+        })
+      ).unwrap();
+
+      setNotice("Category updated successfully.");
+    } else {
+      await dispatch(createCategory(value)).unwrap();
+      setNotice("Category added successfully.");
+    }
+
+    setCategoryName("");
+    setEditingCategory(null);
+    setCategoryModal(false);
+  } catch (error) {
+    setNotice(
+      typeof error === "string"
+        ? error
+        : editingCategory
+          ? "Failed to update category."
+          : "Failed to create category."
+    );
+  }
+};
+
+
+  
+  const handleDeleteCategory = async (id: string) => {
+    const category = categories.find((item) => item.id === id);
+
+    if (!category) {
+      setNotice("Category not found.");
       return;
     }
 
+    const servicesUsingCategory = services.filter(
+      (service) => String(service.categoryId) === String(id)
+    );
+
+    if (servicesUsingCategory.length > 0) {
+      setNotice(
+        `Cannot delete "${category.name}" because ${servicesUsingCategory.length} service(s) use this category.`
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the category "${category.name}"?`
+    );
+
+    if (!confirmed) return;
+
     try {
-      await dispatch(createCategory(value)).unwrap();
-      setCategoryName("");
-      setCategoryModal(false);
-      setNotice("Category added successfully.");
+      await dispatch(deleteCategory(id)).unwrap();
+      setNotice("Category deleted successfully.");
     } catch (error) {
       setNotice(
         typeof error === "string"
           ? error
-          : "Failed to create category."
+          : "Failed to delete category."
       );
     }
   };
+
 
   // Scheduling actions
   const openSchedule = (booking: Booking) => {
@@ -368,6 +466,9 @@ export function useServiceManagementViewModel() {
     editingService,
     categoryName,
     setCategoryName,
+    editingCategory,
+    openAddCategory,
+    openEditCategory,
     serviceForm,
     setServiceForm,
     scheduleForm,
@@ -377,8 +478,10 @@ export function useServiceManagementViewModel() {
 
     openAddService,
     openEditService,
+    handleDeleteService,
     saveService,
     addCategory,
+    handleDeleteCategory,
     openSchedule,
     saveSchedule,
     approveBooking,
