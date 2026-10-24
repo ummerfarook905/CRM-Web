@@ -7,8 +7,6 @@ import type {
   ApiService,
 } from "../models/admin/Service";
 
-
-
 interface ServicesState {
   items: Service[];
   loading: boolean;

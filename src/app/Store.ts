@@ -6,7 +6,8 @@ import bookingsReducer from "../services/BookingsSlice";
 import categoriesReducer from "../services/CategoriesSlice";
 import enquiriesReducer from "../services/EnquiriesSlice";
 import serviceRequestsReducer from "../services/ServiceRequestsSlice"; 
-import customerReducer from "../services/CustomerSlice";// Import the bookings reducer
+import customerReducer from "../services/CustomerSlice";
+import employeesReducer from "../services/EmployeesSlice";// Import the bookings reducer
 
 export const store = configureStore({
   reducer: {
@@ -16,7 +17,8 @@ export const store = configureStore({
     categories: categoriesReducer,
     enquiries: enquiriesReducer,
     serviceRequests: serviceRequestsReducer,
-    customers: customerReducer
+    customers: customerReducer,
+    employees: employeesReducer,
  // Add the bookings reducer here
   },
 });

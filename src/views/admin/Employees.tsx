@@ -1,6 +1,4 @@
 
-import { useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
 import {
   Users,
   UserPlus,
@@ -20,119 +18,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-type EmployeeStatus = "Active" | "Inactive";
-
-interface Employee {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  department: string;
-  designation: string;
-  joiningDate: string;
-  status: EmployeeStatus;
-}
-
-type ModalMode = "add" | "edit" | "view" | null;
-
-type EmployeeForm = Omit<Employee, "id">;
-
-const STORAGE_KEY = "admin_employees";
-
-const emptyForm: EmployeeForm = {
-  name: "",
-  email: "",
-  phone: "",
-  department: "Operations",
-  designation: "",
-  joiningDate: new Date().toISOString().slice(0, 10),
-  status: "Active",
-};
-
-const initialEmployees: Employee[] = [
-  {
-    id: "EMP-1001",
-    name: "Arun Kumar",
-    email: "arun.kumar@example.com",
-    phone: "9876543210",
-    department: "Operations",
-    designation: "Operations Manager",
-    joiningDate: "2024-01-15",
-    status: "Active",
-  },
-  {
-    id: "EMP-1002",
-    name: "Rahul Nair",
-    email: "rahul.nair@example.com",
-    phone: "9876543211",
-    department: "Technical",
-    designation: "Senior Technician",
-    joiningDate: "2024-03-10",
-    status: "Active",
-  },
-  {
-    id: "EMP-1003",
-    name: "Anjali Menon",
-    email: "anjali.menon@example.com",
-    phone: "9876543212",
-    department: "Administration",
-    designation: "HR Executive",
-    joiningDate: "2023-11-20",
-    status: "Active",
-  },
-  {
-    id: "EMP-1004",
-    name: "Vishnu Raj",
-    email: "vishnu.raj@example.com",
-    phone: "9876543213",
-    department: "Technical",
-    designation: "Field Technician",
-    joiningDate: "2025-02-05",
-    status: "Inactive",
-  },
-  {
-    id: "EMP-1005",
-    name: "Sneha Thomas",
-    email: "sneha.thomas@example.com",
-    phone: "9876543214",
-    department: "Finance",
-    designation: "Accountant",
-    joiningDate: "2024-06-18",
-    status: "Active",
-  },
-  {
-    id: "EMP-1006",
-    name: "Nithin Das",
-    email: "nithin.das@example.com",
-    phone: "9876543215",
-    department: "Operations",
-    designation: "Service Coordinator",
-    joiningDate: "2025-04-12",
-    status: "Active",
-  },
-];
-
-function loadEmployees(): Employee[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-
-    if (stored) {
-      const parsed: unknown = JSON.parse(stored);
-
-      if (Array.isArray(parsed)) {
-        return parsed as Employee[];
-      }
-    }
-  } catch {
-    // Use demo data if stored data cannot be read.
-  }
-
-  return initialEmployees;
-}
-
-function createEmployeeId(): string {
-  return `EMP-${Date.now().toString().slice(-8)}`;
-}
+import { useEmployeesViewModel } from "../../viewmodels/admin/UseEmployeesViewModel";
+import type { EmployeeStatus } from "../../models/admin/Employee";
 
 function formatDate(date: string): string {
   if (!date) return "—";
@@ -155,158 +42,35 @@ function getInitials(name: string): string {
 }
 
 export default function Employees() {
-  const [employees, setEmployees] = useState<Employee[]>(loadEmployees);
-  const [search, setSearch] = useState("");
-  const [departmentFilter, setDepartmentFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [modalMode, setModalMode] = useState<ModalMode>(null);
-  const [selectedEmployee, setSelectedEmployee] =
-    useState<Employee | null>(null);
-  const [form, setForm] = useState<EmployeeForm>(emptyForm);
-  const [formError, setFormError] = useState("");
+  const vm = useEmployeesViewModel();
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(employees));
-  }, [employees]);
-
-  const activeCount = employees.filter(
-    (employee) => employee.status === "Active",
-  ).length;
-
-  const inactiveCount = employees.length - activeCount;
-
-  const departments = useMemo(
-    () => [...new Set(employees.map((employee) => employee.department))].sort(),
-    [employees],
-  );
-
-  const filteredEmployees = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return employees.filter((employee) => {
-      const matchesSearch = [
-        employee.id,
-        employee.name,
-        employee.email,
-        employee.phone,
-        employee.department,
-        employee.designation,
-      ].some((value) => value.toLowerCase().includes(query));
-
-      const matchesDepartment =
-        departmentFilter === "All" ||
-        employee.department === departmentFilter;
-
-      const matchesStatus =
-        statusFilter === "All" || employee.status === statusFilter;
-
-      return matchesSearch && matchesDepartment && matchesStatus;
-    });
-  }, [employees, search, departmentFilter, statusFilter]);
-
-  function openAddModal() {
-    setForm({ ...emptyForm });
-    setSelectedEmployee(null);
-    setFormError("");
-    setModalMode("add");
-  }
-
-  function openViewModal(employee: Employee) {
-    setSelectedEmployee(employee);
-    setFormError("");
-    setModalMode("view");
-  }
-
-  function openEditModal(employee: Employee) {
-    setSelectedEmployee(employee);
-
-    setForm({
-      name: employee.name,
-      email: employee.email,
-      phone: employee.phone,
-      department: employee.department,
-      designation: employee.designation,
-      joiningDate: employee.joiningDate,
-      status: employee.status,
-    });
-
-    setFormError("");
-    setModalMode("edit");
-  }
-
-  function closeModal() {
-    setModalMode(null);
-    setSelectedEmployee(null);
-    setFormError("");
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setFormError("");
-
-    const normalizedEmail = form.email.trim().toLowerCase();
-
-    const duplicateEmail = employees.some(
-      (employee) =>
-        employee.email.toLowerCase() === normalizedEmail &&
-        employee.id !== selectedEmployee?.id,
-    );
-
-    if (duplicateEmail) {
-      setFormError("An employee with this email address already exists.");
-      return;
-    }
-
-    const normalizedForm: EmployeeForm = {
-      ...form,
-      name: form.name.trim(),
-      email: normalizedEmail,
-      phone: form.phone.trim(),
-      designation: form.designation.trim(),
-    };
-
-    if (modalMode === "edit" && selectedEmployee) {
-      setEmployees((current) =>
-        current.map((employee) =>
-          employee.id === selectedEmployee.id
-            ? { ...employee, ...normalizedForm }
-            : employee,
-        ),
-      );
-    } else {
-      const newEmployee: Employee = {
-        id: createEmployeeId(),
-        ...normalizedForm,
-      };
-
-      setEmployees((current) => [newEmployee, ...current]);
-    }
-
-    closeModal();
-  }
-
-  function handleDelete(employee: Employee) {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${employee.name}?`,
-    );
-
-    if (!confirmed) return;
-
-    setEmployees((current) =>
-      current.filter((item) => item.id !== employee.id),
-    );
-
-    if (selectedEmployee?.id === employee.id) {
-      closeModal();
-    }
-  }
-
-  function updateForm<K extends keyof EmployeeForm>(
-    key: K,
-    value: EmployeeForm[K],
-  ) {
-    setForm((current) => ({ ...current, [key]: value }));
-  }
+  const {
+    employees,
+    loading,
+    error,
+    activeCount,
+    inactiveCount,
+    departments,
+    filteredEmployees,
+    search,
+    setSearch,
+    departmentFilter,
+    setDepartmentFilter,
+    statusFilter,
+    setStatusFilter,
+    modalMode,
+    selectedEmployee,
+    form,
+    formError,
+    updateForm,
+    openAddModal,
+    openViewModal,
+    openEditModal,
+    closeModal,
+    handleSubmit,
+    handleDelete,
+    clearFilters,
+  } = vm;
 
   return (
     <div className="min-w-0 space-y-6">
@@ -335,6 +99,22 @@ export default function Employees() {
           Add Employee
         </button>
       </div>
+
+      {/* API LOADING / ERROR STATE */}
+      {loading && (
+        <p className="text-sm text-slate-500" role="status">
+          Loading employees...
+        </p>
+      )}
+
+      {error && (
+        <p
+          role="alert"
+          className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"
+        >
+          {error}
+        </p>
+      )}
 
       {/* SUMMARY CARDS */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -559,11 +339,7 @@ export default function Employees() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setSearch("");
-                  setDepartmentFilter("All");
-                  setStatusFilter("All");
-                }}
+                onClick={clearFilters}
                 className="mt-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
               >
                 Clear filters
@@ -693,11 +469,7 @@ export default function Employees() {
 
                       <button
                         type="button"
-                        onClick={() => {
-                          setSearch("");
-                          setDepartmentFilter("All");
-                          setStatusFilter("All");
-                        }}
+                        onClick={clearFilters}
                         className="mt-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
                       >
                         Clear filters
@@ -850,16 +622,24 @@ export default function Employees() {
             {(modalMode === "add" || modalMode === "edit") && (
               <form onSubmit={handleSubmit} className="p-5 sm:p-6">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField label="Full Name" required>
+                  <FormField label="First Name" required>
                     <input
+                      type="text"
                       required
-                      autoFocus
-                      minLength={2}
-                      value={form.name}
-                      onChange={(event) =>
-                        updateForm("name", event.target.value)
-                      }
-                      placeholder="Enter full name"
+                      value={form.firstName}
+                      onChange={(e) => updateForm("firstName", e.target.value)}
+                      placeholder="Enter first name"
+                      className={inputClass}
+                    />
+                  </FormField>
+
+                  <FormField label="Last Name" required>
+                    <input
+                      type="text"
+                      required
+                      value={form.lastName}
+                      onChange={(e) => updateForm("lastName", e.target.value)}
+                      placeholder="Enter last name"
                       className={inputClass}
                     />
                   </FormField>
@@ -877,6 +657,21 @@ export default function Employees() {
                     />
                   </FormField>
 
+                  <FormField label="Password" required>
+                    <input
+                      type="password"
+                      required
+                      minLength={8}
+                      autoComplete="new-password"
+                      value={form.password}
+                      onChange={(event) =>
+                        updateForm("password", event.target.value)
+                      }
+                      placeholder="Create employee password"
+                      className={inputClass}
+                    />
+                  </FormField>
+
                   <FormField label="Phone Number" required>
                     <input
                       required
@@ -889,25 +684,6 @@ export default function Employees() {
                       placeholder="Enter phone number"
                       className={inputClass}
                     />
-                  </FormField>
-
-                  <FormField label="Department" required>
-                    <select
-                      required
-                      value={form.department}
-                      onChange={(event) =>
-                        updateForm("department", event.target.value)
-                      }
-                      className={inputClass}
-                    >
-                      <option value="Operations">Operations</option>
-                      <option value="Technical">Technical</option>
-                      <option value="Administration">Administration</option>
-                      <option value="Finance">Finance</option>
-                      <option value="Human Resources">Human Resources</option>
-                      <option value="Sales">Sales</option>
-                      <option value="Customer Support">Customer Support</option>
-                    </select>
                   </FormField>
 
                   <FormField label="Designation" required>
@@ -934,23 +710,6 @@ export default function Employees() {
                       className={inputClass}
                     />
                   </FormField>
-
-                  <FormField label="Employment Status" required>
-                    <select
-                      required
-                      value={form.status}
-                      onChange={(event) =>
-                        updateForm(
-                          "status",
-                          event.target.value as EmployeeStatus,
-                        )
-                      }
-                      className={inputClass}
-                    >
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                  </FormField>
                 </div>
 
                 {formError && (
@@ -973,7 +732,8 @@ export default function Employees() {
 
                   <button
                     type="submit"
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800"
+                    disabled={loading}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {modalMode === "add" ? (
                       <UserPlus size={17} />
