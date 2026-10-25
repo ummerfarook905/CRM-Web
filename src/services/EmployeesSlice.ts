@@ -119,6 +119,7 @@ export const addEmployee = createAsyncThunk<
 });
 
 /* Update employee */
+
 export const updateEmployeeApi = createAsyncThunk<
   Employee,
   { id: string; updates: UpdateEmployeePayload },
@@ -127,51 +128,58 @@ export const updateEmployeeApi = createAsyncThunk<
   "employees/update",
   async ({ id, updates }, { rejectWithValue }) => {
     try {
-      const requestBody: UpdateEmployeePayload = {
-        ...(updates.firstName !== undefined && {
-          firstName: updates.firstName.trim(),
-        }),
-        ...(updates.lastName !== undefined && {
-          lastName: updates.lastName.trim(),
-        }),
-        ...(updates.email !== undefined && {
-          email: updates.email.trim().toLowerCase(),
-        }),
-        ...(updates.phone !== undefined && {
-          phone: updates.phone.trim(),
-        }),
-        ...(updates.designation !== undefined && {
-          designation: updates.designation.trim(),
-        }),
-        ...(updates.joiningDate !== undefined && {
-          joiningDate: updates.joiningDate,
-        }),
-        ...(updates.isActive !== undefined && {
-          isActive: updates.isActive,
-        }),
-      };
+      const requestBody: UpdateEmployeePayload = {};
 
+      if (updates.firstName !== undefined) {
+        requestBody.firstName = updates.firstName.trim();
+      }
+
+      if (updates.lastName !== undefined) {
+        requestBody.lastName = updates.lastName.trim();
+      }
+
+      // if (updates.email !== undefined) {
+      //   requestBody.email = updates.email.trim().toLowerCase();
+      // }
+
+      if (updates.phone !== undefined) {
+        requestBody.phone = updates.phone.trim();
+      }
+
+      if (updates.designation !== undefined) {
+        requestBody.designation = updates.designation.trim();
+      }
+
+      if (updates.joiningDate !== undefined) {
+        requestBody.joiningDate = updates.joiningDate;
+      }
+
+      if (updates.isActive !== undefined) {
+        requestBody.isActive = updates.isActive;
+      }
+      
       const response = await api.patch(
         `/employees/${encodeURIComponent(id)}`,
-        requestBody,
+        requestBody
       );
 
       const result = getResponseData<ApiEmployee>(response);
 
       if (!result?.id) {
         return rejectWithValue(
-          "The API response did not contain the updated employee.",
+          "Update response did not contain an employee ID."
         );
       }
 
       return mapApiEmployee(result);
     } catch (error: unknown) {
       return rejectWithValue(
-        getErrorMessage(error, "Failed to update employee"),
+        getErrorMessage(error, "Failed to update employee")
       );
     }
-  },
+  }
 );
+
 
 /* Delete employee */
 export const deleteEmployeeApi = createAsyncThunk<
@@ -213,6 +221,7 @@ export const setEmployeeStatusApi = createAsyncThunk<
     }
   },
 );
+
 
 const employeesSlice = createSlice({
   name: "employees",

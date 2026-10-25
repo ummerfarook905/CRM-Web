@@ -1,5 +1,4 @@
 
-import { useEffect, useMemo, useState } from "react";
 import type { ElementType } from "react";
 import {
   Users,
@@ -15,160 +14,16 @@ import {
   BriefcaseBusiness,
   MapPin,
 } from "lucide-react";
+import { useAttendanceViewModel } from "../../viewmodels/admin/UseAttendanceViewModel";
+import type { AttendanceStatus } from "../../models/admin/Attendance";
 
-type AttendanceStatus = "Present" | "Absent" | "Late" | "On Leave";
-
-interface AttendanceRecord {
-  id: string;
-  employeeId: string;
-  name: string;
-  department: string;
-  designation: string;
-  date: string;
-  checkIn: string;
-  checkOut: string;
-  workingHours: string;
-  overtime: string;
-  status: AttendanceStatus;
-  location: string;
-}
-
-const today = () => new Date().toISOString().slice(0, 10);
-
-const STORAGE_KEY = "admin_attendance_records";
-
-const initialAttendance: AttendanceRecord[] = [
-  {
-    id: "ATT-1001",
-    employeeId: "EMP-1001",
-    name: "Arun Kumar",
-    department: "Operations",
-    designation: "Operations Manager",
-    date: today(),
-    checkIn: "08:55",
-    checkOut: "17:45",
-    workingHours: "8h 50m",
-    overtime: "50m",
-    status: "Present",
-    location: "Head Office",
-  },
-  {
-    id: "ATT-1002",
-    employeeId: "EMP-1002",
-    name: "Rahul Nair",
-    department: "Technical",
-    designation: "Senior Technician",
-    date: today(),
-    checkIn: "09:18",
-    checkOut: "18:10",
-    workingHours: "8h 52m",
-    overtime: "52m",
-    status: "Late",
-    location: "Client Site A",
-  },
-  {
-    id: "ATT-1003",
-    employeeId: "EMP-1003",
-    name: "Anjali Menon",
-    department: "Administration",
-    designation: "HR Executive",
-    date: today(),
-    checkIn: "08:48",
-    checkOut: "17:30",
-    workingHours: "8h 42m",
-    overtime: "42m",
-    status: "Present",
-    location: "Head Office",
-  },
-  {
-    id: "ATT-1004",
-    employeeId: "EMP-1004",
-    name: "Vishnu Raj",
-    department: "Technical",
-    designation: "Field Technician",
-    date: today(),
-    checkIn: "—",
-    checkOut: "—",
-    workingHours: "0h 00m",
-    overtime: "0m",
-    status: "Absent",
-    location: "—",
-  },
-  {
-    id: "ATT-1005",
-    employeeId: "EMP-1005",
-    name: "Sneha Thomas",
-    department: "Finance",
-    designation: "Accountant",
-    date: today(),
-    checkIn: "08:58",
-    checkOut: "17:35",
-    workingHours: "8h 37m",
-    overtime: "37m",
-    status: "Present",
-    location: "Head Office",
-  },
-  {
-    id: "ATT-1006",
-    employeeId: "EMP-1006",
-    name: "Nithin Das",
-    department: "Operations",
-    designation: "Service Coordinator",
-    date: today(),
-    checkIn: "—",
-    checkOut: "—",
-    workingHours: "0h 00m",
-    overtime: "0m",
-    status: "On Leave",
-    location: "—",
-  },
-  {
-    id: "ATT-1007",
-    employeeId: "EMP-1007",
-    name: "Fahad Ali",
-    department: "Technical",
-    designation: "Field Technician",
-    date: today(),
-    checkIn: "09:05",
-    checkOut: "17:40",
-    workingHours: "8h 35m",
-    overtime: "35m",
-    status: "Present",
-    location: "Client Site B",
-  },
-  {
-    id: "ATT-1008",
-    employeeId: "EMP-1008",
-    name: "Meera Joseph",
-    department: "Customer Support",
-    designation: "Support Executive",
-    date: today(),
-    checkIn: "09:22",
-    checkOut: "17:50",
-    workingHours: "8h 28m",
-    overtime: "28m",
-    status: "Late",
-    location: "Head Office",
-  },
-];
-
-function loadAttendance(): AttendanceRecord[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-
-    if (stored) {
-      const parsed: unknown = JSON.parse(stored);
-
-      if (Array.isArray(parsed)) {
-        return parsed as AttendanceRecord[];
-      }
-    }
-  } catch {
-    // Fall back to demo attendance.
-  }
-
-  return initialAttendance;
-}
+const today = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 function formatDate(date: string): string {
   if (!date) return "—";
@@ -190,74 +45,29 @@ function getInitials(name: string): string {
 }
 
 export default function Attendance() {
-  const [records] =
-    useState<AttendanceRecord[]>(loadAttendance);
+  const vm = useAttendanceViewModel();
 
-  const [selectedDate, setSelectedDate] = useState(today);
-  const [search, setSearch] = useState("");
-  const [departmentFilter, setDepartmentFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [selectedRecord, setSelectedRecord] =
-    useState<AttendanceRecord | null>(null);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-  }, [records]);
-
-  const departments = useMemo(
-    () => [...new Set(records.map((record) => record.department))].sort(),
-    [records],
-  );
-
-  const dateRecords = useMemo(
-    () => records.filter((record) => record.date === selectedDate),
-    [records, selectedDate],
-  );
-
-  const presentCount = dateRecords.filter(
-    (record) => record.status === "Present",
-  ).length;
-
-  const lateCount = dateRecords.filter(
-    (record) => record.status === "Late",
-  ).length;
-
-  const absentCount = dateRecords.filter(
-    (record) => record.status === "Absent",
-  ).length;
-
-  const leaveCount = dateRecords.filter(
-    (record) => record.status === "On Leave",
-  ).length;
-
-  const attendanceRate =
-    dateRecords.length > 0
-      ? Math.round(((presentCount + lateCount) / dateRecords.length) * 1000) /
-        10
-      : 0;
-
-  const filteredRecords = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return dateRecords.filter((record) => {
-      const matchesSearch = [
-        record.employeeId,
-        record.name,
-        record.department,
-        record.designation,
-        record.location,
-      ].some((value) => value.toLowerCase().includes(query));
-
-      const matchesDepartment =
-        departmentFilter === "All" ||
-        record.department === departmentFilter;
-
-      const matchesStatus =
-        statusFilter === "All" || record.status === statusFilter;
-
-      return matchesSearch && matchesDepartment && matchesStatus;
-    });
-  }, [dateRecords, search, departmentFilter, statusFilter]);
+  const {
+    selectedDate,
+    setSelectedDate,
+    search,
+    setSearch,
+    departmentFilter,
+    setDepartmentFilter,
+    statusFilter,
+    setStatusFilter,
+    selectedRecord,
+    setSelectedRecord,
+    departments,
+    dateRecords,
+    filteredRecords,
+    presentCount,
+    lateCount,
+    absentCount,
+    leaveCount,
+    attendanceRate,
+    clearFilters,
+  } = vm;
 
   return (
     <div className="min-w-0 space-y-6">
@@ -608,11 +418,7 @@ export default function Attendance() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setSearch("");
-                  setDepartmentFilter("All");
-                  setStatusFilter("All");
-                }}
+                onClick={clearFilters}
                 className="mt-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
               >
                 Clear filters
@@ -735,11 +541,7 @@ export default function Attendance() {
 
                       <button
                         type="button"
-                        onClick={() => {
-                          setSearch("");
-                          setDepartmentFilter("All");
-                          setStatusFilter("All");
-                        }}
+                        onClick={clearFilters}
                         className="mt-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
                       >
                         Clear filters

@@ -22,6 +22,7 @@ type ModalMode = "add" | "edit" | "view" | null;
 // Password is required for creation but is not part of the employee record.
 type EmployeeFormValues = EmployeeForm & {
   password: string;
+  isActive: boolean;
 };
 
 const emptyForm: EmployeeFormValues = {
@@ -32,6 +33,7 @@ const emptyForm: EmployeeFormValues = {
   password: "",
   designation: "",
   joiningDate: "",
+  isActive: true,
 };
 
 export function useEmployeesViewModel() {
@@ -139,6 +141,7 @@ export function useEmployeesViewModel() {
     designation: employee.designation,
     joiningDate: employee.joiningDate,
     password: "",
+    isActive: employee.status === "Active",
   });
 
   setFormError("");
@@ -161,15 +164,6 @@ export function useEmployeesViewModel() {
       ...current,
       [key]: value,
     }));
-  }
-
-  function splitEmployeeName(name: string) {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-
-    return {
-      firstName: parts[0] ?? "",
-      lastName: parts.slice(1).join(" "),
-    };
   }
 
   
@@ -253,10 +247,11 @@ async function handleSubmit(
           updates: {
             firstName,
             lastName,
-            email: normalizedEmail,
+            // email: normalizedEmail,
             phone: form.phone.trim(),
             designation: form.designation.trim(),
             joiningDate: form.joiningDate || undefined,
+            isActive: form.isActive,
           },
         }),
       ).unwrap();
@@ -266,12 +261,16 @@ async function handleSubmit(
 
     closeModal();
   } catch (err: unknown) {
-    setFormError(
-      typeof err === "string"
-        ? err
-        : "Unable to save employee. Please check the API response.",
-    );
-  }
+  console.error("Save employee failed:", err);
+
+  setFormError(
+    typeof err === "string"
+      ? err
+      : err instanceof Error
+        ? err.message
+        : "Unable to save employee. Check the browser console and Network response.",
+  );
+}
 }
 
 

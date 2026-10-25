@@ -19,14 +19,13 @@ import {
 } from "lucide-react";
 
 import {
-  useEffect,
   useState,
   type ElementType,
   type FormEvent,
   type ReactNode,
 } from "react";
 
-import { useAppDispatch, useAppSelector } from "../../app/Hooks";
+import { useAppDispatch } from "../../app/Hooks";
 
 import { useEnquiryManagementViewModel } from "../../viewmodels/admin/UseEnquiryManagementModel";
 
@@ -34,15 +33,16 @@ import {
   addEnquiry as addEnquiryApi,
   updateEnquiryApi,
   clearEnquiryError,
+  fetchEnquiries,
   type Enquiry,
   type Priority,
   type EnquiryStatus,
 } from "../../services/EnquiriesSlice";
 
 import {
-  fetchServiceRequests,
-  createServiceRequestApi,
+  convertEnquiryToBookingApi,
 } from "../../services/ServiceRequestsSlice";
+
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -83,6 +83,12 @@ const priorityStyles: Record<Priority, string> = {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+interface CustomerOption {
+  id: string;
+  name: string;
+  phone: string;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Main page                                                                   */
 /* -------------------------------------------------------------------------- */
@@ -103,14 +109,19 @@ export default function EnquiryManagement() {
   convertedEnquiries,
 } = useEnquiryManagementViewModel();
 
+const customers: CustomerOption[] = [];
+
   const dispatch = useAppDispatch();
 
   const [selected, setSelected] = useState<Enquiry | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [showService, setShowService] = useState(false);
 
   const [serviceDate, setServiceDate] = useState(today());
+  const [preferredTime, setPreferredTime] = useState("10:30");
   const [serviceNotes, setServiceNotes] = useState("");
+  const [isConverting, setIsConverting] = useState(false);
   const [servicePriority, setServicePriority] = useState<Priority>("Medium");
   const [assignedManager, setAssignedManager] = useState("");
   const [assignedEmployees, setAssignedEmployees] = useState<string[]>([]);
@@ -126,17 +137,6 @@ export default function EnquiryManagement() {
     message: "",
     priority: "Medium" as Priority,
   });
-
-  const { items: rawServiceRequests } = useAppSelector(
-    (state) => state.serviceRequests,
-  );
-  const serviceRequests = Array.isArray(rawServiceRequests)
-    ? rawServiceRequests
-    : [];
-
-  useEffect(() => {
-    void dispatch(fetchServiceRequests());
-  }, [dispatch]);
 
     const updateEnquiry = async (
       id: string,
@@ -168,11 +168,6 @@ const addEnquiry = async (
   event.preventDefault();
 
   dispatch(clearEnquiryError());
-
-  if (!form.customerName.trim() || !form.phone.trim()) {
-    console.error("Customer name and phone are required.");
-    return;
-  }
 
   try {
     await dispatch(
@@ -209,96 +204,88 @@ const addEnquiry = async (
 
   const openCreateService = (enquiry: Enquiry) => {
     if (enquiry.status === "Converted") {
-      alert("A service request has already been created for this enquiry.");
+      alert("This enquiry has already been converted into a booking.");
       return;
     }
 
     setSelected(enquiry);
+    setSelectedCustomerId(enquiry.customerId ?? "");
     setServiceDate(today());
+    setPreferredTime("10:30");
     setServiceNotes("");
-
-    // Default to the enquiry priority, but allow changing it in the modal.
     setServicePriority(enquiry.priority || "Medium");
-
     setAssignedManager(enquiry.assignedManager || "");
-    setAssignedEmployees(Array.isArray(enquiry.assignedEmployees) ? enquiry.assignedEmployees : []);
+    setAssignedEmployees(
+      Array.isArray(enquiry.assignedEmployees) ? enquiry.assignedEmployees : [],
+    );
     setAssignmentError("");
     setShowService(true);
   };
 
-  /* Create one service request */
+  /* Convert the selected enquiry into a booking through the API */
   const createService = async () => {
-    if (!selected || !serviceDate) {
-      setAssignmentError("Please select a service date.");
+    if (!selected) {
+      setAssignmentError("Select an enquiry first.");
       return;
     }
 
-    if (!assignedManager && assignedEmployees.length === 0) {
-      setAssignmentError(
-        "Select a manager or at least one employee before creating the service."
-      );
+    const customerId = selectedCustomerId.trim();
+    if (!selectedCustomerId.trim()) {
+      setAssignmentError("Please select an existing customer.");
+      return;
+    }
+
+    if (!serviceDate) {
+      setAssignmentError("Please select a preferred date.");
+      return;
+    }
+
+    if (!preferredTime) {
+      setAssignmentError("Please select a preferred time.");
       return;
     }
 
     setAssignmentError("");
-
-    const existingService = serviceRequests.some(
-      (serviceRequest) => serviceRequest.enquiryReference === selected.reference,
-    );
-    if (existingService) {
-      setAssignmentError("A service request already exists for this enquiry.");
-      return;
-    }
+    setIsConverting(true);
 
     try {
       const payload = {
-        enquiryReference: selected.reference,
-        customerName: selected.customerName,
-        company: selected.company,
-        phone: selected.phone,
-        email: selected.email,
-        service: selected.service,
-        location: selected.location,
-        serviceDate,
-        notes: serviceNotes.trim(),
-        assignedManager,
-        assignedEmployees,
-        status: "Scheduled" as const,
+        id: selected.id,
+        customerId,
+        ...(selected.serviceId ? { serviceId: selected.serviceId } : {}),
+        ...(selected.serviceLocationId
+          ? { serviceLocationId: selected.serviceLocationId }
+          : {}),
+        preferredDate: serviceDate,
+        preferredTime,
+        ...(serviceNotes.trim() ? { remarks: serviceNotes.trim() } : {}),
       };
 
-      await dispatch(
-        createServiceRequestApi(payload)
-      ).unwrap();
-
-      await dispatch(
-        updateEnquiryApi({
-          id: selected.id,
-          updates: {
-            status: "Converted",
-            assignedManager,
-            assignedEmployees,
-          },
-        })
-      ).unwrap();
+      await dispatch(convertEnquiryToBookingApi(payload)).unwrap();
+      await dispatch(fetchEnquiries()).unwrap();
 
       setSelected(null);
       setShowService(false);
+      setSelectedCustomerId("");
       setServiceDate(today());
+      setPreferredTime("10:30");
       setServiceNotes("");
       setServicePriority("Medium");
       setAssignedManager("");
       setAssignedEmployees([]);
       setAssignmentError("");
-
-      alert("Service request created successfully.");
+      alert("Enquiry converted into a booking successfully.");
     } catch (error) {
       setAssignmentError(
         typeof error === "string"
           ? error
-          : "Could not create the service request. Please try again."
+          : "Could not convert the enquiry into a booking. Please try again.",
       );
+    } finally {
+      setIsConverting(false);
     }
   };
+
 
 
   const callCustomer = (enquiry: Enquiry) => {
@@ -716,7 +703,7 @@ const addEnquiry = async (
 
       {/* Enquiry details modal */}
 
-      {selected && !showService &&  (
+      {selected && !showService && (
         <Modal
           title="Enquiry Details"
           onClose={() => setSelected(null)}
@@ -848,7 +835,57 @@ const addEnquiry = async (
               </div>
             </div>
 
-            {/* Service date */}
+            {/* Existing customer UUID - required by the conversion API */}
+            <div>
+              <label
+                htmlFor="conversionCustomerId"
+                className="mb-1.5 block text-sm font-semibold text-slate-700"
+              >
+                Customer ID <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="conversionCustomerId"
+                type="text"
+                value={selectedCustomerId}
+                onChange={(event) => {
+                  setSelectedCustomerId(event.target.value);
+                  setAssignmentError("");
+                }}
+                placeholder="Enter an existing customer's UUID"
+                autoComplete="off"
+                required
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              />
+              <p className="mt-1.5 text-xs text-slate-500">
+                Use the ID of an existing customer from your customer API. A name or phone number is not a customer ID.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                Select Customer <span className="text-red-500">*</span>
+              </label>
+
+              <select
+                value={selectedCustomerId}
+                onChange={(event) => {
+                  setSelectedCustomerId(event.target.value);
+                  setAssignmentError("");
+                }}
+                required
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm"
+              >
+                <option value="">Select an existing customer</option>
+
+                {customers.map((customer) => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.name} — {customer.phone}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Preferred date */}
 
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-slate-700">
@@ -869,6 +906,33 @@ const addEnquiry = async (
                     setServiceDate(event.target.value);
                     setAssignmentError("");
                   }}
+                  className="w-full rounded-lg border border-slate-200 bg-white py-3 pl-10 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                />
+              </div>
+            </div>
+
+            {/* Preferred time */}
+            <div>
+              <label
+                htmlFor="preferredTime"
+                className="mb-1.5 block text-sm font-semibold text-slate-700"
+              >
+                Preferred Time <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Clock
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  id="preferredTime"
+                  type="time"
+                  value={preferredTime}
+                  onChange={(event) => {
+                    setPreferredTime(event.target.value);
+                    setAssignmentError("");
+                  }}
+                  required
                   className="w-full rounded-lg border border-slate-200 bg-white py-3 pl-10 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
                 />
               </div>
@@ -1004,6 +1068,13 @@ const addEnquiry = async (
                 </div>
 
                 <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Preferred Time</span>
+                  <span className="font-semibold text-slate-800">
+                    {preferredTime || "Not selected"}
+                  </span>
+                </div>
+
+                <div className="flex justify-between gap-3">
                   <span className="text-slate-500">Priority</span>
                   <span
                     className={`rounded-full px-2 py-1 text-[11px] font-bold ${priorityStyles[servicePriority]}`}
@@ -1073,9 +1144,10 @@ const addEnquiry = async (
               <button
                 type="button"
                 onClick={createService}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-900"
+                disabled={isConverting}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Create Service & Assign
+                {isConverting ? "Converting..." : "Convert to Booking"}
                 <ArrowRight size={15} />
               </button>
             </div>

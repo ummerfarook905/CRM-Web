@@ -19,6 +19,34 @@ export interface ServiceRequest {
   createdAt: string;
 }
 
+export interface ConvertEnquiryPayload {
+  id: string;
+  customerId?: string;
+  serviceId?: string;
+  serviceLocationId?: string;
+  preferredDate: string;
+  preferredTime: string;
+  remarks?: string;
+}
+
+export interface Booking {
+  id: string;
+  bookingNumber: string;
+  customerId: string;
+  serviceId: string;
+  serviceLocationId: string;
+  preferredDate: string;
+  preferredTime: string;
+  remarks?: string | null;
+  status: "REQUESTED" | string;
+  confirmedAt?: string | null;
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
+  createdById?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface ServiceRequestState {
   items: ServiceRequest[];
   loading: boolean;
@@ -49,23 +77,49 @@ export const fetchServiceRequests = createAsyncThunk<
   }
 });
 
-export const createServiceRequestApi = createAsyncThunk<
-  ServiceRequest,
-  Omit<ServiceRequest, "id" | "createdAt">,
+export const convertEnquiryToBookingApi = createAsyncThunk<
+  Booking,
+  ConvertEnquiryPayload,
   { rejectValue: string }
 >(
-  "serviceRequests/create",
-  async (payload, { rejectWithValue }) => {
+  "serviceRequests/convertEnquiryToBooking",
+  async ({ id, ...payload }, { rejectWithValue }) => {
     try {
-      const response = await api.post("/service-requests", payload);
-      return response.data.data ?? response.data;
-    } catch (error: any) {
+      const response = await api.post(
+        `/enquiries/${encodeURIComponent(id)}/convert`,
+        payload,
+      );
+
+      return response.data?.data ?? response.data;
+    } catch (error: unknown) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error
+      ) {
+        const apiError = (
+          error as {
+            response?: {
+              data?: {
+                message?: string;
+                errors?: { fields?: string[] };
+              };
+            };
+          }
+        ).response?.data;
+
+        return rejectWithValue(
+          apiError?.errors?.fields?.join(", ") ||
+            apiError?.message ||
+            "Failed to convert enquiry into a booking.",
+        );
+      }
+
       return rejectWithValue(
-        error.response?.data?.message ??
-          "Failed to create service request"
+        "Failed to convert enquiry into a booking.",
       );
     }
-  }
+  },
 );
 
 const serviceRequestsSlice = createSlice({
@@ -86,18 +140,6 @@ const serviceRequestsSlice = createSlice({
         state.loading = false;
         state.error = action.payload ?? "Failed to load service requests";
       })
-      .addCase(createServiceRequestApi.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(createServiceRequestApi.fulfilled, (state, action) => {
-        state.loading = false;
-        state.items.unshift(action.payload);
-      })
-      .addCase(createServiceRequestApi.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload ?? "Failed to create service request";
-      });
   },
 });
 

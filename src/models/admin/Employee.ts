@@ -55,7 +55,7 @@ export interface CreateEmployeePayload {
 export interface UpdateEmployeePayload {
   firstName?: string;
   lastName?: string;
-  email?: string;
+  // email?: string;
   phone?: string;
   designation?: string;
   joiningDate?: string;

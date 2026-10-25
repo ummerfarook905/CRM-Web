@@ -1,4 +1,3 @@
-
 import {
   Users,
   UserPlus,
@@ -18,13 +17,18 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-import { useEmployeesViewModel } from "../../viewmodels/admin/UseEmployeesViewModel";
+import React from "react";
 import type { EmployeeStatus } from "../../models/admin/Employee";
+import { useEmployeesViewModel } from "../../viewmodels/admin/UseEmployeesViewModel";
 
 function formatDate(date: string): string {
   if (!date) return "—";
 
-  return new Date(`${date}T00:00:00`).toLocaleDateString("en-IN", {
+  const parsedDate = new Date(`${date.slice(0, 10)}T00:00:00`);
+
+  if (Number.isNaN(parsedDate.getTime())) return "—";
+
+  return parsedDate.toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -36,7 +40,7 @@ function getInitials(name: string): string {
     .trim()
     .split(/\s+/)
     .slice(0, 2)
-    .map((part) => part[0])
+    .map((part) => part[0] ?? "")
     .join("")
     .toUpperCase();
 }
@@ -100,7 +104,7 @@ export default function Employees() {
         </button>
       </div>
 
-      {/* API LOADING / ERROR STATE */}
+      {/* LOADING AND API ERROR */}
       {loading && (
         <p className="text-sm text-slate-500" role="status">
           Loading employees...
@@ -149,9 +153,9 @@ export default function Employees() {
         />
       </div>
 
-      {/* EMPLOYEE TABLE */}
+      {/* EMPLOYEE DIRECTORY */}
       <div className="w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        {/* FILTERS */}
+        {/* SEARCH AND FILTERS */}
         <div className="flex min-w-0 flex-col gap-4 border-b border-slate-200 p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <h2 className="text-base font-bold text-slate-900">
@@ -164,7 +168,6 @@ export default function Employees() {
             </p>
           </div>
 
-          {/* Responsive filters */}
           <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:max-w-2xl lg:grid-cols-3">
             <div className="relative min-w-0 sm:col-span-2 lg:col-span-1">
               <Search
@@ -185,7 +188,9 @@ export default function Employees() {
             <div className="relative min-w-0">
               <select
                 value={departmentFilter}
-                onChange={(event) => setDepartmentFilter(event.target.value)}
+                onChange={(event) =>
+                  setDepartmentFilter(event.target.value)
+                }
                 aria-label="Filter by department"
                 className="w-full min-w-0 appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-3 pr-9 text-sm text-slate-700 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
               >
@@ -223,14 +228,13 @@ export default function Employees() {
           </div>
         </div>
 
-        {/* MOBILE AND TABLET: EMPLOYEE CARDS */}
+        {/* MOBILE AND TABLET EMPLOYEE CARDS */}
         <div className="grid min-w-0 grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:hidden">
           {filteredEmployees.map((employee) => (
             <div
               key={employee.id}
               className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-emerald-200 hover:bg-slate-50/50 sm:p-4"
             >
-              {/* Employee details */}
               <div className="flex min-w-0 items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800">
                   {getInitials(employee.name)}
@@ -255,7 +259,6 @@ export default function Employees() {
                 </div>
               </div>
 
-              {/* Department */}
               <div className="mt-4 grid grid-cols-1 gap-3 border-t border-slate-100 pt-3 min-[360px]:grid-cols-2">
                 <div className="min-w-0">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
@@ -275,7 +278,7 @@ export default function Employees() {
                   </p>
 
                   <p className="mt-1 break-words text-sm text-slate-600">
-                    {employee.designation}
+                    {employee.designation || "—"}
                   </p>
                 </div>
 
@@ -300,7 +303,7 @@ export default function Employees() {
                 </div>
               </div>
 
-              {/* Actions */}
+              {/* CARD ACTIONS */}
               <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3">
                 <ActionButton
                   label="View employee"
@@ -316,7 +319,7 @@ export default function Employees() {
 
                 <ActionButton
                   label="Delete employee"
-                  onClick={() => handleDelete(employee)}
+                  onClick={() => void handleDelete(employee)}
                   icon={Trash2}
                   danger
                 />
@@ -324,31 +327,15 @@ export default function Employees() {
             </div>
           ))}
 
-          {/* Empty state for mobile */}
           {filteredEmployees.length === 0 && (
-            <div className="col-span-full px-3 py-12 text-center">
-              <Users size={32} className="mx-auto text-slate-300" />
-
-              <p className="mt-3 text-sm font-semibold text-slate-700">
-                No employees found
-              </p>
-
-              <p className="mt-1 text-xs text-slate-500">
-                Try another search or change your filters.
-              </p>
-
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="mt-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
-              >
-                Clear filters
-              </button>
-            </div>
+            <EmptyState
+              onClear={clearFilters}
+              className="col-span-full px-3 py-12 text-center"
+            />
           )}
         </div>
 
-        {/* DESKTOP: EMPLOYEE TABLE */}
+        {/* DESKTOP EMPLOYEE TABLE */}
         <div className="hidden min-w-0 w-full lg:block">
           <div className="w-full overflow-x-auto">
             <table className="w-full border-collapse text-left">
@@ -356,10 +343,6 @@ export default function Employees() {
                 <tr className="bg-slate-50">
                   <th className="whitespace-nowrap px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500 xl:px-5">
                     Employee
-                  </th>
-
-                  <th className="whitespace-nowrap px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500 xl:px-5">
-                    Department
                   </th>
 
                   <th className="whitespace-nowrap px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500 xl:px-5">
@@ -408,14 +391,8 @@ export default function Employees() {
                       </div>
                     </td>
 
-                    <td className="px-4 py-4 xl:px-5">
-                      <span className="inline-flex max-w-full rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                        {employee.department}
-                      </span>
-                    </td>
-
                     <td className="px-4 py-4 text-sm text-slate-600">
-                      {employee.designation}
+                      {employee.designation || "—"}
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-600 xl:px-5">
@@ -442,7 +419,7 @@ export default function Employees() {
 
                         <ActionButton
                           label="Delete employee"
-                          onClick={() => handleDelete(employee)}
+                          onClick={() => void handleDelete(employee)}
                           icon={Trash2}
                           danger
                         />
@@ -453,27 +430,8 @@ export default function Employees() {
 
                 {filteredEmployees.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-5 py-16 text-center">
-                      <Users
-                        size={32}
-                        className="mx-auto text-slate-300"
-                      />
-
-                      <p className="mt-3 text-sm font-semibold text-slate-700">
-                        No employees found
-                      </p>
-
-                      <p className="mt-1 text-xs text-slate-500">
-                        Try another search or change your filters.
-                      </p>
-
-                      <button
-                        type="button"
-                        onClick={clearFilters}
-                        className="mt-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
-                      >
-                        Clear filters
-                      </button>
+                    <td colSpan={5} className="px-5 py-16 text-center">
+                      <EmptyState onClear={clearFilters} />
                     </td>
                   </tr>
                 )}
@@ -493,7 +451,6 @@ export default function Employees() {
           </p>
         </div>
       </div>
-
 
       {/* ADD / EDIT / VIEW MODAL */}
       {modalMode && (
@@ -554,7 +511,7 @@ export default function Employees() {
                     </h3>
 
                     <p className="mt-1 text-sm text-slate-500">
-                      {selectedEmployee.designation}
+                      {selectedEmployee.designation || "—"}
                     </p>
 
                     <p className="mt-1 text-xs text-slate-500">
@@ -627,7 +584,9 @@ export default function Employees() {
                       type="text"
                       required
                       value={form.firstName}
-                      onChange={(e) => updateForm("firstName", e.target.value)}
+                      onChange={(event) =>
+                        updateForm("firstName", event.target.value)
+                      }
                       placeholder="Enter first name"
                       className={inputClass}
                     />
@@ -638,7 +597,9 @@ export default function Employees() {
                       type="text"
                       required
                       value={form.lastName}
-                      onChange={(e) => updateForm("lastName", e.target.value)}
+                      onChange={(event) =>
+                        updateForm("lastName", event.target.value)
+                      }
                       placeholder="Enter last name"
                       className={inputClass}
                     />
@@ -657,20 +618,22 @@ export default function Employees() {
                     />
                   </FormField>
 
-                  <FormField label="Password" required>
-                    <input
-                      type="password"
-                      required
-                      minLength={8}
-                      autoComplete="new-password"
-                      value={form.password}
-                      onChange={(event) =>
-                        updateForm("password", event.target.value)
-                      }
-                      placeholder="Create employee password"
-                      className={inputClass}
-                    />
-                  </FormField>
+                  {modalMode === "add" && (
+                    <FormField label="Password" required>
+                      <input
+                        type="password"
+                        required
+                        minLength={8}
+                        autoComplete="new-password"
+                        value={form.password}
+                        onChange={(event) =>
+                          updateForm("password", event.target.value)
+                        }
+                        placeholder="Create employee password"
+                        className={inputClass}
+                      />
+                    </FormField>
+                  )}
 
                   <FormField label="Phone Number" required>
                     <input
@@ -710,6 +673,25 @@ export default function Employees() {
                       className={inputClass}
                     />
                   </FormField>
+
+                  {/* STATUS: EDIT ONLY */}
+                  {modalMode === "edit" && (
+                    <FormField label="Employee Status" required>
+                      <select
+                        value={form.isActive ? "true" : "false"}
+                        onChange={(event) =>
+                          updateForm(
+                            "isActive",
+                            event.target.value === "true",
+                          )
+                        }
+                        className={inputClass}
+                      >
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
+                      </select>
+                    </FormField>
+                  )}
                 </div>
 
                 {formError && (
@@ -741,9 +723,11 @@ export default function Employees() {
                       <Pencil size={16} />
                     )}
 
-                    {modalMode === "add"
-                      ? "Add Employee"
-                      : "Save Changes"}
+                    {loading
+                      ? "Saving..."
+                      : modalMode === "add"
+                        ? "Add Employee"
+                        : "Save Changes"}
                   </button>
                 </div>
               </form>
@@ -896,6 +880,35 @@ function DetailItem({ icon: Icon, label, value }: DetailItemProps) {
           {value || "—"}
         </p>
       </div>
+    </div>
+  );
+}
+
+interface EmptyStateProps {
+  onClear: () => void;
+  className?: string;
+}
+
+function EmptyState({ onClear, className = "" }: EmptyStateProps) {
+  return (
+    <div className={className}>
+      <Users size={32} className="mx-auto text-slate-300" />
+
+      <p className="mt-3 text-sm font-semibold text-slate-700">
+        No employees found
+      </p>
+
+      <p className="mt-1 text-xs text-slate-500">
+        Try another search or change your filters.
+      </p>
+
+      <button
+        type="button"
+        onClick={onClear}
+        className="mt-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+      >
+        Clear filters
+      </button>
     </div>
   );
 }
