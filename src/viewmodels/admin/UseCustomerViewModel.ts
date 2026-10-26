@@ -1,5 +1,5 @@
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   useAppDispatch,
@@ -7,8 +7,10 @@ import {
 } from "../../app/Hooks";
 
 import {
+  fetchCustomers,
   updateCustomer,
   deleteCustomer,
+  clearCustomerError,
 } from "../../services/CustomerSlice";
 
 import type { Customer } from "../../models/admin/Customer";
@@ -16,23 +18,26 @@ import type { Customer } from "../../models/admin/Customer";
 export function useCustomerViewModel() {
   const dispatch = useAppDispatch();
 
-  // Shared customer state from Redux
-  const customers = useRootState(
-    (state) => state.customers.customers
-  );
+  const {
+    customers,
+    loading,
+    updating,
+    deleting,
+    error,
+  } = useRootState((state) => state.customers);
 
-  // View-related state
   const [search, setSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] =
     useState<Customer | null>(null);
-
   const [editingCustomer, setEditingCustomer] =
     useState<Customer | null>(null);
-
   const [showDetails, setShowDetails] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
-  // Search and filtering logic
+  useEffect(() => {
+    dispatch(fetchCustomers());
+  }, [dispatch]);
+
   const filteredCustomers = useMemo(() => {
     const value = search.toLowerCase().trim();
 
@@ -47,29 +52,27 @@ export function useCustomerViewModel() {
         customer.phone,
         customer.city,
       ].some((field) =>
-        field.toLowerCase().includes(value)
+        String(field ?? "").toLowerCase().includes(value)
       )
     );
   }, [customers, search]);
 
-  // Summary calculations
   const activeCustomers = customers.filter(
     (customer) => customer.status === "Active"
   ).length;
 
   const totalServiceLocations = customers.reduce(
     (total, customer) =>
-      total + customer.serviceLocations.length,
+      total + (customer.serviceLocations?.length ?? 0),
     0
   );
 
   const totalUpcomingMaintenance = customers.reduce(
     (total, customer) =>
-      total + customer.upcomingMaintenance.length,
+      total + (customer.upcomingMaintenance?.length ?? 0),
     0
   );
 
-  // Open customer details
   const openDetails = (customer: Customer) => {
     setSelectedCustomer(customer);
     setShowDetails(true);
@@ -80,8 +83,8 @@ export function useCustomerViewModel() {
     setShowDetails(false);
   };
 
-  // Open edit form
   const openEditCustomer = (customer: Customer) => {
+    dispatch(clearCustomerError());
     setEditingCustomer(customer);
     setShowForm(true);
   };
@@ -91,28 +94,54 @@ export function useCustomerViewModel() {
     setEditingCustomer(null);
   };
 
-  // Update customer through Redux
-  const handleUpdateCustomer = (customer: Customer) => {
-    dispatch(updateCustomer(customer));
-    closeForm();
-  };
+  
+const handleUpdateCustomer = async (customer: Customer) => {
+  if (!editingCustomer) return;
 
-  // Delete customer through Redux
-  const handleDeleteCustomer = (customer: Customer) => {
+  const nameParts = customer.name.trim().split(/\s+/);
+  const firstName = nameParts.shift() ?? "";
+  const lastName = nameParts.join(" ");
+
+  const result = await dispatch(
+    updateCustomer({
+      id: editingCustomer.id,
+      changes: {
+        firstName,
+        lastName,
+        phone: customer.phone.trim(),
+      },
+    })
+  );
+
+  if (updateCustomer.fulfilled.match(result)) {
+    setSelectedCustomer((current) =>
+      current?.id === result.payload.id
+        ? result.payload
+        : current
+    );
+
+    closeForm();
+  }
+};
+
+
+  const handleDeleteCustomer = async (customer: Customer) => {
     const confirmed = window.confirm(
       `Are you sure you want to delete ${customer.name} (${customer.customerCode})?`
     );
 
     if (!confirmed) return;
 
-    dispatch(deleteCustomer(customer.id));
+    const result = await dispatch(deleteCustomer(customer.id));
 
-    if (selectedCustomer?.id === customer.id) {
-      closeDetails();
-    }
+    if (deleteCustomer.fulfilled.match(result)) {
+      if (selectedCustomer?.id === customer.id) {
+        closeDetails();
+      }
 
-    if (editingCustomer?.id === customer.id) {
-      closeForm();
+      if (editingCustomer?.id === customer.id) {
+        closeForm();
+      }
     }
   };
 
@@ -121,6 +150,11 @@ export function useCustomerViewModel() {
     filteredCustomers,
     search,
     setSearch,
+
+    loading,
+    updating,
+    deleting,
+    error,
 
     activeCustomers,
     totalServiceLocations,

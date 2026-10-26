@@ -19,13 +19,15 @@ import {
 } from "lucide-react";
 
 import {
+  useEffect,
   useState,
   type ElementType,
   type FormEvent,
   type ReactNode,
 } from "react";
 
-import { useAppDispatch } from "../../app/Hooks";
+import { useAppDispatch, useAppSelector } from "../../app/Hooks";
+import { fetchServices } from "../../services/ServicesSlice";
 
 import { useEnquiryManagementViewModel } from "../../viewmodels/admin/UseEnquiryManagementModel";
 
@@ -112,6 +114,11 @@ export default function EnquiryManagement() {
 const customers: CustomerOption[] = [];
 
   const dispatch = useAppDispatch();
+  const services = useAppSelector((state) => state.services.items);
+
+  useEffect(() => {
+    void dispatch(fetchServices());
+  }, [dispatch]);
 
   const [selected, setSelected] = useState<Enquiry | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -133,6 +140,7 @@ const customers: CustomerOption[] = [];
     phone: "",
     email: "",
     service: "",
+    serviceId: "",
     location: "",
     message: "",
     priority: "Medium" as Priority,
@@ -175,11 +183,14 @@ const addEnquiry = async (
         name: form.customerName.trim(),
         phone: form.phone.trim(),
         email: form.email.trim() || null,
-        serviceId: null,
+        serviceId: form.serviceId || null,
         serviceLocationId: null,
         message: form.message.trim() || null,
       })
     ).unwrap();
+
+    // Reload the list so the UI receives the API's populated service relation.
+    await dispatch(fetchEnquiries()).unwrap();
 
     setForm({
       customerName: "",
@@ -187,6 +198,7 @@ const addEnquiry = async (
       phone: "",
       email: "",
       service: "",
+      serviceId: "",
       location: "",
       message: "",
       priority: "Medium",
@@ -1199,13 +1211,43 @@ const addEnquiry = async (
                 placeholder="customer@example.com"
               />
 
-              <Field
-                label="Requested Service"
-                required
-                value={form.service}
-                onChange={(value) => setForm({ ...form, service: value })}
-                placeholder="e.g. RO maintenance"
-              />
+              <div>
+                <label
+                  htmlFor="requestedService"
+                  className="mb-1.5 block text-sm font-semibold text-slate-700"
+                >
+                  Requested Service <span className="ml-1 text-red-500">*</span>
+                </label>
+                <select
+                  id="requestedService"
+                  value={form.serviceId}
+                  onChange={(event) => {
+                    const serviceId = event.target.value;
+                    const selectedService = services.find(
+                      (service) => String(service.id) === serviceId
+                    );
+                    setForm((previous) => ({
+                      ...previous,
+                      serviceId,
+                      service: selectedService?.name ?? "",
+                    }));
+                  }}
+                  required
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                >
+                  <option value="">Select service</option>
+                  {services.map((service) => (
+                    <option key={service.id} value={String(service.id)}>
+                      {service.name}
+                    </option>
+                  ))}
+                </select>
+                {services.length === 0 && (
+                  <p className="mt-1.5 text-xs text-amber-700">
+                    No services are available. Check that the services API has active records.
+                  </p>
+                )}
+              </div>
 
               <Field
                 label="Service Location"

@@ -24,6 +24,9 @@ export default function CustomerManagement() {
     filteredCustomers,
     search,
     setSearch,
+    loading,
+    updating,
+    error,
     activeCustomers,
     totalServiceLocations,
     totalUpcomingMaintenance,
@@ -57,6 +60,21 @@ export default function CustomerManagement() {
           </p>
         </div>
       </div>
+
+      {loading && (
+        <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
+          Loading customers...
+        </p>
+      )}
+
+      {error && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+        >
+          {error}
+        </div>
+      )}
 
       {/* SUMMARY CARDS */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -135,7 +153,7 @@ export default function CustomerManagement() {
                 {/* CUSTOMER INFORMATION */}
                 <div className="flex min-w-0 items-start gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-sm font-bold text-emerald-800">
-                    {customer.name.charAt(0).toUpperCase()}
+                    {(customer.name?.trim()?.charAt(0) || "?").toUpperCase()}
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -261,7 +279,7 @@ export default function CustomerManagement() {
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-sm font-bold text-emerald-800">
-                          {customer.name.charAt(0).toUpperCase()}
+                          {(customer.name?.trim()?.charAt(0) || "?").toUpperCase()}
                         </div>
 
                         <div className="min-w-0">
@@ -382,6 +400,7 @@ export default function CustomerManagement() {
           customer={editingCustomer}
           onClose={closeForm}
           onSave={handleUpdateCustomer}
+          isSaving={updating}
         />
       )}
     </div>
@@ -501,6 +520,8 @@ function EmptyCustomers() {
 interface CustomerDetailsModalProps {
   customer: Customer;
   onClose: () => void;
+  // onSave: (customer: Customer) => void | Promise<void>;
+  // isSaving: boolean;
 }
 
 function CustomerDetailsModal({
@@ -761,50 +782,43 @@ function CustomerDetailsModal({
 interface CustomerFormModalProps {
   customer: Customer;
   onClose: () => void;
-  onSave: (customer: Customer) => void;
+  onSave: (customer: Customer) => void | Promise<void>;
+  isSaving: boolean;
 }
 
 function CustomerFormModal({
   customer,
   onClose,
   onSave,
+  isSaving,
 }: CustomerFormModalProps) {
-  const [name, setName] = useState(customer.name);
-  const [company, setCompany] = useState(customer.company);
-  const [email, setEmail] = useState(customer.email);
-  const [phone, setPhone] = useState(customer.phone);
-  const [city, setCity] = useState(customer.city);
-  const [status, setStatus] = useState<Customer["status"]>(
-    customer.status
-  );
+  const nameParts = customer.name.trim().split(/\s+/);
 
+  const [firstName, setFirstName] = useState(nameParts[0] ?? "");
+  const [lastName, setLastName] = useState(nameParts.slice(1).join(" "));
+  const [phone, setPhone] = useState(customer.phone ?? "");
   const [error, setError] = useState("");
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setError("");
 
-    if (
-      !name.trim() ||
-      !company.trim() ||
-      !email.trim() ||
-      !phone.trim() ||
-      !city.trim()
-    ) {
-      setError("Please fill in all required fields.");
+    if (!firstName.trim()) {
+      setError("First name is required.");
       return;
     }
 
     const updatedCustomer: Customer = {
       ...customer,
-      name: name.trim(),
-      company: company.trim(),
-      email: email.trim(),
+      name: [firstName.trim(), lastName.trim()].filter(Boolean).join(" "),
       phone: phone.trim(),
-      city: city.trim(),
-      status,
     };
 
-    onSave(updatedCustomer);
+    try {
+      await onSave(updatedCustomer);
+    } catch {
+      setError("Unable to update customer. Please try again.");
+    }
   };
 
   return (
@@ -835,27 +849,18 @@ function CustomerFormModal({
       <form onSubmit={handleSubmit} className="space-y-4 p-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <InputField
-            label="Contact Person"
-            value={name}
-            onChange={setName}
+            label="First Name"
+            value={firstName}
+            onChange={setFirstName}
             placeholder="Enter customer name"
             required
           />
 
           <InputField
-            label="Company Name"
-            value={company}
-            onChange={setCompany}
+            label="Last Name"
+            value={lastName}
+            onChange={setLastName}
             placeholder="Enter company name"
-            required
-          />
-
-          <InputField
-            label="Email"
-            value={email}
-            onChange={setEmail}
-            type="email"
-            placeholder="customer@example.com"
             required
           />
 
@@ -866,35 +871,6 @@ function CustomerFormModal({
             placeholder="+91 XXXXX XXXXX"
             required
           />
-
-          <InputField
-            label="City"
-            value={city}
-            onChange={setCity}
-            placeholder="Enter city"
-            required
-          />
-
-          <div>
-            <label
-              htmlFor="customer-status"
-              className="mb-1.5 block text-xs font-semibold text-slate-700"
-            >
-              Status
-            </label>
-
-            <select
-              id="customer-status"
-              value={status}
-              onChange={(event) =>
-                setStatus(event.target.value as Customer["status"])
-              }
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-            >
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-          </div>
         </div>
 
         {error && (
@@ -915,10 +891,12 @@ function CustomerFormModal({
 
           <button
             type="submit"
-            className="rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-900"
+            disabled={isSaving}
+            className="rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Update Customer
+            {isSaving ? "Updating..." : "Update Customer"}
           </button>
+
         </div>
       </form>
     </Modal>

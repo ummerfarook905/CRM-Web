@@ -19,6 +19,7 @@ const AUTH_STORAGE_KEY = "crm.auth.session";
 interface PersistedSession {
   user: User;
   token: string;
+  refreshToken: string;
 }
 
 const loadPersistedSession = (): PersistedSession | null => {
@@ -32,6 +33,9 @@ const loadPersistedSession = (): PersistedSession | null => {
     if (
       typeof parsed.token === "string" &&
       parsed.token.length > 0 &&
+      typeof parsed.refreshToken === "string" &&
+      parsed.refreshToken.length > 0 &&
+      typeof parsed.user === "object" &&
       typeof parsed.user === "object" &&
       parsed.user !== null &&
       typeof parsed.user.role === "string"
@@ -39,6 +43,7 @@ const loadPersistedSession = (): PersistedSession | null => {
       return {
         user: parsed.user,
         token: parsed.token,
+        refreshToken: parsed.refreshToken,
       };
     }
 
@@ -70,6 +75,7 @@ const persistedSession = loadPersistedSession();
 const initialState: AuthState = {
   user: persistedSession?.user ?? null,
   token: persistedSession?.token ?? null,
+  refreshToken: persistedSession?.refreshToken ?? null,
   isAuthenticated: persistedSession !== null,
   loading: false,
   error: null,
@@ -120,6 +126,7 @@ const authSlice = createSlice({
     logout: (state) => {
       state.user = null;
       state.token = null;
+      state.refreshToken = null;
       state.isAuthenticated = false;
       state.loading = false;
       state.error = null;
@@ -142,11 +149,13 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        state.refreshToken = action.payload.refreshToken;
         state.isAuthenticated = true;
         state.error = null;
         persistSession({
           user: action.payload.user,
           token: action.payload.token,
+          refreshToken: action.payload.refreshToken,
         });
       })
 
@@ -154,6 +163,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = null;
         state.token = null;
+        state.refreshToken = null;
         state.isAuthenticated = false;
         state.error =
           action.payload ??

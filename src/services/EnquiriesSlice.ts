@@ -1,21 +1,14 @@
-
-import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import type { PayloadAction } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { api } from "../api/axios";
-
 import {
   mapApiEnquiry,
   type ApiEnquiry,
+  type CreateEnquiryPayload,
   type Enquiry,
   type EnquiryStatus,
-  type CreateEnquiryPayload,
 } from "../models/admin/Enquiry";
 
-export type {
-  Enquiry,
-  EnquiryStatus,
-  Priority,
-} from "../models/admin/Enquiry";
+export type { Enquiry, EnquiryStatus, Priority } from "../models/admin/Enquiry";
 
 interface EnquiryState {
   items: Enquiry[];
@@ -23,98 +16,63 @@ interface EnquiryState {
   error: string | null;
 }
 
-const initialState: EnquiryState = {
-  items: [],
-  loading: false,
-  error: null,
-};
+const initialState: EnquiryState = { items: [], loading: false, error: null };
 
-/* Fetch enquiries from the backend */
-export const fetchEnquiries = createAsyncThunk<
-  Enquiry[],
-  void,
-  { rejectValue: string }
->("enquiries/fetchAll", async (_, { rejectWithValue }) => {
-  try {
-    const response = await api.get("/enquiries");
-    const result = response.data;
-
-    const rows: ApiEnquiry[] = Array.isArray(result)
-      ? result
-      : Array.isArray(result?.data)
-        ? result.data
-        : [];
-
-    return rows.map(mapApiEnquiry);
-  } catch (error: any) {
-    return rejectWithValue(
-      error.response?.data?.message ?? "Failed to load enquiries"
-    );
+type ApiErrorShape = { response?: { data?: { message?: string } } };
+function getApiError(error: unknown, fallback: string): string {
+  if (typeof error === "object" && error !== null && "response" in error) {
+    const message = (error as ApiErrorShape).response?.data?.message;
+    if (message) return message;
   }
-});
+  return fallback;
+}
 
-/* Create an enquiry */
-
-export const addEnquiry = createAsyncThunk<
-  Enquiry,
-  CreateEnquiryPayload,
-  { rejectValue: string }
->(
-  "enquiries/create",
-  async (payload, { rejectWithValue }) => {
+export const fetchEnquiries = createAsyncThunk<Enquiry[], void, { rejectValue: string }>(
+  "enquiries/fetchAll",
+  async (_, { rejectWithValue }) => {
     try {
-      const requestBody: CreateEnquiryPayload = {
-        name: payload.name.trim(),
-        phone: payload.phone.trim(),
-        email: payload.email?.trim() || null,
-        serviceId: payload.serviceId || null,
-        serviceLocationId: payload.serviceLocationId || null,
-        message: payload.message?.trim() || null,
-      };
-
-      const response = await api.post("/enquiries", requestBody);
-      const result = response.data?.data ?? response.data;
-
-      if (!result?.id) {
-        return rejectWithValue(
-          "The API response did not contain a created enquiry."
-        );
-      }
-
-      return mapApiEnquiry(result as ApiEnquiry);
-    } catch (error: any) {
-      const message = error.response?.data?.message;
-
-      return rejectWithValue(
-        Array.isArray(message)
-          ? message.join(", ")
-          : message ?? "Failed to create enquiry."
-      );
+      const response = await api.get("/enquiries");
+      const result = response.data;
+      const rows: ApiEnquiry[] = Array.isArray(result)
+        ? result
+        : Array.isArray(result?.data)
+          ? result.data
+          : Array.isArray(result?.items)
+            ? result.items
+            : [];
+      return rows.map(mapApiEnquiry);
+    } catch (error: unknown) {
+      return rejectWithValue(getApiError(error, "Failed to load enquiries"));
     }
-  }
+  },
 );
 
+export const addEnquiry = createAsyncThunk<Enquiry, CreateEnquiryPayload, { rejectValue: string }>(
+  "enquiries/addEnquiry",
+  async (payload, { rejectWithValue }) => {
+    try {
+      const response = await api.post("/enquiries", payload);
+      const result = response.data?.data ?? response.data;
+      return mapApiEnquiry(result as ApiEnquiry);
+    } catch (error: unknown) {
+      return rejectWithValue(getApiError(error, "Failed to add enquiry"));
+    }
+  },
+);
 
-/* Update an enquiry using its UUID string */
 export const updateEnquiryApi = createAsyncThunk<
   Enquiry,
   { id: string; updates: Partial<Enquiry> },
   { rejectValue: string }
->(
-  "enquiries/update",
-  async ({ id, updates }, { rejectWithValue }) => {
-    try {
-      const response = await api.patch(`/enquiries/${id}`, updates);
-      const result = response.data?.data ?? response.data;
-
-      return mapApiEnquiry(result as ApiEnquiry);
-    } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.message ?? "Failed to update enquiry"
-      );
-    }
+>("enquiries/update", async ({ id, updates }, { rejectWithValue }) => {
+  try {
+    const response = await api.patch(`/enquiries/${encodeURIComponent(id)}`, updates);
+    const result = response.data?.data ?? response.data;
+    return mapApiEnquiry(result as ApiEnquiry);
+  } catch (error: unknown) {
+    return rejectWithValue(getApiError(error, "Failed to update enquiry"));
   }
-);
+});
 
 const enquiriesSlice = createSlice({
   name: "enquiries",
@@ -123,24 +81,11 @@ const enquiriesSlice = createSlice({
     clearEnquiryError(state) {
       state.error = null;
     },
-
-    setEnquiryStatus(
-      state,
-      action: PayloadAction<{
-        id: string;
-        status: EnquiryStatus;
-      }>
-    ) {
-      const enquiry = state.items.find(
-        (item) => item.id === action.payload.id
-      );
-
-      if (enquiry) {
-        enquiry.status = action.payload.status;
-      }
+    setEnquiryStatus(state, action: PayloadAction<{ id: string; status: EnquiryStatus }>) {
+      const enquiry = state.items.find((item) => item.id === action.payload.id);
+      if (enquiry) enquiry.status = action.payload.status;
     },
   },
-
   extraReducers: (builder) => {
     builder
       .addCase(fetchEnquiries.pending, (state) => {
@@ -165,13 +110,8 @@ const enquiriesSlice = createSlice({
         state.error = action.payload ?? "Failed to create enquiry";
       })
       .addCase(updateEnquiryApi.fulfilled, (state, action) => {
-        const index = state.items.findIndex(
-          (item) => item.id === action.payload.id
-        );
-
-        if (index !== -1) {
-          state.items[index] = action.payload;
-        }
+        const index = state.items.findIndex((item) => item.id === action.payload.id);
+        if (index !== -1) state.items[index] = action.payload;
       })
       .addCase(updateEnquiryApi.rejected, (state, action) => {
         state.error = action.payload ?? "Failed to update enquiry";
@@ -179,7 +119,5 @@ const enquiriesSlice = createSlice({
   },
 });
 
-export const { clearEnquiryError, setEnquiryStatus } =
-  enquiriesSlice.actions;
-
+export const { clearEnquiryError, setEnquiryStatus } = enquiriesSlice.actions;
 export default enquiriesSlice.reducer;

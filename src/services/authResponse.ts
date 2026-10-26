@@ -35,9 +35,11 @@ interface ApiUser {
 interface ApiLoginPayload {
   user?: ApiUser;
   token?: string;
+  refreshToken?: string;
   data?: {
     user?: ApiUser;
     token?: string;
+    refreshToken?: string;
     tokens?: {
       accessToken?: string;
       refreshToken?: string;
@@ -92,7 +94,12 @@ export const mapLoginResponse = (
     body.data?.token ??
     body.token;
 
-  if (!apiUser || !token) {
+  const refreshToken =
+    body.data?.tokens?.refreshToken ??
+    body.data?.refreshToken ??
+    body.refreshToken;
+
+  if (!apiUser || !token || !refreshToken) {
     throw new Error(
       "Unexpected login response format from the server."
     );
@@ -101,5 +108,6 @@ export const mapLoginResponse = (
   return {
     user: mapApiUser(apiUser),
     token,
+    refreshToken,
   };
 };
