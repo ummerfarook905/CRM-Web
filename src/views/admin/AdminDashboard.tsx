@@ -1,854 +1,829 @@
+
 import {
+  Activity,
   AlertCircle,
-  ArrowRight,
   CalendarCheck,
   CalendarClock,
   CheckCircle2,
   ClipboardList,
+  Clock3,
   Eye,
-  Search,
-  Timer,
-  TrendingUp,
-  UserPlus,
+  FileText,
+  LoaderCircle,
   Users,
+  UserRoundPlus,
   Wrench,
-  X,
+  Timer,
+  ArrowRight,
+  TrendingUp,
 } from "lucide-react";
 
-import { useMemo, useState, type ElementType } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-/* -------------------------------------------------------------------------- */
-/* Types                                                                      */
-/* -------------------------------------------------------------------------- */
+import { useAdminDashboardViewModel } from "../../viewmodels/admin/UseAdminDashboardViewModel";
 
-interface StatCard {
-  title: string;
-  value: string;
-  description: string;
-  highlight: string;
-  icon: ElementType;
-  iconBg: string;
-  iconColor: string;
-  accent: string;
-  highlightColor: string;
-  path: string;
+type DashboardRecord = Record<string, unknown>;
+
+function formatNumber(value: number | undefined | null): string {
+  return (value ?? 0).toLocaleString("en-IN");
 }
 
-interface DashboardRecord {
-  id: string;
-  name: string;
-  detail: string;
-  status: string;
-  date: string;
-}
+function getText(
+  value: unknown,
+  keys: string[],
+  fallback = "—",
+): string {
+  if (typeof value !== "object" || value === null) return fallback;
 
-/* -------------------------------------------------------------------------- */
-/* KPI cards                                                                   */
-/* -------------------------------------------------------------------------- */
+  const record = value as DashboardRecord;
 
-const stats: StatCard[] = [
-  {
-    title: "TOTAL CUSTOMERS",
-    value: "1,482",
-    description: "Active customer accounts",
-    highlight: "+8.4% MoM",
-    icon: Users,
-    iconBg: "bg-indigo-50",
-    iconColor: "text-indigo-700",
-    accent: "border-t-emerald-900",
-    highlightColor: "text-emerald-700",
-    path: "/admin/Customers",
-  },
-  {
-    title: "NEW ENQUIRIES",
-    value: "126",
-    description: "New enquiries this month",
-    highlight: "+12.8%",
-    icon: UserPlus,
-    iconBg: "bg-blue-50",
-    iconColor: "text-blue-700",
-    accent: "border-t-blue-600",
-    highlightColor: "text-blue-700",
-    path: "/admin/Enquiries",
-  },
-  {
-    title: "SERVICE REQUESTS",
-    value: "348",
-    description: "Total open requests",
-    highlight: "42 Today",
-    icon: ClipboardList,
-    iconBg: "bg-violet-50",
-    iconColor: "text-violet-700",
-    accent: "border-t-violet-500",
-    highlightColor: "text-violet-700",
-    path: "/admin/Services",
-  },
-  {
-    title: "PENDING SERVICES",
-    value: "64",
-    description: "Services awaiting action",
-    highlight: "18 High Priority",
-    icon: AlertCircle,
-    iconBg: "bg-amber-50",
-    iconColor: "text-amber-700",
-    accent: "border-t-amber-500",
-    highlightColor: "text-amber-700",
-    path: "/admin/Services?status=pending",
-  },
-  {
-    title: "SCHEDULED SERVICES",
-    value: "92",
-    description: "Services scheduled",
-    highlight: "24 Today",
-    icon: CalendarClock,
-    iconBg: "bg-cyan-50",
-    iconColor: "text-cyan-700",
-    accent: "border-t-cyan-500",
-    highlightColor: "text-cyan-700",
-    path: "/admin/Services?status=scheduled",
-  },
-  {
-    title: "IN-PROGRESS WORKS",
-    value: "47",
-    description: "Currently being handled",
-    highlight: "12 Technicians",
-    icon: Wrench,
-    iconBg: "bg-orange-50",
-    iconColor: "text-orange-700",
-    accent: "border-t-orange-500",
-    highlightColor: "text-orange-700",
-    path: "/admin/Services?status=in-progress",
-  },
-  {
-    title: "COMPLETED WORKS",
-    value: "1,284",
-    description: "Successfully completed",
-    highlight: "+14.2%",
-    icon: CheckCircle2,
-    iconBg: "bg-emerald-50",
-    iconColor: "text-emerald-700",
-    accent: "border-t-emerald-500",
-    highlightColor: "text-emerald-700",
-    path: "/admin/Services?status=completed",
-  },
-  {
-    title: "UPCOMING CHECKUPS",
-    value: "38",
-    description: "Scheduled maintenance",
-    highlight: "Next 7 Days",
-    icon: CalendarCheck,
-    iconBg: "bg-sky-50",
-    iconColor: "text-sky-700",
-    accent: "border-t-sky-500",
-    highlightColor: "text-sky-700",
-    path: "/admin/Services?type=checkup",
-  },
-  {
-    title: "EMPLOYEES",
-    value: "86",
-    description: "Total employees",
-    highlight: "72 Active Today",
-    icon: Users,
-    iconBg: "bg-indigo-50",
-    iconColor: "text-indigo-700",
-    accent: "border-t-indigo-500",
-    highlightColor: "text-indigo-700",
-    path: "/admin/Employees",
-  },
-  {
-    title: "ATTENDANCE SUMMARY",
-    value: "94.8%",
-    description: "Today's attendance",
-    highlight: "82 Present",
-    icon: TrendingUp,
-    iconBg: "bg-emerald-50",
-    iconColor: "text-emerald-700",
-    accent: "border-t-emerald-500",
-    highlightColor: "text-emerald-700",
-    path: "/admin/Attendance",
-  },
-  {
-    title: "OVERTIME SUMMARY",
-    value: "184h",
-    description: "Overtime this month",
-    highlight: "14 Employees",
-    icon: Timer,
-    iconBg: "bg-rose-50",
-    iconColor: "text-rose-700",
-    accent: "border-t-rose-500",
-    highlightColor: "text-rose-700",
-    path: "/admin/Overtime",
-  },
-];
+  for (const key of keys) {
+    const item = record[key];
 
-/* -------------------------------------------------------------------------- */
-/* Demo records for KPI popup                                                  */
-/* Replace these examples with real API data when your backend is connected.   */
-/* -------------------------------------------------------------------------- */
-
-const demoRecords: DashboardRecord[] = [
-  {
-    id: "1001",
-    name: "Rajesh Kumar",
-    detail: "ABC Industries",
-    status: "Active",
-    date: "2026-10-10",
-  },
-  {
-    id: "1002",
-    name: "Anil Thomas",
-    detail: "GreenTech Pvt Ltd",
-    status: "In Progress",
-    date: "2026-10-10",
-  },
-  {
-    id: "1003",
-    name: "Priya Menon",
-    detail: "Sunrise Apartments",
-    status: "Scheduled",
-    date: "2026-10-09",
-  },
-  {
-    id: "1004",
-    name: "Suresh Nair",
-    detail: "Sri Hospitals",
-    status: "Completed",
-    date: "2026-10-09",
-  },
-  {
-    id: "1005",
-    name: "Meera Joseph",
-    detail: "Water Plant Maintenance",
-    status: "Pending",
-    date: "2026-10-08",
-  },
-  {
-    id: "1006",
-    name: "Arun Mathew",
-    detail: "Equipment Inspection",
-    status: "Active",
-    date: "2026-10-08",
-  },
-  {
-    id: "1007",
-    name: "Nikhil Kumar",
-    detail: "Filter Replacement",
-    status: "Scheduled",
-    date: "2026-10-07",
-  },
-  {
-    id: "1008",
-    name: "Fathima Ali",
-    detail: "Annual Maintenance",
-    status: "Pending",
-    date: "2026-10-07",
-  },
-  {
-    id: "1009",
-    name: "Adil Rahman",
-    detail: "RO System Service",
-    status: "Completed",
-    date: "2026-10-06",
-  },
-  {
-    id: "1010",
-    name: "Sneha Das",
-    detail: "Site Inspection",
-    status: "Active",
-    date: "2026-10-06",
-  },
-];
-
-const statusStyles: Record<string, string> = {
-  Active: "bg-emerald-50 text-emerald-700",
-  Scheduled: "bg-blue-50 text-blue-700",
-  Pending: "bg-amber-50 text-amber-700",
-  "In Progress": "bg-orange-50 text-orange-700",
-  Completed: "bg-slate-100 text-slate-700",
-  Present: "bg-emerald-50 text-emerald-700",
-  Absent: "bg-red-50 text-red-700",
-  Late: "bg-amber-50 text-amber-700",
-  New: "bg-blue-50 text-blue-700",
-  Contacted: "bg-violet-50 text-violet-700",
-  Approved: "bg-emerald-50 text-emerald-700",
-  Rejected: "bg-red-50 text-red-700",
-};
-
-/* Creates exactly 10 preview records for the selected KPI. */
-function getRecordsForKpi(stat: StatCard): DashboardRecord[] {
-  const prefix = stat.title.includes("CUSTOMER")
-    ? "CUS"
-    : stat.title.includes("ENQUIR")
-      ? "ENQ"
-      : stat.title.includes("EMPLOYEE")
-        ? "EMP"
-        : stat.title.includes("ATTENDANCE")
-          ? "ATT"
-          : stat.title.includes("OVERTIME")
-            ? "OT"
-            : stat.title.includes("CHECKUP")
-              ? "CHK"
-              : "SRV";
-
-  return demoRecords.map((record, index) => {
-    let status = record.status;
-
-    if (stat.title === "NEW ENQUIRIES") {
-      status = ["New", "Contacted", "New", "Assigned"][index % 4];
-    } else if (stat.title === "PENDING SERVICES") {
-      status = "Pending";
-    } else if (stat.title === "SCHEDULED SERVICES") {
-      status = "Scheduled";
-    } else if (stat.title === "IN-PROGRESS WORKS") {
-      status = "In Progress";
-    } else if (stat.title === "COMPLETED WORKS") {
-      status = "Completed";
-    } else if (stat.title === "ATTENDANCE SUMMARY") {
-      status = ["Present", "Present", "Late", "Present", "Absent"][
-        index % 5
-      ];
-    } else if (stat.title === "OVERTIME SUMMARY") {
-      status = ["Pending", "Approved", "Approved", "Rejected"][
-        index % 4
-      ];
-    } else if (stat.title === "EMPLOYEES") {
-      status = index === 8 ? "Inactive" : "Active";
+    if (
+      (typeof item === "string" || typeof item === "number") &&
+      String(item).trim()
+    ) {
+      return String(item);
     }
 
-    return {
-      ...record,
-      id: `${prefix}-${record.id}`,
-      status,
-    };
+    if (typeof item === "object" && item !== null) {
+      const nested = item as DashboardRecord;
+      const nestedName = nested.name ?? nested.title;
+
+      if (
+        typeof nestedName === "string" &&
+        nestedName.trim()
+      ) {
+        return nestedName;
+      }
+    }
+  }
+
+  return fallback;
+}
+
+function formatDate(value: string): string {
+  if (!value || value === "—") return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
   });
 }
 
-/* -------------------------------------------------------------------------- */
-/* Dashboard                                                                   */
-/* -------------------------------------------------------------------------- */
+function normalizeStatus(value: string): string {
+  return value.toLowerCase().replace(/[_-]+/g, " ");
+}
 
-export default function AdminDashboard() {
-  const navigate = useNavigate();
-  const [selectedStat, setSelectedStat] = useState<StatCard | null>(null);
-  const [recordSearch, setRecordSearch] = useState("");
+function StatusBadge({ status }: { status: string }) {
+  const normalized = normalizeStatus(status);
 
-  const selectedRecords = useMemo(() => {
-    if (!selectedStat) return [];
+  let color = "border-slate-700 bg-slate-800 text-slate-300";
 
-    const query = recordSearch.trim().toLowerCase();
-
-    return getRecordsForKpi(selectedStat).filter((record) => {
-      if (!query) return true;
-
-      return [
-        record.id,
-        record.name,
-        record.detail,
-        record.status,
-        record.date,
-      ].some((value) => value.toLowerCase().includes(query));
-    });
-  }, [selectedStat, recordSearch]);
-
-  const openKpi = (stat: StatCard) => {
-    setSelectedStat(stat);
-    setRecordSearch("");
-  };
-
-  const closeKpi = () => {
-    setSelectedStat(null);
-    setRecordSearch("");
-  };
+  if (
+    ["active", "approved", "completed", "present", "paid"].includes(
+      normalized,
+    )
+  ) {
+    color = "border-emerald-900 bg-emerald-950 text-emerald-400";
+  } else if (
+    ["pending", "scheduled", "late", "in progress", "new"].includes(
+      normalized,
+    )
+  ) {
+    color = "border-amber-900 bg-amber-950 text-amber-400";
+  } else if (
+    ["inactive", "rejected", "absent", "cancelled"].includes(
+      normalized,
+    )
+  ) {
+    color = "border-rose-900 bg-rose-950 text-rose-400";
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Page header */}
+    <span
+      className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${color}`}
+    >
+      {status || "Unknown"}
+    </span>
+  );
+}
 
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
-            Operations Overview
-          </p>
+type StatCardProps = {
+  title: string;
+  value: string | number;
+  description: string;
+  detail?: string;
+  icon: React.ElementType;
+  color: string;
+  iconBg: string;
+  onOverview: () => void;
+  onNavigate: () => void;
+};
 
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            Dashboard
-          </h1>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Monitor customers, services, workforce and daily operations.
-          </p>
-        </div>
+function StatCard({
+  title,
+  value,
+  description,
+  detail,
+  icon: Icon,
+  color,
+  iconBg,
+  onOverview,
+  onNavigate,
+}: StatCardProps) {
+  return (
+    <article
+      className={`group flex min-h-[162px] min-w-0 flex-col rounded-xl border border-[#3a3a3a] border-t-[4px] ${color} bg-[#121212] p-4 transition-colors hover:bg-[#171717]`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8db5ee]">
+          {title}
+        </p>
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconBg}`}>
+          <Icon size={19} />
+        </span>
       </div>
 
-      {/* KPI cards */}
+      <p className="mt-[-2px] text-[29px] font-bold leading-tight tracking-tight text-white">
+        {value}
+      </p>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-
-          return (
-            <button
-              key={stat.title}
-              type="button"
-              onClick={() => openKpi(stat)}
-              aria-label={`View 10 records for ${stat.title}`}
-              className={`relative w-full cursor-pointer overflow-hidden rounded-xl border border-slate-200 border-t-4 ${stat.accent} bg-white p-4 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-bold uppercase leading-5 tracking-wide text-slate-500">
-                    {stat.title}
-                  </p>
-
-                  <p className="mt-1 text-3xl font-bold tracking-tight text-slate-900">
-                    {stat.value}
-                  </p>
-                </div>
-
-                <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${stat.iconBg} ${stat.iconColor}`}
-                >
-                  <Icon size={20} strokeWidth={2} />
-                </div>
-              </div>
-
-              <div className="mt-4 flex items-end justify-between gap-2">
-                <p className="text-xs leading-4 text-slate-500">
-                  {stat.description}
-                </p>
-
-                <span
-                  className={`shrink-0 text-[11px] font-bold ${stat.highlightColor}`}
-                >
-                  {stat.highlight}
-                </span>
-              </div>
-
-              <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-emerald-800">
-                <Eye size={14} />
-                View 
-                <ArrowRight size={13} className="ml-auto" />
-              </div>
-            </button>
-          );
-        })}
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pt-4">
+        <p className="text-xs text-[#91a9c9]">{description}</p>
+        {detail && <p className="text-[11px] font-semibold text-[#50d6aa]">{detail}</p>}
       </div>
 
-      {/* Service and attendance overview */}
-
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 lg:col-span-2">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">
-                Service Overview
-              </h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Current service workload
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => navigate("/admin/Services")}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-900"
-            >
-              View Details <ArrowRight size={14} />
-            </button>
-          </div>
-
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <OverviewItem
-              label="Pending"
-              value="64"
-              color="amber"
-            />
-
-            <OverviewItem
-              label="Scheduled"
-              value="92"
-              color="blue"
-            />
-
-            <OverviewItem
-              label="In Progress"
-              value="47"
-              color="orange"
-            />
-
-            <OverviewItem
-              label="Completed"
-              value="1,284"
-              color="emerald"
-            />
-          </div>
-        </div>
-
-        {/* Attendance */}
-
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-              <Users size={19} />
-            </div>
-
-            <div>
-              <h2 className="text-base font-bold text-slate-900">
-                Attendance
-              </h2>
-              <p className="text-xs text-slate-500">
-                Today&apos;s workforce
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <div className="flex items-end justify-between">
-              <div>
-                <p className="text-3xl font-bold text-slate-900">94.8%</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Overall attendance
-                </p>
-              </div>
-
-              <span className="text-xs font-bold text-emerald-600">
-                +2.4%
-              </span>
-            </div>
-
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-emerald-600"
-                style={{ width: "94.8%" }}
-              />
-            </div>
-
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-              <AttendanceCount value="82" label="Present" />
-              <AttendanceCount value="3" label="Late" />
-              <AttendanceCount value="1" label="Absent" />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => navigate("/admin/Attendance")}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"
-            >
-              Go to Attendance <ArrowRight size={15} />
-            </button>
-          </div>
-        </div>
+      <div className="mt-4 flex items-center justify-between text-xs font-semibold text-[#62d9b0]">
+        <button
+          type="button"
+          onClick={onOverview}
+          aria-label={`View ${title} overview`}
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#62d9b0]"
+        >
+          <Eye size={14} />
+          Overview
+        </button>
+        <button
+          type="button"
+          onClick={onNavigate}
+          aria-label={`Go to ${title} page`}
+          title={`Open ${title}`}
+          className="rounded p-1 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#62d9b0]"
+        >
+          <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
+        </button>
       </div>
+    </article>
+  );
+}
 
-      {/* Recent activity */}
+function StatOverviewModal({
+  title,
+  rows,
+  loading,
+  onClose,
+  onNavigate,
+  pageLabel,
+}: {
+  title: string;
+  rows: unknown[];
+  loading: boolean;
+  onClose: () => void;
+  onNavigate: () => void;
+  pageLabel: string;
+}) {
+  const columns = [
+    {
+      label: "Name / Reference",
+      render: (row: unknown) =>
+        getText(row, ["name", "fullName", "customerName", "employeeName", "title", "reference", "bookingNo", "enquiryNo", "employeeNo", "id"]),
+    },
+    {
+      label: "Details",
+      render: (row: unknown) =>
+        getText(row, ["email", "phone", "serviceName", "service", "category", "description", "hours", "duration"]),
+    },
+    {
+      label: "Status",
+      render: (row: unknown) => {
+        const status = getText(row, ["status", "bookingStatus", "enquiryStatus", "approvalStatus", "attendanceStatus"], "");
+        return status ? <StatusBadge status={status} /> : "—";
+      },
+    },
+    {
+      label: "Date",
+      render: (row: unknown) =>
+        formatDate(getText(row, ["createdAt", "date", "bookingDate", "scheduledDate", "joiningDate", "checkIn"], "—")),
+    },
+  ];
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <div className="flex items-center justify-between">
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-3 sm:p-6"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="stat-overview-title"
+        className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-xl border border-[#3b3b3b] bg-[#121212] shadow-2xl"
+      >
+        <header className="flex items-center justify-between gap-4 border-b border-[#292929] p-5">
           <div>
-            <h2 className="text-base font-bold text-slate-900">
-              Recent Activity
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              Latest updates from your operations
+            <h2 id="stat-overview-title" className="text-lg font-bold text-white">{title}</h2>
+            <p className="mt-1 text-xs text-[#8fa8cb]">
+              Showing up to 10 records 
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close overview"
+            className="rounded-lg border border-[#383838] px-3 py-2 text-sm text-slate-300 hover:bg-[#242424]"
+          >
+            ✕
+          </button>
+        </header>
+
+        <div className="max-h-[calc(90vh-160px)] overflow-y-auto p-4 sm:p-5">
+          <DashboardTable
+            columns={columns}
+            rows={rows.slice(0, 10)}
+            loading={loading}
+            emptyMessage={`No ${title.toLowerCase()} records are available from the API.`}
+          />
+        </div>
+
+        <footer className="flex flex-col-reverse gap-3 border-t border-[#292929] p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <p className="text-xs text-[#8fa8cb]">{Math.min(rows.length, 10)} record(s) shown</p>
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-[#3b3b3b] px-4 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:bg-[#242424]"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={onNavigate}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#008f60] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#00a873]"
+            >
+              Go to {pageLabel} <ArrowRight size={15} />
+            </button>
+          </div>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function PanelHeading({
+  title,
+  subtitle,
+  icon: Icon,
+}: {
+  title: string;
+  subtitle: string;
+  icon: React.ElementType;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#14241f] text-[#49d3a5]">
+        <Icon size={19} />
+      </span>
+
+      <div className="min-w-0">
+        <h2 className="text-sm font-bold text-white">{title}</h2>
+        <p className="mt-1 text-xs text-[#8ca3c2]">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex min-h-24 flex-col items-center justify-center gap-2 px-4 py-6 text-center">
+      <ClipboardList size={23} className="text-slate-600" />
+      <p className="text-sm text-slate-400">{message}</p>
+    </div>
+  );
+}
+
+function DashboardTable({
+  columns,
+  rows,
+  loading,
+  emptyMessage,
+}: {
+  columns: {
+    label: string;
+    render: (row: unknown) => React.ReactNode;
+  }[];
+  rows: unknown[];
+  loading: boolean;
+  emptyMessage: string;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-400">
+        <LoaderCircle size={17} className="animate-spin" />
+        Loading records...
+      </div>
+    );
+  }
+
+  if (rows.length === 0) {
+    return <EmptyState message={emptyMessage} />;
+  }
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <table className="w-full min-w-[540px] text-left">
+        <thead>
+          <tr className="border-y border-[#292929] bg-[#171717]">
+            {columns.map((column) => (
+              <th
+                key={column.label}
+                className="whitespace-nowrap px-4 py-3 text-[10px] font-semibold uppercase tracking-wide text-[#91a9c9]"
+              >
+                {column.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+
+        <tbody className="divide-y divide-[#292929]">
+          {rows.map((row, index) => (
+            <tr
+              key={getText(row, ["id", "reference", "employeeNo"], String(index))}
+              className="transition-colors hover:bg-[#191919]"
+            >
+              {columns.map((column) => (
+                <td
+                  key={column.label}
+                  className="px-4 py-3.5 text-sm text-[#b9c5d6]"
+                >
+                  {column.render(row)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export default function AdminDashboard() {
+  const vm = useAdminDashboardViewModel();
+  const navigate = useNavigate();
+  const [selectedOverview, setSelectedOverview] = useState<{
+    title: string;
+    rows: unknown[];
+    path: string;
+    pageLabel: string;
+  } | null>(null);
+
+  const { stats, loading, errors, hasErrors } = vm;
+  const optionalData = vm as typeof vm & Record<string, unknown>;
+  const asRecords = (value: unknown): unknown[] => Array.isArray(value) ? value : [];
+  const employeeRecords = asRecords(optionalData.employees ?? optionalData.employeeRecords);
+  const attendanceRecords = asRecords(optionalData.attendance ?? optionalData.attendanceRecords);
+
+  const attendancePercentage =
+    stats.attendanceCount > 0
+      ? Math.round((stats.present / stats.attendanceCount) * 1000) / 10
+      : 0;
+
+  const statCards = [
+    {
+      title: "Total Customers",
+      value: stats.totalCustomers,
+      description: "Customer accounts",
+      detail: `${formatNumber(stats.activeCustomers)} active`,
+      icon: Users,
+      color: "border-t-[#568a76]",
+      iconBg: "bg-[#22242b] text-[#c8a1ff]",
+    },
+    {
+      title: "New Enquiries",
+      value: stats.totalEnquiries,
+      description: "Enquiries received",
+      detail: `${formatNumber(stats.pendingEnquiries)} pending`,
+      icon: UserRoundPlus,
+      color: "border-t-[#5969bf]",
+      iconBg: "bg-[#22242b] text-[#a9b5ff]",
+    },
+    {
+      title: "Service Requests",
+      value: stats.totalBookings,
+      description: "Total service bookings",
+      detail: `${formatNumber(stats.pendingBookings)} pending`,
+      icon: ClipboardList,
+      color: "border-t-[#884cc2]",
+      iconBg: "bg-[#29232e] text-[#df8cff]",
+    },
+    {
+      title: "Pending Services",
+      value: stats.pendingBookings,
+      description: "Bookings awaiting action",
+      detail: undefined,
+      icon: AlertCircle,
+      color: "border-t-[#b77900]",
+      iconBg: "bg-[#292317] text-[#ff9b30]",
+    },
+    {
+      title: "Scheduled Services",
+      value: stats.scheduledBookings,
+      description: "Scheduled bookings",
+      detail: undefined,
+      icon: CalendarClock,
+      color: "border-t-[#00839d]",
+      iconBg: "bg-[#15282c] text-[#43c6e9]",
+    },
+    {
+      title: "In-Progress Works",
+      value: stats.inProgressBookings,
+      description: "Bookings in progress",
+      detail: undefined,
+      icon: Wrench,
+      color: "border-t-[#d34200]",
+      iconBg: "bg-[#2b211a] text-[#ff8c42]",
+    },
+    {
+      title: "Completed Works",
+      value: stats.completedBookings,
+      description: "Completed bookings",
+      detail: undefined,
+      icon: CheckCircle2,
+      color: "border-t-[#008f50]",
+      iconBg: "bg-[#142820] text-[#4ed6a0]",
+    },
+    {
+      title: "Employees",
+      value: stats.totalEmployees,
+      description: "Employee records in Redux",
+      detail: undefined,
+      icon: Users,
+      color: "border-t-[#0085c7]",
+      iconBg: "bg-[#19252d] text-[#5ab8ff]",
+    },
+    {
+      title: "Attendance Summary",
+      value: `${attendancePercentage}%`,
+      description: "Present among returned records",
+      detail: `${formatNumber(stats.present)} present`,
+      icon: TrendingUp,
+      color: "border-t-[#008c4b]",
+      iconBg: "bg-[#172a23] text-[#4ed6a0]",
+    },
+    {
+      title: "Overtime Summary",
+      value: formatNumber(stats.pendingOvertime),
+      description: "Overtime requests pending",
+      detail: undefined,
+      icon: Timer,
+      color: "border-t-[#a71946]",
+      iconBg: "bg-[#2a1c23] text-[#ff6b87]",
+    },
+  ];
+
+  const cardDestinations: Record<string, { path: string; pageLabel: string }> = {
+    "Total Customers": { path: "/admin/Customers", pageLabel: "Customers" },
+    "New Enquiries": { path: "/admin/Enquiries", pageLabel: "Enquiries" },
+    "Service Requests": { path: "/admin/Services", pageLabel: "Service Requests" },
+    "Pending Services": { path: "/admin/Services?status=pending", pageLabel: "Pending Services" },
+    "Scheduled Services": { path: "/admin/Services?status=scheduled", pageLabel: "Scheduled Services" },
+    "In-Progress Works": { path: "/admin/Services?status=in-progress", pageLabel: "In-Progress Works" },
+    "Completed Works": { path: "/admin/Services?status=completed", pageLabel: "Completed Works" },
+    Employees: { path: "/admin/Employees", pageLabel: "Employees" },
+    "Attendance Summary": { path: "/admin/Attendance", pageLabel: "Attendance" },
+    "Overtime Summary": { path: "/admin/Overtime", pageLabel: "Overtime" },
+  };
+
+  const getRowsForCard = (title: string): unknown[] => {
+    const statusOf = (row: unknown) => normalizeStatus(
+      getText(row, ["status", "bookingStatus", "enquiryStatus", "approvalStatus", "attendanceStatus"], ""),
+    );
+    switch (title) {
+      case "Total Customers": return vm.customers;
+      case "New Enquiries": return vm.enquiries;
+      case "Service Requests": return vm.bookings;
+      case "Pending Services": return vm.bookings.filter((row) => ["pending", "new", "requested"].includes(statusOf(row)));
+      case "Scheduled Services": return vm.bookings.filter((row) => statusOf(row) === "scheduled");
+      case "In-Progress Works": return vm.bookings.filter((row) => ["in progress", "inprogress", "started"].includes(statusOf(row)));
+      case "Completed Works": return vm.bookings.filter((row) => statusOf(row) === "completed");
+      case "Employees": return employeeRecords;
+      case "Attendance Summary": return attendanceRecords;
+      case "Overtime Summary": return vm.overtime;
+      default: return [];
+    }
+  };
+
+  const bookingStats = [
+    {
+      label: "Pending",
+      value: stats.pendingBookings,
+      text: "text-[#ff8c42]",
+      bg: "bg-[#272114]",
+    },
+    {
+      label: "Scheduled",
+      value: stats.scheduledBookings,
+      text: "text-[#a6b4ff]",
+      bg: "bg-[#20242c]",
+    },
+    {
+      label: "In Progress",
+      value: stats.inProgressBookings,
+      text: "text-[#ff824d]",
+      bg: "bg-[#292119]",
+    },
+    {
+      label: "Completed",
+      value: stats.completedBookings,
+      text: "text-[#4ed6a0]",
+      bg: "bg-[#172820]",
+    },
+  ];
+
+  return (
+    <main className="min-h-screen bg-[#1e2223] px-1 py-1 text-white">
+      <div className="w-full space-y-6">
+        {/* Page heading */}
+        <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+          <div>
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[#42d6a0]">
+              Operations Overview
+            </p>
+
+            <h1 className="text-3xl font-bold tracking-tight text-white">
+              Dashboard
+            </h1>
+
+            <p className="mt-1 text-sm text-[#8fa8cb]">
+              Monitor customers, services, workforce and daily operations.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => navigate("/admin/Services")}
-            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800"
-          >
-            View All
-          </button>
-        </div>
+          {/* <div className="flex items-center gap-2 self-start rounded-lg border border-[#383c3d] bg-[#171a1b] px-3 py-2 text-xs text-[#9eafc5] sm:self-auto">
+            {loading ? (
+              <LoaderCircle
+                size={15}
+                className="animate-spin text-[#42d6a0]"
+              />
+            ) : (
+              <Activity size={15} className="text-[#42d6a0]" />
+            )}
+            {loading ? "Loading API data..." : "Live API data"}
+          </div> */}
+        </header>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <ActivityItem
-            title="New service request received"
-            description="A customer submitted a service request."
-            time="5 minutes ago"
-            icon={ClipboardList}
-          />
-
-          <ActivityItem
-            title="Work order completed"
-            description="A work order was completed by the field team."
-            time="18 minutes ago"
-            icon={CheckCircle2}
-          />
-
-          <ActivityItem
-            title="New customer registered"
-            description="A new customer account was created."
-            time="32 minutes ago"
-            icon={UserPlus}
-          />
-
-          <ActivityItem
-            title="Technician check-in"
-            description="A technician checked in at the assigned site."
-            time="45 minutes ago"
-            icon={Wrench}
-          />
-        </div>
-      </div>
-
-      {/* KPI records popup */}
-
-      {selectedStat && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-3 sm:p-6"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeKpi();
-          }}
-        >
-          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-            {/* Popup header */}
-
-            <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5 sm:p-6">
-              <div className="flex items-start gap-3">
-                <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${selectedStat.iconBg} ${selectedStat.iconColor}`}
-                >
-                  {(() => {
-                    const Icon = selectedStat.icon;
-                    return <Icon size={22} />;
-                  })()}
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900 sm:text-xl">
-                    {selectedStat.title}
-                  </h2>
-
-                  <p className="mt-1 text-sm text-slate-500">
-                    Showing 10 preview records · Total: {selectedStat.value}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={closeKpi}
-                aria-label="Close popup"
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Popup summary */}
-
-            <div className="grid grid-cols-2 gap-3 border-b border-slate-100 bg-slate-50 p-5 sm:grid-cols-3">
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <p className="text-xs text-slate-500">Total</p>
-                <p className="mt-1 text-xl font-bold text-slate-900">
-                  {selectedStat.value}
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <p className="text-xs text-slate-500">Preview records</p>
-                <p className="mt-1 text-xl font-bold text-slate-900">
-                  10
-                </p>
-              </div>
-
-              <div className="col-span-2 rounded-lg border border-slate-200 bg-white p-3 sm:col-span-1">
-                <p className="text-xs text-slate-500">Category</p>
-                <p className="mt-1 truncate text-sm font-bold text-emerald-800">
-                  {selectedStat.title}
-                </p>
-              </div>
-            </div>
-
-            {/* Search records */}
-
-            <div className="border-b border-slate-100 p-4 sm:px-6">
-              <div className="relative max-w-sm">
-                <Search
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-
-                <input
-                  value={recordSearch}
-                  onChange={(event) => setRecordSearch(event.target.value)}
-                  placeholder="Search these records..."
-                  className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-                />
-              </div>
-            </div>
-
-            {/* Records table */}
-
-            <div className="min-h-0 flex-1 overflow-auto">
-              <table className="w-full min-w-[650px] text-left">
-                <thead className="sticky top-0 bg-slate-50">
-                  <tr className="text-xs uppercase tracking-wide text-slate-500">
-                    <th className="px-5 py-3 font-semibold">Record ID</th>
-                    <th className="px-5 py-3 font-semibold">Name</th>
-                    <th className="px-5 py-3 font-semibold">Details</th>
-                    <th className="px-5 py-3 font-semibold">Status</th>
-                    <th className="px-5 py-3 font-semibold">Date</th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-100">
-                  {selectedRecords.map((record) => (
-                    <tr
-                      key={record.id}
-                      className="transition hover:bg-slate-50"
-                    >
-                      <td className="whitespace-nowrap px-5 py-4 text-sm font-semibold text-emerald-800">
-                        {record.id}
-                      </td>
-
-                      <td className="whitespace-nowrap px-5 py-4 text-sm font-medium text-slate-800">
-                        {record.name}
-                      </td>
-
-                      <td className="px-5 py-4 text-sm text-slate-600">
-                        {record.detail}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                            statusStyles[record.status] ||
-                            "bg-slate-100 text-slate-700"
-                          }`}
-                        >
-                          {record.status}
-                        </span>
-                      </td>
-
-                      <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-500">
-                        {record.date}
-                      </td>
-                    </tr>
+        {/* API errors */}
+        {hasErrors && (
+          <div className="rounded-xl border border-amber-800 bg-[#2b2518] p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle
+                size={20}
+                className="mt-0.5 shrink-0 text-amber-400"
+              />
+              <div>
+                <h2 className="text-sm font-semibold text-amber-300">
+                  Some dashboard data could not be loaded
+                </h2>
+                <ul className="mt-2 space-y-1 text-sm text-amber-200">
+                  {errors.map((error, index) => (
+                    <li key={`${error}-${index}`}>{error}</li>
                   ))}
-
-                  {selectedRecords.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="px-5 py-12 text-center text-sm text-slate-500"
-                      >
-                        No records match your search.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Popup footer and allocated page button */}
-
-            <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-              <p className="text-xs text-slate-500">
-                Showing {selectedRecords.length} of 10 preview records
-              </p>
-
-              <div className="flex flex-col-reverse gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={closeKpi}
-                  className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-                >
-                  Close
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => navigate(selectedStat.path)}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-900"
-                >
-                  {selectedStat.title}
-                  <ArrowRight size={16} />
-                </button>
+                </ul>
               </div>
             </div>
           </div>
+        )}
+
+        {/* KPI cards */}
+        <section aria-label="Operations statistics">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {statCards.map((card) => {
+              const destination = cardDestinations[card.title];
+              return (
+                <StatCard
+                  key={card.title}
+                  {...card}
+                  onOverview={() => setSelectedOverview({
+                    title: card.title,
+                    rows: getRowsForCard(card.title),
+                    path: destination.path,
+                    pageLabel: destination.pageLabel,
+                  })}
+                  onNavigate={() => navigate(destination.path)}
+                />
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Service and attendance overview */}
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+          <section className="min-w-0 rounded-xl border border-[#3b3b3b] bg-[#121212] p-5 xl:col-span-8">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-white">
+                  Service Overview
+                </h2>
+                <p className="mt-1 text-xs text-[#8fa8cb]">
+                  Current service workload
+                </p>
+              </div>
+
+              <span className="flex items-center gap-1 text-xs font-semibold text-[#52d8b0]">
+                <button
+                  type="button"
+                  onClick={() => navigate("/admin/Services")}
+                  aria-label="Go to Service Management"
+                  className="flex cursor-pointer items-center gap-1 rounded text-xs font-semibold text-[#52d8b0] hover:text-[#7ce8c6] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#62d9b0]"
+                >
+                  {formatNumber(stats.totalBookings)} total bookings
+                  <ArrowRight
+                    size={14}
+                    className="transition-transform hover:translate-x-1"
+                  />
+                </button>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+              {bookingStats.map((item) => (
+                <div
+                  key={item.label}
+                  className={`rounded-lg p-4 ${item.bg}`}
+                >
+                  <p className={`text-xs font-medium ${item.text}`}>
+                    {item.label}
+                  </p>
+                  <p className={`mt-2 text-2xl font-bold ${item.text}`}>
+                    {formatNumber(item.value)}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 border-t border-[#2e2e2e] pt-5">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-xs text-[#a6b5c9]">
+                  Completed booking share
+                </p>
+                <p className="text-xs font-semibold text-[#4ed6a0]">
+                  {stats.totalBookings > 0
+                    ? `${Math.round(
+                        (stats.completedBookings / stats.totalBookings) *
+                          100,
+                      )}%`
+                    : "0%"}
+                </p>
+              </div>
+
+              <div
+                className="h-2 overflow-hidden rounded-full bg-[#292929]"
+                role="progressbar"
+                aria-label="Completed booking share"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={
+                  stats.totalBookings > 0
+                    ? Math.min(
+                        100,
+                        Math.round(
+                          (stats.completedBookings / stats.totalBookings) *
+                            100,
+                        ),
+                      )
+                    : 0
+                }
+              >
+                <div
+                  className="h-full rounded-full bg-[#008f60] transition-all"
+                  style={{
+                    width: `${
+                      stats.totalBookings > 0
+                        ? Math.min(
+                            100,
+                            (stats.completedBookings / stats.totalBookings) *
+                              100,
+                          )
+                        : 0
+                    }%`,
+                  }}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="min-w-0 rounded-xl border border-[#3b3b3b] bg-[#121212] p-5 xl:col-span-4">
+            <div className="flex items-start justify-between gap-3">
+              <PanelHeading
+                title="Attendance"
+                subtitle="Workforce records returned by the API"
+                icon={Users}
+              />
+
+              <button
+                type="button"
+                onClick={() => navigate("/admin/Attendance")}
+                title="Go to Attendance"
+                aria-label="Go to attendance page"
+                className="cursor-pointer rounded p-1 text-[#52d8b0] hover:text-[#7ce8c6] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#62d9b0]"
+              >
+                <ArrowRight
+                  size={15}
+                  className="transition-transform hover:translate-x-1"
+                />
+              </button>
+            </div>
+            <div className="mt-6">
+              <p className="text-3xl font-bold text-white">
+                {attendancePercentage}%
+              </p>
+              <p className="mt-1 text-xs text-[#8fa8cb]">
+                Present among returned attendance records
+              </p>
+            </div>
+
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#292929]">
+              <div
+                className="h-full rounded-full bg-[#009b68] transition-all"
+                style={{ width: `${attendancePercentage}%` }}
+              />
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              {[
+                {
+                  label: "Present",
+                  value: stats.present,
+                  color: "text-[#4ed6a0]",
+                },
+                {
+                  label: "Late",
+                  value: stats.late,
+                  color: "text-[#ffc36b]",
+                },
+                {
+                  label: "Absent",
+                  value: stats.absent,
+                  color: "text-[#ff7188]",
+                },
+                {
+                  label: "On Leave",
+                  value: stats.onLeave,
+                  color: "text-[#79bfff]",
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-lg border border-[#292929] bg-[#181818] p-3"
+                >
+                  <p className="text-xs text-[#9eafc5]">{item.label}</p>
+                  <p className={`mt-1 text-xl font-bold ${item.color}`}>
+                    {formatNumber(item.value)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
+
+        <footer className="flex flex-col gap-2 border-t border-[#343839] py-4 text-xs text-[#8191a5] sm:flex-row sm:items-center sm:justify-between">
+          <p>Operations Overview · Admin Dashboard</p>
+        </footer>
+      </div>
+
+      {selectedOverview && (
+        <StatOverviewModal
+          title={selectedOverview.title}
+          rows={selectedOverview.rows}
+          loading={loading}
+          pageLabel={selectedOverview.pageLabel}
+          onClose={() => setSelectedOverview(null)}
+          onNavigate={() => {
+            const destination = selectedOverview.path;
+            setSelectedOverview(null);
+            navigate(destination);
+          }}
+        />
       )}
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Reusable components                                                         */
-/* -------------------------------------------------------------------------- */
-
-function OverviewItem({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string;
-  color: "amber" | "blue" | "orange" | "emerald";
-}) {
-  const colorStyles = {
-    amber: "bg-amber-50 text-amber-700",
-    blue: "bg-blue-50 text-blue-700",
-    orange: "bg-orange-50 text-orange-700",
-    emerald: "bg-emerald-50 text-emerald-700",
-  };
-
-  return (
-    <button
-      type="button"
-      className={`rounded-lg p-4 text-left transition hover:ring-2 hover:ring-emerald-200 ${colorStyles[color]}`}
-    >
-      <p className="text-xs">{label}</p>
-      <p className="mt-1 text-2xl font-bold">{value}</p>
-    </button>
-  );
-}
-
-function AttendanceCount({
-  value,
-  label,
-}: {
-  value: string;
-  label: string;
-}) {
-  return (
-    <div>
-      <p className="text-lg font-bold text-slate-900">{value}</p>
-      <p className="text-[10px] text-slate-500">{label}</p>
-    </div>
-  );
-}
-
-interface ActivityItemProps {
-  title: string;
-  description: string;
-  time: string;
-  icon: ElementType;
-}
-
-function ActivityItem({
-  title,
-  description,
-  time,
-  icon: Icon,
-}: ActivityItemProps) {
-  return (
-    <div className="flex gap-3 rounded-lg border border-slate-100 bg-slate-50 p-4">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-emerald-700 shadow-sm">
-        <Icon size={17} />
-      </div>
-
-      <div className="min-w-0">
-        <p className="text-xs font-semibold text-slate-800">{title}</p>
-        <p className="mt-1 text-[11px] leading-4 text-slate-500">
-          {description}
-        </p>
-        <p className="mt-2 text-[10px] text-slate-400">{time}</p>
-      </div>
-    </div>
+    </main>
   );
 }
