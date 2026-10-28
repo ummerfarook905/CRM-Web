@@ -145,7 +145,7 @@ export function useServiceManagementViewModel() {
 
   // Booking actions
   const handleBookingUpdate = async (
-    id: number,
+    id: string,
     updates: Partial<Booking>
   ) => {
     try {

@@ -67,8 +67,8 @@ export default function Login() {
   };
 
   const fillManagerCredentials = () => {
-    setEmail("manager@example.com");
-    setPassword("manager123");
+    setEmail("manager@specterra.com");
+    setPassword("ChangeMe@12345");
     dispatch(clearAuthError());
   };
 
