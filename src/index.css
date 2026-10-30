@@ -3,6 +3,7 @@
 @layer base {
   body {
     @apply bg-[#f1f4f8] text-slate-900;
+    font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
   }
 
   a,
@@ -92,6 +93,184 @@
   backface-visibility: hidden;
 }
 
+.login-reference-page {
+  background: #f8fbfa;
+  font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (min-width: 1024px) {
+  .login-reference-page { height: 100vh; height: 100svh; min-height: 0; overflow: hidden; }
+  .login-showcase,
+  .login-form-side { height: 100%; min-height: 0; }
+  .login-showcase > .relative { max-height: 100%; }
+  .login-card { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+  .login-card .login-input-wrap { min-height: 48px; }
+  .login-card .login-submit { min-height: 54px; }
+}
+
+.login-showcase {
+  background: radial-gradient(ellipse at 72% 14%, rgb(29 179 145 / 62%), transparent 42%),
+    radial-gradient(ellipse at 15% 85%, rgb(0 167 128 / 74%), transparent 42%),
+    linear-gradient(145deg, #087568 0%, #006b5a 48%, #075b50 100%);
+}
+
+.login-showcase::before,
+.login-showcase::after {
+  position: absolute;
+  z-index: -1;
+  width: 390px;
+  height: 390px;
+  border: 1px solid rgb(207 255 239 / 14%);
+  border-radius: 50%;
+  content: "";
+}
+
+.login-showcase::before { top: 55px; right: -245px; }
+.login-showcase::after { bottom: -230px; left: -190px; }
+
+.showcase-orb { position: absolute; z-index: -1; border-radius: 50%; background: rgb(43 218 173 / 8%); filter: blur(1px); }
+.showcase-orb-one { width: 380px; height: 380px; top: 32%; right: -260px; }
+.showcase-orb-two { width: 260px; height: 260px; bottom: 8%; left: -180px; }
+
+.spectera-logo-wrap { display: flex; width: min(100%, 300px); height: 112px; align-items: center; justify-content: center; overflow: hidden; border-radius: 14px; background: #fff; }
+.spectera-logo-image { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 53%; }
+.spectera-logo-inverse { width: 230px; height: 82px; border: 1px solid rgb(255 255 255 / 45%); box-shadow: 0 10px 30px rgb(0 35 32 / 18%); }
+.preview-sidebar .spectera-logo-wrap { width: 100%; height: 28px; border-radius: 4px; }
+.nextradev-credit { min-height: 52px; }
+.nextradev-logo-highlight { display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgb(5 150 105 / 22%); border-radius: 10px; padding: 3px 7px; background: white; box-shadow: 0 3px 10px rgb(5 150 105 / 14%); }
+.nextradev-logo-highlight img { display: block; width: 112px; height: 42px; object-fit: contain; }
+.brand-mark { position: relative; flex: none; overflow: hidden; border-radius: 22%; background: linear-gradient(145deg,#fff,#f7fbff); box-shadow: 0 12px 28px rgb(2 51 58 / 15%); }
+.brand-mark img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: left center; }
+.brand-mark-large { width: 66px; height: 66px; }
+.brand-mark-card { width: 74px; height: 74px; border-radius: 17px; }
+
+.feature-tile { border: 1px solid rgb(230 255 247 / 15%); background: rgb(255 255 255 / 5%); box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%); backdrop-filter: blur(10px); }
+.feature-icon { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 14px; color: white; box-shadow: 0 8px 18px rgb(0 0 0 / 12%); }
+.feature-icon-emerald { background: linear-gradient(145deg,#10c98b,#009b75); }
+.feature-icon-blue { background: linear-gradient(145deg,#3b9bff,#2674e8); }
+.feature-icon-violet { background: linear-gradient(145deg,#aa62f5,#7943df); }
+.feature-icon-orange { background: linear-gradient(145deg,#ffac32,#f47716); }
+
+.dashboard-preview { display: grid; grid-template-columns: 29% 1fr; overflow: hidden; min-height: 205px; border: 7px solid rgb(255 255 255 / 78%); border-radius: 22px; color: #152536; background: #fff; box-shadow: 0 18px 35px rgb(0 28 36 / 25%); transform: rotate(-4deg) translateY(12px); transform-origin: center top; }
+.preview-sidebar { padding: 14px 9px; background: #f7fafb; font-size: 8px; }
+.preview-mini-logo { position: relative; display: inline-block; width: 20px; height: 20px; overflow: hidden; border-radius: 6px; }
+.preview-mini-logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: left center; }
+.preview-nav { margin-top: 11px; padding: 6px; color: #536577; }
+.preview-nav.active { border-radius: 6px; color: white; background: #079877; }
+.preview-content { padding: 16px 14px; }
+.preview-content h3 { font-size: 14px; font-weight: 700; }
+.preview-content > p { margin-top: 2px; color: #718096; font-size: 7px; }
+.preview-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin-top: 14px; }
+.preview-stats span,.preview-activity { border: 1px solid #edf1f4; border-radius: 9px; padding: 9px; font-size: 12px; font-weight: 700; box-shadow: 0 3px 9px rgb(15 23 42 / 4%); }
+.preview-stats small { display: block; margin-top: 4px; color: #718096; font-size: 7px; font-weight: 400; }
+.preview-activity { margin-top: 8px; font-size: 8px; }
+.preview-activity p { margin-top: 6px; color: #526174; font-size: 7px; font-weight: 400; }
+
+.login-form-side { background: radial-gradient(ellipse at 93% 5%, #e6fbf4 0, transparent 20%), #fbfcfd; }
+.login-blob { position: absolute; width: 300px; height: 220px; border-radius: 48% 52% 55% 45%; background: rgb(194 246 228 / 32%); transform: rotate(35deg); }
+.login-blob-top { top: -155px; right: -105px; }
+.login-blob-bottom { right: -150px; bottom: -150px; width: 370px; height: 250px; }
+
+.login-card {
+  animation: login-card-enter 520ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+.login-submit {
+  transform: translateY(0);
+  box-shadow: 0 5px 0 #075540, 0 12px 22px rgb(5 150 105 / 18%);
+  transition: transform 140ms ease, box-shadow 140ms ease,
+    background-color 140ms ease, opacity 140ms ease;
+}
+
+.login-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background-color: #07805f;
+  box-shadow: 0 7px 0 #075540, 0 16px 24px rgb(5 150 105 / 22%);
+}
+
+.login-submit:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #075540, 0 5px 10px rgb(15 23 42 / 16%);
+}
+
+.login-submit:focus-visible {
+  outline: 3px solid #f3aa58;
+  outline-offset: 4px;
+}
+
+.login-input-wrap {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  gap: 13px;
+  border: 1px solid #dbe2e9;
+  border-radius: 14px;
+  padding: 0 15px;
+  color: #718096;
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 2%);
+}
+.login-input-wrap:focus-within { border-color: #10a77e; box-shadow: 0 0 0 3px rgb(16 167 126 / 12%); }
+.login-input-wrap input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #102332; font-size: 14px; }
+.login-input-wrap input::placeholder { color: #9aa5b1; }
+.password-toggle { display: grid; flex: none; place-items: center; color: #718096; }
+.demo-button { min-height: 45px; border: 1px solid #dce4e9; border-radius: 12px; background: #fff; color: #405264; font-size: 13px; font-weight: 600; }
+.demo-button:hover { border-color: #8dd9c2; background: #f0fbf7; color: #08795f; }
+.login-submit:focus-visible { outline-color: #10b981; }
+
+@media (max-width: 1023px) {
+  .login-showcase { padding-left: max(1.75rem, calc((100% - 600px) / 2)); padding-right: max(1.75rem, calc((100% - 600px) / 2)); }
+  .dashboard-preview { max-width: 600px; }
+}
+
+@media (min-width: 1024px) and (max-height: 1000px) {
+  .dashboard-preview { display: none; }
+}
+
+@media (min-width: 1024px) and (max-height: 820px) {
+  .login-showcase { padding-top: 1.25rem; padding-bottom: 1.25rem; }
+  .login-showcase > .relative > div:nth-child(2) { margin-top: clamp(1rem, 3vh, 1.75rem); }
+  .login-showcase h1 { font-size: clamp(2rem, 4vh, 2.75rem); }
+  .login-showcase .feature-tile { padding: 0.65rem 0.8rem; }
+  .login-showcase .feature-icon { width: 36px; height: 36px; border-radius: 11px; }
+  .login-showcase .feature-icon svg { width: 19px; height: 19px; }
+  .login-showcase .feature-tile h2 { margin-top: 0.45rem; }
+  .login-showcase .feature-tile p { font-size: 11px; }
+  .login-showcase > .relative > div:nth-child(3) { margin-top: 1rem; gap: 0.6rem; }
+  .login-form-side { padding-top: 1rem; padding-bottom: 1rem; }
+  .login-form-side > div > p { margin-bottom: 0.75rem; }
+  .login-card { padding: 1.25rem 2rem; }
+  .login-card h2 { font-size: 1.6rem; }
+  .login-card .spectera-logo-wrap { height: 88px; }
+  .login-card .login-input-wrap { min-height: 44px; }
+  .login-card form { margin-top: 1rem; gap: 0.8rem; }
+  .login-card .login-submit { min-height: 48px; }
+  .login-card > div:nth-last-child(2) { margin-top: 0.85rem; margin-bottom: 0.85rem; }
+  .login-card > div:last-child { margin-top: 0.85rem; }
+}
+
+@media (max-width: 639px) {
+  .login-showcase { padding: 1.5rem 1.25rem 2rem; }
+  .brand-mark-large { width: 54px; height: 54px; }
+  .spectera-logo-inverse { width: 205px; height: 72px; }
+  .spectera-logo-wrap { height: 96px; }
+  .nextradev-logo-highlight img { width: 96px; height: 36px; }
+  .login-showcase > div > div:nth-child(2) { margin-top: 2.5rem; }
+  .feature-tile { padding: 12px; }
+  .feature-icon { width: 38px; height: 38px; }
+  .login-form-side { min-height: auto; padding-top: 2rem; padding-bottom: 2rem; }
+  .login-card { padding: 1.5rem; }
+}
+
+@keyframes login-card-enter {
+  from { opacity: 0; transform: translateY(16px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes login-parrot-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
 @keyframes book-page-open {
   from {
     opacity: 0;
@@ -107,4 +286,8 @@
   .book-page-open {
     animation: none;
   }
+  .login-card {
+    animation: none;
+  }
 }
+

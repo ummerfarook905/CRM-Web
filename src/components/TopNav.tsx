@@ -277,6 +277,7 @@ export default function TopNav({
           </button>
 
           {/* Notifications */}
+          {/* Notifications */}
           <div className="relative shrink-0">
             <button
               type="button"

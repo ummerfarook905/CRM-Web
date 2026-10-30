@@ -9,6 +9,12 @@ function App() {
 
   useEffect(() => {
     document.getElementById("initial-loader")?.setAttribute("hidden", "");
+    document.documentElement.classList.remove("dark");
+    try {
+      localStorage.removeItem("nextradev.theme");
+    } catch {
+      // Ignore unavailable local storage.
+    }
 
     const handleSessionUpdated = (event: Event) => {
       const detail = (event as CustomEvent<{ token: string; refreshToken: string }>).detail;

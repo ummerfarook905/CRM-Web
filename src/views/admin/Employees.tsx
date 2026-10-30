@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import type { EmployeeStatus } from "../../models/admin/Employee";
 import { useEmployeesViewModel } from "../../viewmodels/admin/UseEmployeesViewModel";
 
@@ -468,9 +469,9 @@ export default function Employees() {
       </div>
 
       {/* ADD / EDIT / VIEW MODAL */}
-      {modalMode && (
+      {modalMode && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/10 p-3 backdrop-blur-[2px] sm:p-6"
+          className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-slate-950/55 p-3 backdrop-blur-sm sm:items-center sm:p-6"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) closeModal();
           }}
@@ -479,10 +480,10 @@ export default function Employees() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="employee-modal-title"
-            className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            className="my-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
           >
             {/* MODAL HEADER */}
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
+            <div className="z-10 flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
               <div>
                 <h2
                   id="employee-modal-title"
@@ -514,7 +515,7 @@ export default function Employees() {
 
             {/* VIEW MODE */}
             {modalMode === "view" && selectedEmployee && (
-              <div className="p-5 sm:p-6">
+              <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
                 <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-xl font-bold text-emerald-800">
                     {getInitials(selectedEmployee.name)}
@@ -592,7 +593,7 @@ export default function Employees() {
 
             {/* ADD / EDIT FORM */}
             {(modalMode === "add" || modalMode === "edit") && (
-              <form onSubmit={handleSubmit} className="p-5 sm:p-6">
+              <form onSubmit={handleSubmit} className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField label="First Name" required>
                     <input
@@ -765,7 +766,8 @@ export default function Employees() {
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
