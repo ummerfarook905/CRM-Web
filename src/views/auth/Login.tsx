@@ -93,7 +93,6 @@ export default function Login() {
       <section className="login-form-side relative flex min-h-0 items-center justify-center overflow-hidden px-5 py-10 sm:px-10 lg:px-[clamp(1.25rem,4vw,3rem)] lg:py-6">
         <div className="login-blob login-blob-top" /><div className="login-blob login-blob-bottom" />
         <div className="relative z-10 w-full max-w-[526px]">
-          <p className="mb-5 text-right text-sm text-slate-500 sm:mb-6">Don’t have an account? <span className="ml-1 font-semibold text-emerald-700">Contact Admin</span></p>
           <div className="login-card rounded-[26px] bg-white px-7 py-7 shadow-[0_20px_70px_rgba(15,23,42,0.09)] sm:px-10 sm:py-8">
             <div className="mb-5 flex justify-center">
               <SpecteraLogo />
@@ -118,7 +117,7 @@ export default function Login() {
             <div className="grid grid-cols-2 gap-3"><button type="button" className="demo-button" onClick={() => fillDemo("admin")}>Admin demo</button><button type="button" className="demo-button" onClick={() => fillDemo("manager")}>Manager demo</button></div>
             <div className="mt-5 flex items-center justify-center gap-2 text-xs text-slate-500 sm:text-sm"><ShieldCheck size={19} className="text-slate-500" />Your data is secure and protected</div>
           </div>
-          <div className="nextradev-credit mt-3 flex items-center justify-center gap-2 text-xs text-slate-500 sm:justify-end"><span>Designed &amp; Developed by</span><span className="nextradev-logo-highlight"><img src="/nextradev-logo.svg" alt="Nextradev Technologies" /></span></div>
+          <div className="nextradev-credit mt-3 flex items-center justify-center gap-2 text-xs text-slate-500"><span>Designed &amp; Developed by</span><span className="nextradev-logo-highlight"><img src="/nextradev-logo.svg" alt="Nextradev Technologies" /></span></div>
         </div>
       </section>
     </main>
