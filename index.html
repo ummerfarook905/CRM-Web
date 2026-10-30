@@ -2,11 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/nextradev-logo.svg" sizes="any" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>crm-web</title>
+    <title>Nextradev</title>
+    <style>
+      #initial-loader { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; background: #fff; }
+      #initial-loader img { width: min(360px, 72vw); height: auto; }
+      #initial-loader[hidden] { display: none; }
+    </style>
   </head>
   <body>
+    <div id="initial-loader" aria-label="Loading Nextradev">
+      <img src="/nextradev-logo.svg" alt="Nextradev Technologies" />
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

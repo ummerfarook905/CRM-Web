@@ -1,7 +1,8 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Bell,
+  BellRing,
   HelpCircle,
   Menu,
   Plus,
@@ -18,6 +19,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { api } from "../api/axios";
 import AuthViewModel from "../viewmodels/auth/AuthViewModel";
 
 interface TopNavProps {
@@ -27,6 +29,36 @@ interface TopNavProps {
 }
 
 type ProfileMode = "view" | "edit" | null;
+
+interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+function apiErrorMessage(error: unknown): string {
+  if (typeof error === "object" && error !== null && "response" in error) {
+    const response = (error as { response?: { data?: { message?: unknown } } }).response;
+    if (typeof response?.data?.message === "string") return response.data.message;
+  }
+  return error instanceof Error ? error.message : "Unable to load notifications.";
+}
+
+function notificationTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function TopNav({
   role,
@@ -63,6 +95,83 @@ export default function TopNav({
 
   // Manager dropdown
   const [managerMenuOpen, setManagerMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  const [markingNotificationId, setMarkingNotificationId] = useState<string | null>(null);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
+
+  const loadUnreadCount = async () => {
+    try {
+      const response = await api.get("/notifications/unread-count");
+      const count = response.data?.data;
+      if (typeof count === "number" && Number.isFinite(count)) {
+        setUnreadCount(Math.max(0, count));
+      }
+    } catch {
+      // The list request will show an error when the panel is opened.
+    }
+  };
+
+  const loadNotifications = async () => {
+    setNotificationsLoading(true);
+    setNotificationsError(null);
+    try {
+      const [listResult, countResult] = await Promise.all([
+        api.get("/notifications", { params: { page: 1, limit: 20 } }),
+        api.get("/notifications/unread-count"),
+      ]);
+      const rows = listResult.data?.data;
+      if (!Array.isArray(rows)) throw new Error("Unexpected notifications response from the server.");
+      setNotifications(rows as NotificationItem[]);
+      const count = countResult.data?.data;
+      if (typeof count === "number" && Number.isFinite(count)) {
+        setUnreadCount(Math.max(0, count));
+      }
+    } catch (error) {
+      setNotificationsError(apiErrorMessage(error));
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  const markNotificationRead = async (notification: NotificationItem) => {
+    if (notification.isRead || markingNotificationId) return;
+    setMarkingNotificationId(notification.id);
+    setNotificationsError(null);
+    try {
+      await api.patch(`/notifications/${encodeURIComponent(notification.id)}/read`);
+      setNotifications((current) => current.map((item) =>
+        item.id === notification.id ? { ...item, isRead: true } : item,
+      ));
+      setUnreadCount((count) => Math.max(0, count - 1));
+    } catch (error) {
+      setNotificationsError(apiErrorMessage(error));
+    } finally {
+      setMarkingNotificationId(null);
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    if (unreadCount === 0 || markingAllRead) return;
+    setMarkingAllRead(true);
+    setNotificationsError(null);
+    try {
+      await api.patch("/notifications/read-all");
+      setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      setNotificationsError(apiErrorMessage(error));
+    } finally {
+      setMarkingAllRead(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadUnreadCount();
+  }, []);
 
   // Demo attendance state: resets on page refresh
   const [checkInTime, setCheckInTime] = useState<string | null>(null);
@@ -168,14 +277,88 @@ export default function TopNav({
           </button>
 
           {/* Notifications */}
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="relative shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-slate-100"
-          >
-            <Bell size={18} />
-            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-500" />
-          </button>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              aria-label="Notifications"
+              aria-expanded={notificationsOpen}
+              aria-controls="topnav-notifications"
+              onClick={() => {
+                const opening = !notificationsOpen;
+                setNotificationsOpen(opening);
+                setManagerMenuOpen(false);
+                if (opening) void loadNotifications();
+              }}
+              className={`relative rounded-lg p-2 transition ${notificationsOpen ? "bg-emerald-50 text-emerald-800" : "text-slate-500 hover:bg-slate-100"}`}
+            >
+              <Bell size={18} />
+              {unreadCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[9px] font-bold leading-none text-white ring-2 ring-white">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {notificationsOpen && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Close notifications"
+                  onClick={() => setNotificationsOpen(false)}
+                  className="fixed inset-0 z-40 cursor-default"
+                />
+                <section
+                  id="topnav-notifications"
+                  aria-label="Notifications"
+                  className="absolute right-0 top-full z-50 mt-3 w-80 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
+                    <div>
+                      <h2 className="text-sm font-bold text-slate-900">Notifications</h2>
+                      <p className="mt-0.5 text-xs text-slate-500">{unreadCount} unread</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {unreadCount > 0 && <button type="button" onClick={() => void markAllNotificationsRead()} disabled={markingAllRead} className="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50">{markingAllRead ? "Marking…" : "Mark all read"}</button>}
+                      <button type="button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"><X size={17} /></button>
+                    </div>
+                  </div>
+                  {notificationsError && <div role="alert" className="m-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{notificationsError}<button type="button" onClick={() => void loadNotifications()} className="ml-2 font-semibold underline">Retry</button></div>}
+                  {notificationsLoading ? (
+                    <p role="status" className="px-5 py-10 text-center text-sm text-slate-500">Loading notifications…</p>
+                  ) : notifications.length > 0 ? (
+                    <ul className="max-h-[min(60vh,28rem)] divide-y divide-slate-100 overflow-y-auto">
+                      {notifications.map((notification) => (
+                        <li key={notification.id}>
+                          <button type="button" onClick={() => void markNotificationRead(notification)} disabled={notification.isRead || markingNotificationId === notification.id} className={`w-full px-4 py-3 text-left transition hover:bg-slate-50 disabled:cursor-default ${notification.isRead ? "bg-white" : "bg-emerald-50/60"}`}>
+                            <div className="flex items-start gap-3">
+                              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${notification.isRead ? "bg-slate-200" : "bg-emerald-600"}`} />
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-start justify-between gap-2">
+                                  <span className="text-xs font-bold text-slate-900">{notification.title}</span>
+                                  <span className="shrink-0 text-[10px] text-slate-400">{notificationTime(notification.createdAt)}</span>
+                                </span>
+                                <span className="mt-1 block text-xs leading-5 text-slate-600">{notification.message}</span>
+                                {notification.type && <span className="mt-1.5 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">{notification.type.replaceAll("_", " ")}</span>}
+                              </span>
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="px-5 py-8 text-center">
+                      <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><BellRing size={20} /></span>
+                      <p className="mt-3 text-sm font-semibold text-slate-800">You’re all caught up</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">New workspace notifications will appear here.</p>
+                    </div>
+                  )}
+                  {!notificationsLoading && notifications.length > 0 && (
+                    <div className="border-t border-slate-100 px-4 py-2 text-center text-[10px] text-slate-400">Showing the latest {notifications.length} notifications</div>
+                  )}
+                </section>
+              </>
+            )}
+          </div>
 
           {/* Help */}
           <button

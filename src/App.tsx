@@ -8,6 +8,8 @@ function App() {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
+    document.getElementById("initial-loader")?.setAttribute("hidden", "");
+
     const handleSessionUpdated = (event: Event) => {
       const detail = (event as CustomEvent<{ token: string; refreshToken: string }>).detail;
       if (detail?.token && detail.refreshToken) dispatch(sessionRefreshed(detail));
