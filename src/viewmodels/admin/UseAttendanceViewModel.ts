@@ -31,8 +31,8 @@ export function useAttendanceViewModel() {
     useState<AttendanceRecord | null>(null);
 
   useEffect(() => {
-    void dispatch(fetchAttendance());
-  }, [dispatch]);
+    void dispatch(fetchAttendance(selectedDate));
+  }, [dispatch, selectedDate]);
 
   const departments = useMemo(
     () =>
@@ -103,7 +103,7 @@ export function useAttendanceViewModel() {
   }
 
   function refreshAttendance() {
-    return dispatch(fetchAttendance());
+    return dispatch(fetchAttendance(selectedDate));
   }
 
   return {

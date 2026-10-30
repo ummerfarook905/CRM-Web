@@ -3,7 +3,9 @@ export type AttendanceStatus =
   | "Present"
   | "Absent"
   | "Late"
-  | "On Leave";
+  | "On Leave"
+  | "Half Day"
+  | "Unknown";
 
 export interface AttendanceRecord {
   id: string;
@@ -22,6 +24,13 @@ export interface AttendanceRecord {
 
 export interface ApiAttendanceRecord {
   id: string | number;
+  employee?: {
+    employeeNo?: string | null;
+    designation?: string | null;
+    department?: { name?: string | null } | null;
+    user?: { firstName?: string | null; lastName?: string | null } | null;
+  } | null;
+  employeeNo?: string | null;
   employeeId?: string | null;
   name?: string | null;
   department?: string | null;
@@ -29,6 +38,13 @@ export interface ApiAttendanceRecord {
   date?: string | null;
   checkIn?: string | null;
   checkOut?: string | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  checkInLatitude?: number | null;
+  checkInLongitude?: number | null;
+  checkOutLatitude?: number | null;
+  checkOutLongitude?: number | null;
+  workingMinutes?: number | null;
   workingHours?: string | null;
   overtime?: string | null;
   status?: string | null;

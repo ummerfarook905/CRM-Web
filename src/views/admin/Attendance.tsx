@@ -58,6 +58,8 @@ export default function Attendance() {
     setStatusFilter,
     selectedRecord,
     setSelectedRecord,
+    loading,
+    error,
     departments,
     dateRecords,
     filteredRecords,
@@ -87,6 +89,20 @@ export default function Attendance() {
           </p>
         </div>
       </div>
+
+      {loading && (
+        <p role="status" className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          Loading attendance records…
+        </p>
+      )}
+      {error && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          <span>Could not load attendance: {error}</span>
+          <button type="button" onClick={() => void vm.refreshAttendance()} className="font-semibold underline">
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* DATE FILTER */}
       <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -285,6 +301,7 @@ export default function Attendance() {
                 <option value="Late">Late</option>
                 <option value="Absent">Absent</option>
                 <option value="On Leave">On Leave</option>
+                <option value="Half Day">Half Day</option>
               </select>
 
               <ChevronDown
@@ -747,6 +764,8 @@ function StatusBadge({ status }: StatusBadgeProps) {
     Late: "bg-amber-50 text-amber-700",
     Absent: "bg-rose-50 text-rose-700",
     "On Leave": "bg-sky-50 text-sky-700",
+    "Half Day": "bg-violet-50 text-violet-700",
+    Unknown: "bg-slate-100 text-slate-600",
   };
 
   const dotStyles: Record<AttendanceStatus, string> = {
@@ -754,6 +773,8 @@ function StatusBadge({ status }: StatusBadgeProps) {
     Late: "bg-amber-500",
     Absent: "bg-rose-500",
     "On Leave": "bg-sky-500",
+    "Half Day": "bg-violet-500",
+    Unknown: "bg-slate-400",
   };
 
   return (
