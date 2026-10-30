@@ -19,20 +19,80 @@ const initialState: ServicesState = {
   error: null,
 };
 
+const errorText = (value: unknown, fallback: string): string => {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map((item) => errorText(item, "")).filter(Boolean).join(", ") || fallback;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return errorText(record.message ?? record.error ?? record.detail, fallback);
+  }
+  return fallback;
+};
+
+/** Keep API values from leaking as plain objects into React text children. */
+const displayText = (value: unknown): string => {
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const label = record.name ?? record.label ?? record.value ?? record.minutes;
+    return typeof label === "string" || typeof label === "number"
+      ? String(label)
+      : "";
+  }
+
+  return "";
+};
+
+const durationMinutes = (value: unknown): string => {
+  const raw =
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>).minutes ??
+        (value as Record<string, unknown>).value
+      : value;
+
+  if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
+  if (typeof raw !== "string") return "";
+
+  const text = raw.trim();
+  const match = text.match(/^(\d+(?:\.\d+)?)\s*(minutes?|mins?|hours?|hrs?)?$/i);
+  if (!match) return "";
+
+  const amount = Number(match[1]);
+  const unit = match[2]?.toLowerCase() ?? "minutes";
+  return String(unit.startsWith("h") ? amount * 60 : amount);
+};
+
 /** Convert the backend response into the fields your existing UI uses */
-const mapApiService = (service: ApiService): Service => ({
-  id: service.id,
-  name: service.name,
-  category: service.category?.name ?? "",
-  categoryId: service.categoryId,
-  description: service.description,
-  duration: service.estimatedDuration,
-  price: Number(service.basePrice),
-  image: service.image ?? "",
-  requiresMaintenance: service.requiresMaintenance,
-  defaultMaintenanceFrequency: service.defaultMaintenanceFrequency,
-  status: service.isActive ? "Active" : "Inactive",
-});
+const mapApiService = (service: ApiService): Service => {
+  const category = service.category as unknown;
+  const categoryName =
+    category && typeof category === "object"
+      ? (category as Record<string, unknown>).name
+      : category;
+  const relatedCategoryId =
+    category && typeof category === "object"
+      ? (category as Record<string, unknown>).id
+      : undefined;
+
+  return {
+    id: service.id,
+    name: displayText(service.name),
+    category: displayText(categoryName),
+    categoryId: displayText(service.categoryId ?? relatedCategoryId),
+    description: displayText(service.description),
+    duration: durationMinutes(service.estimatedDuration),
+    price: Number(service.basePrice) || 0,
+    image: displayText(service.image),
+    requiresMaintenance: Boolean(service.requiresMaintenance),
+    defaultMaintenanceFrequency: displayText(
+      service.defaultMaintenanceFrequency
+    ) || null,
+    status: service.isActive ? "Active" : "Inactive",
+  };
+};
 
 export const fetchServices = createAsyncThunk<
   Service[],
@@ -51,7 +111,7 @@ export const fetchServices = createAsyncThunk<
     return items.map(mapApiService);
   } catch (error: any) {
     return rejectWithValue(
-      error.response?.data?.message ?? "Failed to fetch services."
+      errorText(error.response?.data?.message, "Failed to fetch services.")
     );
   }
 });
@@ -80,15 +140,7 @@ export const createService = createAsyncThunk<
     response: data,
   });
 
-  const messages = data?.message;
-
-  return rejectWithValue(
-    Array.isArray(messages)
-      ? messages.join(", ")
-      : typeof messages === "string"
-        ? messages
-        : "Failed to create service. Check the console."
-  );
+  return rejectWithValue(errorText(data?.message, "Failed to create service. Check the console."));
   }
 });
 
@@ -103,13 +155,7 @@ export const updateService = createAsyncThunk<
     const result = response.data?.data ?? response.data;
     return mapApiService((result?.service ?? result) as ApiService);
   } catch (error: any) {
-    const messages = error.response?.data?.message;
-
-    return rejectWithValue(
-      Array.isArray(messages)
-        ? messages.join(", ")
-        : messages ?? "Failed to update service."
-    );
+    return rejectWithValue(errorText(error.response?.data?.message, "Failed to update service."));
   }
 });
 
@@ -125,20 +171,12 @@ export const deleteService = createAsyncThunk<
     return id;
   } catch (error: any) {
     const data = error.response?.data;
-    const messages = data?.message;
-
     console.error("Delete service failed:", {
       status: error.response?.status,
       response: data,
     });
 
-    return rejectWithValue(
-      Array.isArray(messages)
-        ? messages.join(", ")
-        : typeof messages === "string"
-          ? messages
-          : "Failed to delete service."
-    );
+    return rejectWithValue(errorText(data?.message, "Failed to delete service."));
   }
 });
 

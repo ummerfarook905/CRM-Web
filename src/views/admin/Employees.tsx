@@ -52,9 +52,11 @@ export default function Employees() {
     employees,
     loading,
     error,
+    deleteMessage,
     activeCount,
     inactiveCount,
     departments,
+    designations,
     filteredEmployees,
     search,
     setSearch,
@@ -75,6 +77,13 @@ export default function Employees() {
     handleDelete,
     clearFilters,
   } = vm;
+
+  React.useEffect(() => {
+    if (!modalMode) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [modalMode]);
 
   return (
     <div className="min-w-0 space-y-6">
@@ -118,6 +127,12 @@ export default function Employees() {
         >
           {error}
         </p>
+      )}
+
+      {deleteMessage && (
+        <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+          {deleteMessage}
+        </div>
       )}
 
       {/* SUMMARY CARDS */}
@@ -455,7 +470,7 @@ export default function Employees() {
       {/* ADD / EDIT / VIEW MODAL */}
       {modalMode && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-3 backdrop-blur-[2px] sm:p-6"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/10 p-3 backdrop-blur-[2px] sm:p-6"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) closeModal();
           }}
@@ -650,15 +665,32 @@ export default function Employees() {
                   </FormField>
 
                   <FormField label="Designation" required>
-                    <input
+                    <select
                       required
+                      disabled={loading || (designations.length === 0 && !form.designation)}
                       value={form.designation}
                       onChange={(event) =>
                         updateForm("designation", event.target.value)
                       }
-                      placeholder="e.g. Service Technician"
                       className={inputClass}
-                    />
+                    >
+                      <option value="">
+                        {loading ? "Loading designations…" : "Select a designation"}
+                      </option>
+                      {form.designation && !designations.includes(form.designation) && (
+                        <option value={form.designation}>{form.designation}</option>
+                      )}
+                      {designations.map((designation) => (
+                        <option key={designation} value={designation}>
+                          {designation}
+                        </option>
+                      ))}
+                    </select>
+                    {!loading && designations.length === 0 && !error && (
+                      <p className="mt-1 text-xs text-amber-700">
+                        No designations are available in the employee database yet.
+                      </p>
+                    )}
                   </FormField>
 
                   <FormField label="Joining Date" required>

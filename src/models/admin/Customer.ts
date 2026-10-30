@@ -1,5 +1,5 @@
 export interface ServiceLocation {
-  id: number;
+  id: string | number;
   name: string;
   address: string;
   city: string;

@@ -145,7 +145,7 @@ export function useServiceManagementViewModel() {
 
   // Booking actions
   const handleBookingUpdate = async (
-    id: number,
+    id: Booking["id"],
     updates: Partial<Booking>
   ) => {
     try {
@@ -200,6 +200,7 @@ export function useServiceManagementViewModel() {
     event.preventDefault();
 
     const price = Number(serviceForm.price);
+    const duration = Number(serviceForm.duration);
 
     if (!serviceForm.name.trim() || !serviceForm.category) {
       setNotice("Please enter a service name and select a category.");
@@ -208,6 +209,11 @@ export function useServiceManagementViewModel() {
 
     if (!Number.isFinite(price) || price < 0) {
       setNotice("Please enter a valid service price.");
+      return;
+    }
+
+    if (!Number.isFinite(duration) || duration < 5 || duration > 1440) {
+      setNotice("Please enter a duration between 5 and 1440 minutes.");
       return;
     }
 
@@ -223,9 +229,8 @@ export function useServiceManagementViewModel() {
         name: serviceForm.name.trim(),
         categoryId: serviceForm.category,
         description: serviceForm.description.trim(),
-        estimatedDuration: Number(serviceForm.duration),
-        basePrice: Number(serviceForm.price),
-        image: null,
+        estimatedDuration: duration,
+        basePrice: price,
         requiresMaintenance: serviceForm.requiresMaintenance,
         defaultMaintenanceFrequency: serviceForm.requiresMaintenance
             ? serviceForm.defaultMaintenanceFrequency || null
@@ -435,9 +440,9 @@ const addCategory = async (
   };
 
   return {
-    services,
-    bookings,
-    categories,
+    services: services ?? [],
+    bookings: bookings ?? [],
+    categories: categories ?? [],
     servicesLoading,
     servicesError,
 
@@ -447,7 +452,7 @@ const addCategory = async (
     setSearch,
     statusFilter,
     setStatusFilter,
-    filteredBookings,
+    filteredBookings: filteredBookings ?? [],
     getService,
 
     pendingBookings,

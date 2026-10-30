@@ -1,6 +1,7 @@
 
 import { store } from "../../app/Store";
 import AuthService from "../../services/AuthService";
+import { getAuthTokens } from "../../api/axios";
 import { logout } from "../../store/auth/AuthSlice";
 
 import type { Role, User } from "../../models/auth/User";
@@ -24,7 +25,7 @@ class AuthViewModel {
   }
 
   logout(): void {
-    const { token } = store.getState().auth;
+    const { accessToken: token } = getAuthTokens();
 
     store.dispatch(logout());
 

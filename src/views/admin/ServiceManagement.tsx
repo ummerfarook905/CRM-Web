@@ -21,14 +21,7 @@ import {useServiceManagementViewModel} from "../../viewmodels/admin/UseServiceMa
 import type { Service } from "../../models/admin/Service";
 
 import type { Booking } from "../../services/BookingsSlice";
-
-const teamMembers = [
-  "John Mathew",
-  "Meera Joseph",
-  "Arun Mathew",
-  "Rahul Nair",
-  "Fathima Ali",
-];
+import { useAssignableEmployees } from "../../viewmodels/shared/UseAssignableEmployees";
 
 const statusStyles: Record<string, string> = {
   Pending: "bg-amber-50 text-amber-700",
@@ -41,13 +34,7 @@ const statusStyles: Record<string, string> = {
 
 export default function ServiceManagement() {
   const vm = useServiceManagementViewModel();
-
-  const tabClass = (tab: typeof vm.activeTab) =>
-    `border-b-2 px-3 py-3 text-sm font-semibold transition sm:px-4 ${
-      vm.activeTab === tab
-        ? "border-emerald-800 text-emerald-800"
-        : "border-transparent text-slate-500 hover:text-slate-800"
-    }`;
+  const { employees: teamMembers, loading: teamLoading, error: teamError } = useAssignableEmployees();
 
   return (
     <div className="min-w-0 space-y-6">
@@ -98,52 +85,64 @@ export default function ServiceManagement() {
           title="Total Services"
           value={vm.services.length}
           icon={<Wrench size={20} />}
-          accent="border-slate-900"
-          iconStyle="bg-indigo-50 text-indigo-700"
+          accent="border-blue-600"
+          iconStyle="bg-blue-50 text-blue-700"
         />
         <SummaryCard
           title="Pending Requests"
           value={vm.pendingBookings}
           icon={<Clock size={20} />}
-          accent="border-amber-500"
-          iconStyle="bg-amber-50 text-amber-700"
+          accent="border-blue-500"
+          iconStyle="bg-blue-50 text-blue-700"
         />
         <SummaryCard
           title="Scheduled Services"
           value={vm.scheduledBookings}
           icon={<CalendarDays size={20} />}
-          accent="border-lime-500"
-          iconStyle="bg-lime-50 text-lime-700"
+          accent="border-emerald-500"
+          iconStyle="bg-emerald-50 text-emerald-700"
         />
         <SummaryCard
           title="Active Work"
           value={vm.activeWork}
           icon={<ClipboardList size={20} />}
-          accent="border-cyan-500"
-          iconStyle="bg-cyan-50 text-cyan-700"
+          accent="border-teal-500"
+          iconStyle="bg-teal-50 text-teal-700"
         />
       </div>
 
       {/* Main panel */}
       <section className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap gap-1 border-b border-slate-200 px-2 sm:px-4">
+        <div className="crm-tabs" role="tablist" aria-label="Service management sections">
           <button
             type="button"
-            className={tabClass("bookings")}
+            role="tab"
+            id="service-tab-btn-bookings"
+            aria-controls="service-tab-bookings"
+            aria-selected={vm.activeTab === "bookings"}
+            className="crm-tab"
             onClick={() => vm.setActiveTab("bookings")}
           >
             Service Bookings
           </button>
           <button
             type="button"
-            className={tabClass("services")}
+            role="tab"
+            id="service-tab-btn-services"
+            aria-controls="service-tab-services"
+            aria-selected={vm.activeTab === "services"}
+            className="crm-tab"
             onClick={() => vm.setActiveTab("services")}
           >
             Service Catalogue
           </button>
           <button
             type="button"
-            className={tabClass("categories")}
+            role="tab"
+            id="service-tab-btn-categories"
+            aria-controls="service-tab-categories"
+            aria-selected={vm.activeTab === "categories"}
+            className="crm-tab"
             onClick={() => vm.setActiveTab("categories")}
           >
             Categories
@@ -152,7 +151,7 @@ export default function ServiceManagement() {
 
         {/* Bookings */}
         {vm.activeTab === "bookings" && (
-          <div className="min-w-0">
+          <div id="service-tab-bookings" role="tabpanel" aria-labelledby="service-tab-btn-bookings" key={vm.activeTab} className="book-page-open min-w-0">
             <div className="flex min-w-0 flex-col gap-4 border-b border-slate-100 p-3 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="font-bold text-slate-900">
@@ -328,7 +327,7 @@ export default function ServiceManagement() {
 
         {/* Service catalogue */}
         {vm.activeTab === "services" && (
-          <div>
+          <div id="service-tab-services" role="tabpanel" aria-labelledby="service-tab-btn-services" key={vm.activeTab} className="book-page-open">
             <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
               <div>
                 <h2 className="font-bold text-slate-900">Service Catalogue</h2>
@@ -348,6 +347,18 @@ export default function ServiceManagement() {
             </div>
 
             <div className="grid min-w-0 gap-4 p-3 sm:grid-cols-2 sm:p-5 xl:grid-cols-3">
+              {vm.servicesLoading && (
+                <div className="col-span-full py-8 text-center text-sm text-slate-500">
+                  Loading services...
+                </div>
+              )}
+
+              {vm.servicesError && (
+                <div className="col-span-full rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {vm.servicesError}
+                </div>
+              )}
+
               {vm.services.map((service) => (
                 <ServiceCard
                   key={service.id}
@@ -368,7 +379,7 @@ export default function ServiceManagement() {
 
         {/* Categories */}
         {vm.activeTab === "categories" && (
-          <div className="p-4 sm:p-5">
+          <div id="service-tab-categories" role="tabpanel" aria-labelledby="service-tab-btn-categories" key={vm.activeTab} className="book-page-open p-4 sm:p-5">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div>
                 <h2 className="font-bold text-slate-900">Service Categories</h2>
@@ -502,29 +513,25 @@ export default function ServiceManagement() {
               </div>
 
               <div>
-                <label
-                  htmlFor="duration"
-                  className="mb-1 block text-sm font-medium text-gray-700"
-                >
-                  Estimated Duration (minutes)
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                  Estimated Duration (minutes) *
                 </label>
 
                 <input
-                  id="duration"
                   type="number"
                   min="5"
                   max="1440"
                   step="1"
+                  required
                   value={vm.serviceForm.duration}
-                  onChange={(e) =>
-                    vm.setServiceForm((prev) => ({
-                      ...prev,
-                      duration: e.target.value,
+                  onChange={(event) =>
+                    vm.setServiceForm((current) => ({
+                      ...current,
+                      duration: event.target.value,
                     }))
                   }
                   placeholder="Enter duration in minutes"
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
                 />
               </div>
 
@@ -768,11 +775,17 @@ export default function ServiceManagement() {
                 >
                   <option value="">Select team member</option>
                   {teamMembers.map((member) => (
-                    <option key={member} value={member}>
-                      {member}
+                    <option key={member.id} value={member.name}>
+                      {member.name} · {member.designation || member.role}
                     </option>
                   ))}
                 </select>
+                {teamLoading && <p className="mt-1 text-xs text-slate-500">Loading staff…</p>}
+                {!teamLoading && teamMembers.length === 0 && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    {teamError || "No active staff found in the employee database."}
+                  </p>
+                )}
               </div>
 
               <div className="sm:col-span-2">
@@ -1072,7 +1085,7 @@ function ServiceCard({
           <div className="text-right">
             <p className="text-[10px] text-slate-400">Duration</p>
             <p className="text-xs font-medium text-slate-700">
-              {service.duration || "—"}
+              {service.duration ? `${service.duration} min` : "—"}
             </p>
           </div>
         </div>

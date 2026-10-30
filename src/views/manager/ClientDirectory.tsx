@@ -12,10 +12,12 @@ import {
 } from "lucide-react";
 
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useAppDispatch, useAppSelector } from "../../app/Hooks";
+import { createCustomer, fetchCustomers } from "../../services/CustomerSlice";
 
 interface ServiceLocation {
-  id: number;
+  id: number | string;
   name: string;
   address: string;
   city: string;
@@ -32,7 +34,7 @@ interface ServiceHistory {
 }
 
 interface Customer {
-  id: number;
+  id: number | string;
   customerCode: string;
   name: string;
   company: string;
@@ -49,241 +51,14 @@ interface Customer {
   serviceHistory: ServiceHistory[];
 }
 
-const initialCustomers: Customer[] = [
-  {
-    id: 1,
-    customerCode: "CUS-1001",
-    name: "Rajesh Kumar",
-    company: "ABC Industries",
-    email: "rajesh@abcindustries.com",
-    phone: "+91 98765 43210",
-    city: "Chennai",
-    status: "Active",
-
-    serviceLocations: [
-      {
-        id: 1,
-        name: "ABC Industries - Main Plant",
-        address: "Industrial Estate, Ambattur",
-        city: "Chennai",
-        type: "Water Treatment Plant",
-      },
-      {
-        id: 2,
-        name: "ABC Industries - Warehouse",
-        address: "Guindy Industrial Area",
-        city: "Chennai",
-        type: "RO System",
-      },
-    ],
-
-    upcomingMaintenance: [
-      {
-        service: "RO System Maintenance",
-        location: "Main Plant",
-        date: "Oct 18, 2026",
-      },
-      {
-        service: "Filter Replacement",
-        location: "Warehouse",
-        date: "Nov 02, 2026",
-      },
-    ],
-
-    serviceHistory: [
-      {
-        id: 1,
-        service: "RO Maintenance",
-        location: "Main Plant",
-        technician: "John",
-        date: "Oct 05, 2026",
-        status: "Completed",
-      },
-      {
-        id: 2,
-        service: "Filter Replacement",
-        location: "Warehouse",
-        technician: "David",
-        date: "Sep 18, 2026",
-        status: "Completed",
-      },
-      {
-        id: 3,
-        service: "System Inspection",
-        location: "Main Plant",
-        technician: "Sarah",
-        date: "Aug 22, 2026",
-        status: "Completed",
-      },
-    ],
-  },
-
-  {
-    id: 2,
-    customerCode: "CUS-1002",
-    name: "Anil Thomas",
-    company: "GreenTech Pvt Ltd",
-    email: "anil@greentech.com",
-    phone: "+91 98470 12345",
-    city: "Coimbatore",
-    status: "Active",
-
-    serviceLocations: [
-      {
-        id: 3,
-        name: "GreenTech Factory",
-        address: "SIDCO Industrial Estate",
-        city: "Coimbatore",
-        type: "Water Treatment Plant",
-      },
-    ],
-
-    upcomingMaintenance: [
-      {
-        service: "AMC Service",
-        location: "GreenTech Factory",
-        date: "Oct 21, 2026",
-      },
-    ],
-
-    serviceHistory: [
-      {
-        id: 4,
-        service: "AMC Service",
-        location: "GreenTech Factory",
-        technician: "Mike",
-        date: "Sep 20, 2026",
-        status: "Completed",
-      },
-      {
-        id: 5,
-        service: "System Checkup",
-        location: "GreenTech Factory",
-        technician: "John",
-        date: "Jul 14, 2026",
-        status: "Completed",
-      },
-    ],
-  },
-
-  {
-    id: 3,
-    customerCode: "CUS-1003",
-    name: "Priya Menon",
-    company: "Sunrise Apartments",
-    email: "priya@sunrise.com",
-    phone: "+91 98471 56789",
-    city: "Madurai",
-    status: "Active",
-
-    serviceLocations: [
-      {
-        id: 4,
-        name: "Sunrise Apartments",
-        address: "KK Nagar",
-        city: "Madurai",
-        type: "RO Plant",
-      },
-    ],
-
-    upcomingMaintenance: [
-      {
-        service: "Filter Replacement",
-        location: "Sunrise Apartments",
-        date: "Oct 25, 2026",
-      },
-    ],
-
-    serviceHistory: [
-      {
-        id: 6,
-        service: "Filter Replacement",
-        location: "Sunrise Apartments",
-        technician: "David",
-        date: "Sep 10, 2026",
-        status: "Completed",
-      },
-    ],
-  },
-
-  {
-    id: 4,
-    customerCode: "CUS-1004",
-    name: "Arun Joseph",
-    company: "Global Foods",
-    email: "arun@globalfoods.com",
-    phone: "+91 98950 34567",
-    city: "Thrissur",
-    status: "Active",
-
-    serviceLocations: [
-      {
-        id: 5,
-        name: "Global Foods Factory",
-        address: "Kuriachira Industrial Area",
-        city: "Thrissur",
-        type: "Water Treatment Plant",
-      },
-    ],
-
-    upcomingMaintenance: [
-      {
-        service: "System Checkup",
-        location: "Global Foods Factory",
-        date: "Oct 28, 2026",
-      },
-    ],
-
-    serviceHistory: [
-      {
-        id: 7,
-        service: "System Checkup",
-        location: "Global Foods Factory",
-        technician: "Sarah",
-        date: "Sep 25, 2026",
-        status: "Completed",
-      },
-    ],
-  },
-
-  {
-    id: 5,
-    customerCode: "CUS-1005",
-    name: "Dr. Suresh Nair",
-    company: "Sri Hospitals",
-    email: "admin@srihospitals.com",
-    phone: "+91 99950 77889",
-    city: "Kochi",
-    status: "Inactive",
-
-    serviceLocations: [
-      {
-        id: 6,
-        name: "Sri Hospitals - Main",
-        address: "MG Road",
-        city: "Kochi",
-        type: "RO System",
-      },
-    ],
-
-    upcomingMaintenance: [],
-
-    serviceHistory: [
-      {
-        id: 8,
-        service: "AMC Visit",
-        location: "Sri Hospitals - Main",
-        technician: "John",
-        date: "Aug 12, 2026",
-        status: "Completed",
-      },
-    ],
-  },
-];
-
 export default function CustomerManagement() {
+  const dispatch = useAppDispatch();
+  const apiCustomers = useAppSelector((state) => state.customers.customers);
+  const customerLoading = useAppSelector((state) => state.customers.loading);
+  const customerError = useAppSelector((state) => state.customers.error);
+  const customerCreating = useAppSelector((state) => state.customers.creating);
   const [customers, setCustomers] =
-    useState<Customer[]>(initialCustomers);
+    useState<Customer[]>([]);
 
   const [search, setSearch] = useState("");
 
@@ -298,6 +73,14 @@ export default function CustomerManagement() {
 
   const [editingCustomer, setEditingCustomer] =
     useState<Customer | null>(null);
+
+  useEffect(() => {
+    void dispatch(fetchCustomers());
+  }, [dispatch]);
+
+  useEffect(() => {
+    setCustomers(apiCustomers);
+  }, [apiCustomers]);
 
   const filteredCustomers = useMemo(() => {
     const value = search.toLowerCase().trim();
@@ -318,17 +101,19 @@ export default function CustomerManagement() {
     });
   }, [customers, search]);
 
-  const handleAddCustomer = (
-    customer: Customer
+  const handleAddCustomer = async (
+    customer: Customer,
+    password = "",
   ) => {
-    setCustomers((current) => [
-      ...current,
-      {
-        ...customer,
-        id: Date.now(),
-      },
-    ]);
-
+    const [firstName, ...lastNameParts] = customer.name.trim().split(/\s+/);
+    if (!firstName) throw new Error("Enter the customer's name.");
+    await dispatch(createCustomer({
+      firstName,
+      lastName: lastNameParts.join(" "),
+      email: customer.email,
+      phone: customer.phone,
+      password,
+    })).unwrap();
     setShowForm(false);
   };
 
@@ -400,6 +185,14 @@ export default function CustomerManagement() {
         </button>
 
       </div>
+
+      {customerError && (
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {customerError}
+        </div>
+      )}
+
+      <p className="text-xs text-slate-500">Customer deletion is available to administrators.</p>
 
       {/* ================================================= */}
       {/* SUMMARY */}
@@ -496,13 +289,15 @@ export default function CustomerManagement() {
             <div className="space-y-3 p-3 sm:p-4 md:hidden">
               {filteredCustomers.length === 0 ? (
                 <div className="px-4 py-12 text-center">
-                  <Users size={30} className="mx-auto text-slate-300" />
+                  {customerLoading ? (
+                    <p className="text-sm text-slate-500">Loading customers…</p>
+                  ) : <Users size={30} className="mx-auto text-slate-300" />}
                   <p className="mt-3 text-sm font-semibold text-slate-700">
-                    No customers found
+                    {customerLoading ? "" : search ? "No customers found" : "No client records found"}
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    Try a different search term.
-                  </p>
+                  {!customerLoading && search && (
+                    <p className="mt-1 text-xs text-slate-400">Try a different search term.</p>
+                  )}
                 </div>
               ) : (
                 filteredCustomers.map((customer) => (
@@ -606,6 +401,7 @@ export default function CustomerManagement() {
                         <Edit3 size={16} />
                         Edit
                       </button>
+
                     </div>
                   </div>
                 ))
@@ -642,13 +438,15 @@ export default function CustomerManagement() {
                   {filteredCustomers.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-5 py-12 text-center">
-                        <Users size={30} className="mx-auto text-slate-300" />
+                        {customerLoading ? (
+                          <p className="text-sm text-slate-500">Loading customers…</p>
+                        ) : <Users size={30} className="mx-auto text-slate-300" />}
                         <p className="mt-3 text-sm font-semibold text-slate-700">
-                          No customers found
+                          {customerLoading ? "" : search ? "No customers found" : "No client records found"}
                         </p>
-                        <p className="mt-1 text-xs text-slate-400">
-                          Try a different search term.
-                        </p>
+                        {!customerLoading && search && (
+                          <p className="mt-1 text-xs text-slate-400">Try a different search term.</p>
+                        )}
                       </td>
                     </tr>
                   ) : (
@@ -731,6 +529,7 @@ export default function CustomerManagement() {
                             >
                               <Edit3 size={16} />
                             </button>
+
                           </div>
                         </td>
                       </tr>
@@ -778,13 +577,14 @@ export default function CustomerManagement() {
       {showForm && (
         <CustomerFormModal
           customer={editingCustomer}
+          saving={customerCreating}
           onClose={() => {
             setShowForm(false);
             setEditingCustomer(null);
           }}
           onSave={
             editingCustomer
-              ? handleUpdateCustomer
+              ? async (customer) => { handleUpdateCustomer(customer); }
               : handleAddCustomer
           }
         />
@@ -1154,12 +954,14 @@ function CustomerDetailsModal({
 
 interface CustomerFormModalProps {
   customer: Customer | null;
+  saving: boolean;
   onClose: () => void;
-  onSave: (customer: Customer) => void;
+  onSave: (customer: Customer, password?: string) => Promise<void>;
 }
 
 function CustomerFormModal({
   customer,
+  saving,
   onClose,
   onSave,
 }: CustomerFormModalProps) {
@@ -1188,18 +990,25 @@ function CustomerFormModal({
       customer?.status ?? "Active"
     );
 
-  const handleSubmit = (
+  const [formError, setFormError] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleSubmit = async (
     event: React.FormEvent
   ) => {
     event.preventDefault();
+    setFormError("");
 
     if (
       !name.trim() ||
-      !company.trim() ||
       !email.trim() ||
-      !phone.trim() ||
-      !city.trim()
+      !phone.trim()
     ) {
+      setFormError("Enter the customer's name, email, and phone number.");
+      return;
+    }
+    if (!customer && password.length < 8) {
+      setFormError("Set a password with at least 8 characters for the customer account.");
       return;
     }
 
@@ -1227,7 +1036,11 @@ function CustomerFormModal({
         customer?.serviceHistory ?? [],
     };
 
-    onSave(newCustomer);
+    try {
+      await onSave(newCustomer, password);
+    } catch (error) {
+      setFormError(typeof error === "string" ? error : error instanceof Error ? error.message : "Unable to save customer.");
+    }
   };
 
   return (
@@ -1273,12 +1086,12 @@ function CustomerFormModal({
             placeholder="Enter customer name"
           />
 
-          <InputField
+          {customer && <InputField
             label="Company Name"
             value={company}
             onChange={setCompany}
             placeholder="Enter company name"
-          />
+          />}
 
           <InputField
             label="Email"
@@ -1295,14 +1108,22 @@ function CustomerFormModal({
             placeholder="+91 XXXXX XXXXX"
           />
 
-          <InputField
+          {!customer && <InputField
+            label="Temporary password"
+            value={password}
+            onChange={setPassword}
+            type="password"
+            placeholder="At least 8 characters"
+          />}
+
+          {customer && <InputField
             label="City"
             value={city}
             onChange={setCity}
             placeholder="Enter city"
-          />
+          />}
 
-          <div>
+          {customer && <div>
 
             <label className="mb-1.5 block text-xs font-semibold text-slate-700">
               Status
@@ -1327,9 +1148,11 @@ function CustomerFormModal({
               </option>
             </select>
 
-          </div>
+          </div>}
 
         </div>
+
+        {formError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{formError}</p>}
 
         {/* Form Actions */}
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
@@ -1344,9 +1167,10 @@ function CustomerFormModal({
 
           <button
             type="submit"
+            disabled={saving}
             className="rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-900"
           >
-            {customer
+            {saving ? "Saving…" : customer
               ? "Update Customer"
               : "Add Customer"}
           </button>
@@ -1451,8 +1275,14 @@ function Modal({
   children,
   onClose,
 }: ModalProps) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/10 p-4 backdrop-blur-[2px]">
 
       <div
         className="absolute inset-0"

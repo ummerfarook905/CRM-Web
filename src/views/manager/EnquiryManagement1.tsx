@@ -26,6 +26,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import { useAssignableEmployees } from "../../viewmodels/shared/UseAssignableEmployees";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -141,15 +142,6 @@ const initialEnquiries: Enquiry[] = [
 ];
 
 
-const employees = [
-  "Employee 001 - Nikhil",
-  "Employee 002 - Adil",
-  "Employee 003 - Suresh",
-  "Employee 004 - Amal",
-  "Employee 005 - Sneha",
-  "Employee 006 - Riyas",
-];
-
 const statusStyles: Record<EnquiryStatus, string> = {
   New: "bg-blue-50 text-blue-700",
   Contacted: "bg-amber-50 text-amber-700",
@@ -170,6 +162,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 /* -------------------------------------------------------------------------- */
 
 export default function EnquiryManagement() {
+  const { employees, loading: employeeLoading, error: employeeError } = useAssignableEmployees();
   const [enquiries, setEnquiries] = useState<Enquiry[]>(() => {
     try {
       const saved = localStorage.getItem("admin_enquiries");
@@ -187,6 +180,7 @@ export default function EnquiryManagement() {
   const [showService, setShowService] = useState(false);
 
   const [serviceDate, setServiceDate] = useState(today());
+  const [serviceLocation, setServiceLocation] = useState("");
   const [serviceNotes, setServiceNotes] = useState("");
 
   // Temporary UI state only; this value is not saved to localStorage.
@@ -303,6 +297,7 @@ export default function EnquiryManagement() {
 
     setSelected(enquiry);
     setServiceDate(today());
+    setServiceLocation(enquiry.location || "");
     setServiceNotes("");
 
     // Default to the enquiry priority, but allow changing it in the modal.
@@ -318,6 +313,11 @@ export default function EnquiryManagement() {
   const createService = () => {
     if (!selected || !serviceDate) {
       setAssignmentError("Please select a service date.");
+      return;
+    }
+
+    if (!serviceLocation.trim()) {
+      setAssignmentError("Enter a service location before creating the service.");
       return;
     }
 
@@ -350,7 +350,7 @@ export default function EnquiryManagement() {
         phone: selected.phone,
         email: selected.email,
         service: selected.service,
-        location: selected.location,
+        location: serviceLocation.trim(),
         serviceDate,
         notes: serviceNotes.trim(),
 
@@ -919,6 +919,21 @@ export default function EnquiryManagement() {
               </div>
             </div>
 
+            <div>
+              <label htmlFor="managerServiceLocation" className="mb-1.5 block text-sm font-semibold text-slate-700">
+                Service Location <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                id="managerServiceLocation"
+                rows={2}
+                value={serviceLocation}
+                onChange={(event) => setServiceLocation(event.target.value)}
+                placeholder="Enter the site address and city"
+                required
+                className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              />
+            </div>
+
             {/* Service date */}
 
             <div>
@@ -990,11 +1005,11 @@ export default function EnquiryManagement() {
 
               <div className="grid gap-2 sm:grid-cols-2">
                 {employees.map((employee) => {
-                  const checked = assignedEmployees.includes(employee);
+                  const checked = assignedEmployees.includes(employee.name);
 
                   return (
                     <label
-                      key={employee}
+                      key={employee.id}
                       className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${
                         checked
                           ? "border-emerald-500 bg-emerald-50"
@@ -1004,16 +1019,22 @@ export default function EnquiryManagement() {
                       <input
                         type="checkbox"
                         checked={checked}
-                        onChange={() => toggleEmployee(employee)}
+                        onChange={() => toggleEmployee(employee.name)}
                         className="h-4 w-4 accent-emerald-700"
                       />
 
                       <span className="text-sm text-slate-700">
-                        {employee}
+                        {employee.name} · {employee.designation || employee.role}
                       </span>
                     </label>
                   );
                 })}
+                {employeeLoading && <p className="text-xs text-slate-500">Loading staff…</p>}
+                {!employeeLoading && employees.length === 0 && (
+                  <p className="text-xs text-amber-700">
+                    {employeeError || "No active staff found in the employee database."}
+                  </p>
+                )}
               </div>
             </div>
 

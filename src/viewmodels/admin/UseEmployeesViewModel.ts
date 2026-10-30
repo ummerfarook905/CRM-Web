@@ -65,6 +65,7 @@ export function useEmployeesViewModel() {
   });
 
   const [formError, setFormError] = useState("");
+  const [deleteMessage, setDeleteMessage] = useState("");
 
   // Load employee records from the API through Redux.
   useEffect(() => {
@@ -83,6 +84,19 @@ export function useEmployeesViewModel() {
         .sort(),
     [employees],
   );
+
+  const designations = useMemo(() => {
+    const seen = new Set<string>();
+    return employees
+      .map((employee) => employee.designation.trim())
+      .filter((designation) => {
+        const normalized = designation.toLocaleLowerCase();
+        if (!normalized || seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      })
+      .sort((a, b) => a.localeCompare(b));
+  }, [employees]);
 
   const filteredEmployees = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -282,9 +296,13 @@ async function handleSubmit(
     if (!confirmed) return;
 
     dispatch(clearEmployeeError());
+    setDeleteMessage("");
 
     try {
-      await dispatch(deleteEmployeeApi(employee.id)).unwrap();
+      const result = await dispatch(deleteEmployeeApi(employee.id)).unwrap();
+      setDeleteMessage(result.deactivated
+        ? `${employee.name} has linked records, so the account was deactivated.`
+        : `${employee.name} and the linked user account were deleted.`);
 
       if (selectedEmployee?.id === employee.id) {
         closeModal();
@@ -304,9 +322,11 @@ async function handleSubmit(
     employees,
     loading,
     error,
+    deleteMessage,
     activeCount,
     inactiveCount,
     departments,
+    designations,
     filteredEmployees,
     search,
     setSearch,

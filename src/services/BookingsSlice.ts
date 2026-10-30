@@ -16,11 +16,11 @@ export type ServiceStatus =
 export type Priority = "Low" | "Medium" | "High";
 
 export interface Booking {
-  id: number;
+  id: number | string;
   reference: string;
   customer: string;
   company: string;
-  serviceId: number;
+  serviceId: number | string;
   location: string;
   requestedDate: string;
   scheduledDate: string;
@@ -43,6 +43,45 @@ const initialState: BookingsState = {
   error: null,
 };
 
+const textValue = (value: unknown): string => {
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) return value.map(textValue).filter(Boolean).join(", ");
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return textValue(
+      record.name ?? record.fullName ?? record.label ?? record.title ??
+        record.address ?? record.value ?? record.city
+    );
+  }
+  return "";
+};
+
+const mapBooking = (item: any): Booking => ({
+  id: item.id,
+  reference: textValue(item.reference ?? item.bookingReference),
+  customer: textValue(item.customer ?? item.customerName),
+  company: textValue(item.company ?? item.companyName),
+  serviceId: item.serviceId ?? item.service?.id ?? "",
+  location: textValue(item.location ?? item.address),
+  requestedDate: textValue(item.requestedDate ?? item.requestDate),
+  scheduledDate: textValue(item.scheduledDate),
+  scheduledTime: textValue(item.scheduledTime),
+  priority: textValue(item.priority) as Priority,
+  status: textValue(item.status) as ServiceStatus,
+  assignedTo: textValue(item.assignedTo ?? item.employee),
+  notes: textValue(item.notes),
+});
+
+const errorText = (value: unknown, fallback: string): string => {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map((entry) => errorText(entry, "")).filter(Boolean).join(", ") || fallback;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return errorText(record.message ?? record.error ?? record.detail, fallback);
+  }
+  return fallback;
+};
+
 // Assumed endpoint: GET /api/v1/service-bookings
 export const fetchBookings = createAsyncThunk<
   Booking[],
@@ -57,7 +96,7 @@ export const fetchBookings = createAsyncThunk<
     const result = response.data?.data ?? response.data;
     const items = Array.isArray(result)
       ? result
-      : result.bookings;
+      : result?.bookings;
 
     if (!Array.isArray(items)) {
       return rejectWithValue(
@@ -65,11 +104,10 @@ export const fetchBookings = createAsyncThunk<
       );
     }
 
-    return items;
+    return items.map(mapBooking);
   } catch (error: any) {
     return rejectWithValue(
-      error.response?.data?.message ??
-        "Failed to fetch bookings."
+      errorText(error.response?.data?.message, "Failed to fetch bookings.")
     );
   }
 });
@@ -77,23 +115,22 @@ export const fetchBookings = createAsyncThunk<
 // Assumed endpoint: PATCH /api/v1/service-bookings/:id
 export const updateBooking = createAsyncThunk<
   Booking,
-  { id: number; updates: Partial<Booking> },
+  { id: number | string; updates: Partial<Booking> },
   { rejectValue: string }
 >(
   "bookings/update",
   async ({ id, updates }, { rejectWithValue }) => {
     try {
-      const response = await api.patch(
+      const response = await api.post(
         `bookings/${id}/status`,
         updates
       );
 
       const result = response.data?.data ?? response.data;
-      return result.booking ?? result;
+      return mapBooking(result.booking ?? result);
     } catch (error: any) {
       return rejectWithValue(
-        error.response?.data?.message ??
-          "Failed to update booking."
+        errorText(error.response?.data?.message, "Failed to update booking.")
       );
     }
   }

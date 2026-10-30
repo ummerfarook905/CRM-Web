@@ -1,6 +1,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import GlassmorphismSummary from "../../components/common/GlassmorphismSummary";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -298,6 +299,34 @@ export default function ManagerDashboard() {
         <div className="flex items-center gap-2 text-xs text-slate-500">
           <Clock size={15} />
           Last updated: Just now
+        </div>
+      </div>
+
+{/* Glassmorphism summary (left side) */}
+      <div className="flex justify-start">
+        <div className="w-full max-w-3xl">
+          <GlassmorphismSummary
+            title="Works Summary"
+            subtitle="Overall work status overview"
+            variant="light"
+            items={[
+              {
+                label: "New Works",
+                value: stats[0]?.value ?? "0",
+                icon: Download,
+              },
+              {
+                label: "Assigned",
+                value: stats[1]?.value ?? "0",
+                icon: ClipboardList,
+              },
+              {
+                label: "In Progress",
+                value: stats[2]?.value ?? "0",
+                icon: Wrench,
+              },
+            ]}
+          />
         </div>
       </div>
 

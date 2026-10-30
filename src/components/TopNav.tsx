@@ -23,6 +23,7 @@ import AuthViewModel from "../viewmodels/auth/AuthViewModel";
 interface TopNavProps {
   role: "admin" | "manager";
   onMenuClick?: () => void;
+  collapsed?: boolean;
 }
 
 type ProfileMode = "view" | "edit" | null;
@@ -30,6 +31,7 @@ type ProfileMode = "view" | "edit" | null;
 export default function TopNav({
   role,
   onMenuClick,
+  collapsed = false,
 }: TopNavProps) {
   const navigate = useNavigate();
 
@@ -113,14 +115,14 @@ export default function TopNav({
   return (
     <>
       {/* ================= TOP NAVIGATION ================= */}
-      <header className="fixed left-0 right-0 top-0 z-40 h-16 border-b border-slate-200 bg-white lg:left-64">
+      <header className={`fixed left-0 right-0 top-0 z-40 h-16 border-b border-slate-200 bg-white/95 backdrop-blur-xl transition-all duration-300 ${collapsed ? "lg:left-20" : "lg:left-[280px]"}`}>
         <div className="flex h-full min-w-0 items-center gap-2 px-3 sm:gap-3 sm:px-5">
           {/* Mobile Menu */}
           <button
             type="button"
             onClick={onMenuClick}
             aria-label="Open navigation menu"
-            className="shrink-0 rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 lg:hidden"
+            className="shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 lg:hidden"
           >
             <Menu size={21} />
           </button>
@@ -136,7 +138,7 @@ export default function TopNav({
               type="text"
               placeholder="Search person, ticket, technician, parts..."
               aria-label="Search"
-              className="h-9 w-full rounded-md border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs text-slate-700 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white"
             />
           </div>
 
@@ -254,7 +256,7 @@ export default function TopNav({
                         }`}
                       />
 
-                      <span className="text-xs font-medium text-slate-600">
+                      <span className="text-xs font-medium text-slate-700">
                         {checkInTime && !checkOutTime
                           ? "Currently Checked In"
                           : checkOutTime
@@ -344,7 +346,7 @@ export default function TopNav({
                     <button
                       type="button"
                       onClick={() => openProfile("view")}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
                     >
                       <UserRound size={16} />
                       My Profile
@@ -396,7 +398,7 @@ export default function TopNav({
                 type="button"
                 onClick={closeProfile}
                 aria-label="Close profile popup"
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-800"
               >
                 <X size={20} />
               </button>
@@ -430,7 +432,7 @@ export default function TopNav({
                   {/* Profile Details */}
                   <div className="space-y-5">
                     <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-emerald-700">
                         <UserRound size={19} />
                       </div>
 
@@ -445,7 +447,7 @@ export default function TopNav({
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-emerald-700">
                         <Mail size={19} />
                       </div>
 
@@ -460,7 +462,7 @@ export default function TopNav({
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-emerald-700">
                         <ShieldCheck size={19} />
                       </div>
 
@@ -518,7 +520,7 @@ export default function TopNav({
                         setEditName(event.target.value)
                       }
                       required
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
                       placeholder="Enter your full name"
                     />
                   </div>
@@ -539,12 +541,12 @@ export default function TopNav({
                         setEditEmail(event.target.value)
                       }
                       required
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
                       placeholder="Enter your email address"
                     />
                   </div>
 
-                  <div className="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+                  <div className="rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-600">
                     Changes currently update this screen only.
                     Connect your authentication service or backend
                     API to save them permanently.

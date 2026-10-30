@@ -10,6 +10,7 @@ import customerReducer from "../services/CustomerSlice";
 import employeesReducer from "../services/EmployeesSlice";
 import attendanceReducer from "../services/AttendancesSlice";
 import overtimeReducer from "../services/OvertimeSlice";// Import the bookings reducer
+import workMonitoringReducer from "../services/WorkMonitoringSlice";
 
 export const store = configureStore({
   reducer: {
@@ -23,6 +24,7 @@ export const store = configureStore({
     employees: employeesReducer,
     attendance: attendanceReducer,
     overtime: overtimeReducer,
+    workMonitoring: workMonitoringReducer,
  // Add the bookings reducer here
   },
 });

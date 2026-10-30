@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useAssignableEmployees } from "../../viewmodels/shared/UseAssignableEmployees";
 
 type Priority = "Low" | "Medium" | "High" | "Urgent";
 
@@ -40,15 +41,6 @@ interface WorkOrder {
   instructions: string;
   duration: string;
 }
-
-const employees = [
-  "John Mathew",
-  "Meera Joseph",
-  "Arun Mathew",
-  "Rahul Nair",
-  "Fathima Ali",
-  "Sanjay Kumar",
-];
 
 const initialWorkOrders: WorkOrder[] = [
   {
@@ -158,6 +150,7 @@ const statusStyles: Record<WorkStatus, string> = {
 };
 
 export default function WorkAssignment() {
+  const { employees: assignableEmployees, loading: employeeLoading, error: employeeError } = useAssignableEmployees();
   const [workOrders, setWorkOrders] =
     useState<WorkOrder[]>(initialWorkOrders);
 
@@ -353,7 +346,7 @@ export default function WorkAssignment() {
 
         <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-600">
           <Users size={16} className="text-emerald-700" />
-          {employees.length} Available Team Members
+          {assignableEmployees.length} Available Team Members
         </div>
       </div>
 
@@ -840,13 +833,12 @@ export default function WorkAssignment() {
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2">
-                {employees.map((employee) => {
-                  const checked =
-                    form.employees.includes(employee);
+                {assignableEmployees.map((employee) => {
+                  const checked = form.employees.includes(employee.name);
 
                   return (
                     <label
-                      key={employee}
+                      key={employee.id}
                       className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${
                         checked
                           ? "border-emerald-700 bg-emerald-50"
@@ -856,21 +848,27 @@ export default function WorkAssignment() {
                       <input
                         type="checkbox"
                         checked={checked}
-                        onChange={() => toggleEmployee(employee)}
+                        onChange={() => toggleEmployee(employee.name)}
                         className="h-4 w-4 accent-emerald-800"
                       />
                       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-700">
-                        {employee
+                        {employee.name
                           .split(" ")
                           .map((part) => part[0])
                           .join("")}
                       </span>
                       <span className="text-xs font-medium text-slate-700">
-                        {employee}
+                        {employee.name} · {employee.designation || employee.role}
                       </span>
                     </label>
                   );
                 })}
+                {employeeLoading && <p className="text-xs text-slate-500">Loading staff…</p>}
+                {!employeeLoading && assignableEmployees.length === 0 && (
+                  <p className="text-xs text-amber-700">
+                    {employeeError || "No active staff found in the employee database."}
+                  </p>
+                )}
               </div>
 
               <p className="mt-2 text-[11px] text-slate-500">

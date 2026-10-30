@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useAssignableEmployees } from "../../viewmodels/shared/UseAssignableEmployees";
 
 type ServiceStatus =
   | "Pending"
@@ -191,14 +192,6 @@ const initialBookings: Booking[] = [
   },
 ];
 
-const teamMembers = [
-  "John Mathew",
-  "Meera Joseph",
-  "Arun Mathew",
-  "Rahul Nair",
-  "Fathima Ali",
-];
-
 const statusStyles: Record<ServiceStatus, string> = {
   Pending: "bg-amber-50 text-amber-700",
   Approved: "bg-blue-50 text-blue-700",
@@ -209,6 +202,7 @@ const statusStyles: Record<ServiceStatus, string> = {
 };
 
 export default function ServiceManagement() {
+  const { employees: teamMembers, loading: teamLoading, error: teamError } = useAssignableEmployees();
   const [services, setServices] =
     useState<Service[]>(initialServices);
 
@@ -445,13 +439,6 @@ export default function ServiceManagement() {
     setNotice(`${booking.reference} approved.`);
   };
 
-  const tabClass = (tab: typeof activeTab) =>
-    `border-b-2 px-4 py-3 text-sm font-semibold transition ${
-      activeTab === tab
-        ? "border-emerald-800 text-emerald-800"
-        : "border-transparent text-slate-500 hover:text-slate-800"
-    }`;
-
   return (
     <div className="space-y-6">
       {/* Page heading */}
@@ -498,52 +485,64 @@ export default function ServiceManagement() {
           title="Total Services"
           value={services.length}
           icon={Wrench}
-          accent="border-slate-900"
-          iconStyle="bg-indigo-50 text-indigo-700"
+          accent="border-blue-600"
+          iconStyle="bg-blue-50 text-blue-700"
         />
 
         <SummaryCard
           title="Pending Requests"
           value={bookings.filter((b) => b.status === "Pending").length}
           icon={Clock}
-          accent="border-amber-500"
-          iconStyle="bg-amber-50 text-amber-700"
+          accent="border-blue-500"
+          iconStyle="bg-blue-50 text-blue-700"
         />
 
         <SummaryCard
           title="Scheduled Services"
           value={bookings.filter((b) => b.status === "Scheduled").length}
           icon={CalendarDays}
-          accent="border-lime-500"
-          iconStyle="bg-lime-50 text-lime-700"
+          accent="border-emerald-500"
+          iconStyle="bg-emerald-50 text-emerald-700"
         />
 
         <SummaryCard
           title="Active Work"
           value={bookings.filter((b) => b.status === "In Progress").length}
           icon={ClipboardList}
-          accent="border-cyan-500"
-          iconStyle="bg-cyan-50 text-cyan-700"
+          accent="border-teal-500"
+          iconStyle="bg-teal-50 text-teal-700"
         />
       </div>
 
       {/* Main panel */}
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap gap-1 border-b border-slate-200 px-4">
+        <div className="crm-tabs" role="tablist" aria-label="Service management sections">
           <button
-            className={tabClass("bookings")}
+            role="tab"
+            id="manager-service-tab-btn-bookings"
+            aria-controls="manager-service-tab-bookings"
+            aria-selected={activeTab === "bookings"}
+            className="crm-tab"
             onClick={() => setActiveTab("bookings")}
           >
             Service Bookings
           </button>
           <button
-            className={tabClass("services")}
+            role="tab"
+            id="manager-service-tab-btn-services"
+            aria-controls="manager-service-tab-services"
+            aria-selected={activeTab === "services"}
+            className="crm-tab"
             onClick={() => setActiveTab("services")}
           >
             Service Catalogue
           </button>
           <button
-            className={tabClass("categories")}
+            role="tab"
+            id="manager-service-tab-btn-categories"
+            aria-controls="manager-service-tab-categories"
+            aria-selected={activeTab === "categories"}
+            className="crm-tab"
             onClick={() => setActiveTab("categories")}
           >
             Categories
@@ -553,7 +552,7 @@ export default function ServiceManagement() {
         {/* Bookings */}
 
 {activeTab === "bookings" && (
-  <>
+  <div id="manager-service-tab-bookings" role="tabpanel" aria-labelledby="manager-service-tab-btn-bookings" key={activeTab} className="book-page-open">
     {/* Header and Filters */}
     <div className="flex min-w-0 flex-col gap-4 border-b border-slate-100 p-3 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
       <div className="min-w-0">
@@ -880,14 +879,14 @@ export default function ServiceManagement() {
         Showing {filteredBookings.length} of {bookings.length} bookings
       </span>
     </div>
-  </>
+  </div>
 )}
 
 
 
         {/* Service catalogue */}
         {activeTab === "services" && (
-          <div>
+          <div id="manager-service-tab-services" role="tabpanel" aria-labelledby="manager-service-tab-btn-services" key={activeTab} className="book-page-open">
             <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="font-bold text-slate-900">
@@ -972,7 +971,7 @@ export default function ServiceManagement() {
 
         {/* Categories */}
         {activeTab === "categories" && (
-          <div className="p-5">
+          <div id="manager-service-tab-categories" role="tabpanel" aria-labelledby="manager-service-tab-btn-categories" key={activeTab} className="book-page-open p-5">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div>
                 <h2 className="font-bold text-slate-900">
@@ -1245,11 +1244,17 @@ export default function ServiceManagement() {
                 >
                   <option value="">Select team member</option>
                   {teamMembers.map((member) => (
-                    <option key={member} value={member}>
-                      {member}
+                    <option key={member.id} value={member.name}>
+                      {member.name} · {member.designation || member.role}
                     </option>
                   ))}
                 </select>
+                {teamLoading && <p className="mt-1 text-xs text-slate-500">Loading staff…</p>}
+                {!teamLoading && teamMembers.length === 0 && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    {teamError || "No active staff found in the employee database."}
+                  </p>
+                )}
               </div>
 
               <div className="sm:col-span-2">

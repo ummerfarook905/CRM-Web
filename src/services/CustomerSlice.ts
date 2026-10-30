@@ -10,6 +10,7 @@ interface CustomerState {
   loading: boolean;
   updating: boolean;
   deleting: boolean;
+  creating: boolean;
   error: string | null;
 }
 
@@ -24,11 +25,26 @@ interface UpdateCustomerPayload {
   changes: UpdateCustomerDto;
 }
 
+export interface DeleteCustomerResult {
+  id: string;
+  deleted: boolean;
+  deactivated: boolean;
+}
+
+export interface CreateCustomerDto {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  password: string;
+}
+
 const initialState: CustomerState = {
   customers: [],
   loading: false,
   updating: false,
   deleting: false,
+  creating: false,
   error: null,
 };
 
@@ -57,6 +73,14 @@ interface ApiAddress {
   street?: string | null;
   city?: string | null;
   type?: string | null;
+}
+
+export interface CreateCustomerAddressPayload {
+  customerId: string;
+  name: string;
+  address: string;
+  city: string;
+  type?: string;
 }
 
 interface ApiCustomer {
@@ -95,10 +119,10 @@ function mapApiCustomer(apiCustomer: ApiCustomer): Customer {
     email: user?.email ?? "",
     phone: user?.phone ?? "",
     city: addresses[0]?.city ?? "—",
-    status: apiCustomer.isActive ? "Active" : "Inactive",
+    status: apiCustomer.isActive === false ? "Inactive" : "Active",
 
-    serviceLocations: addresses.map((address, index) => ({
-      id: index + 1,
+    serviceLocations: addresses.map((address) => ({
+      id: address.id ?? "",
       name: address.name ?? "Service Location",
       address: address.address ?? address.street ?? "",
       city: address.city ?? "",
@@ -162,6 +186,66 @@ export const fetchCustomers = createAsyncThunk<
   }
 });
 
+export const createCustomerAddress = createAsyncThunk<
+  import("../models/admin/Customer").ServiceLocation,
+  CreateCustomerAddressPayload,
+  { rejectValue: string }
+>("customers/createAddress", async ({ customerId, ...address }, { rejectWithValue }) => {
+  const payload = { ...address, type: address.type ?? "Service" };
+  const nestedPath = `/customers/${encodeURIComponent(customerId)}/addresses`;
+
+  try {
+    let response;
+    try {
+      response = await api.post(nestedPath, payload);
+    } catch (error: unknown) {
+      if (!axios.isAxiosError(error) || error.response?.status !== 404) throw error;
+      try {
+        response = await api.post("/addresses", { customerId, ...payload });
+      } catch (fallbackError: unknown) {
+        if (!axios.isAxiosError(fallbackError) || fallbackError.response?.status !== 404) throw fallbackError;
+        response = await api.post("/service-locations", { customerId, ...payload });
+      }
+    }
+
+    const body = response.data?.data ?? response.data;
+    const result = body?.address ?? body;
+    const id = result?.id ?? result?.addressId ?? result?.serviceLocationId;
+    if (!result || (typeof id !== "string" && typeof id !== "number")) {
+      throw new Error("The saved location response did not include its ID.");
+    }
+
+    return {
+      id,
+      name: result.name ?? payload.name,
+      address: result.address ?? result.street ?? payload.address,
+      city: result.city ?? payload.city,
+      type: result.type ?? payload.type,
+    };
+  } catch (error: unknown) {
+    return rejectWithValue(getErrorMessage(error));
+  }
+});
+
+export const createCustomer = createAsyncThunk<
+  Customer,
+  CreateCustomerDto,
+  { rejectValue: string }
+>("customers/createCustomer", async (payload, { rejectWithValue }) => {
+  try {
+    const response = await api.post("/customers", {
+      firstName: payload.firstName.trim(),
+      lastName: payload.lastName.trim(),
+      email: payload.email.trim().toLowerCase(),
+      phone: payload.phone.trim(),
+      password: payload.password,
+    });
+    return extractCustomer(response.data);
+  } catch (error: unknown) {
+    return rejectWithValue(getErrorMessage(error));
+  }
+});
+
 export const updateCustomer = createAsyncThunk<
   Customer,
   UpdateCustomerPayload,
@@ -183,18 +267,25 @@ export const updateCustomer = createAsyncThunk<
 );
 
 export const deleteCustomer = createAsyncThunk<
-  Customer["id"],
+  DeleteCustomerResult,
   Customer["id"],
   { rejectValue: string }
 >(
   "customers/deleteCustomer",
   async (id, { rejectWithValue }) => {
     try {
-      await api.delete(
+      const response = await api.delete(
         `/customers/${encodeURIComponent(String(id))}`
       );
-
-      return id;
+      const payload = response.data?.data ?? response.data;
+      if (!payload || typeof payload.id !== "string") {
+        throw new Error("Invalid customer deletion response.");
+      }
+      return {
+        id: payload.id,
+        deleted: Boolean(payload.deleted),
+        deactivated: Boolean(payload.deactivated),
+      };
     } catch (error: unknown) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -225,6 +316,19 @@ const customerSlice = createSlice({
           action.payload ?? "Failed to load customers.";
       })
 
+      .addCase(createCustomer.pending, (state) => {
+        state.creating = true;
+        state.error = null;
+      })
+      .addCase(createCustomer.fulfilled, (state, action) => {
+        state.creating = false;
+        state.customers.unshift(action.payload);
+      })
+      .addCase(createCustomer.rejected, (state, action) => {
+        state.creating = false;
+        state.error = action.payload ?? "Failed to create customer.";
+      })
+
       .addCase(updateCustomer.pending, (state) => {
         state.updating = true;
         state.error = null;
@@ -252,9 +356,17 @@ const customerSlice = createSlice({
       })
       .addCase(deleteCustomer.fulfilled, (state, action) => {
         state.deleting = false;
-        state.customers = state.customers.filter(
-          (customer) => customer.id !== action.payload
-        );
+        if (action.payload.deactivated) {
+          state.customers = state.customers.map((customer) =>
+            String(customer.id) === String(action.payload.id)
+              ? { ...customer, status: "Inactive" }
+              : customer
+          );
+        } else {
+          state.customers = state.customers.filter(
+            (customer) => String(customer.id) !== String(action.payload.id)
+          );
+        }
       })
       .addCase(deleteCustomer.rejected, (state, action) => {
         state.deleting = false;

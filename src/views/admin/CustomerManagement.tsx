@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ElementType, FormEvent, ReactNode } from "react";
 
 import {
@@ -8,6 +8,7 @@ import {
   Eye,
   FileText,
   MapPin,
+  Plus,
   Search,
   User,
   Users,
@@ -17,8 +18,12 @@ import {
 
 import type { Customer } from "../../models/admin/Customer";
 import { useCustomerViewModel } from "../../viewmodels/admin/UseCustomerViewModel";
+import { useAppDispatch } from "../../app/Hooks";
+import { createCustomer, type CreateCustomerDto } from "../../services/CustomerSlice";
 
 export default function CustomerManagement() {
+  const dispatch = useAppDispatch();
+  const [showCreate, setShowCreate] = useState(false);
   const {
     customers,
     filteredCustomers,
@@ -26,7 +31,9 @@ export default function CustomerManagement() {
     setSearch,
     loading,
     updating,
+    deleting,
     error,
+    deleteMessage,
     activeCustomers,
     totalServiceLocations,
     totalUpcomingMaintenance,
@@ -59,6 +66,14 @@ export default function CustomerManagement() {
             Manage customers, service locations and service history.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setShowCreate(true)}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-900"
+        >
+          <Plus size={17} />
+          Add Customer
+        </button>
       </div>
 
       {loading && (
@@ -74,6 +89,18 @@ export default function CustomerManagement() {
         >
           {error}
         </div>
+      )}
+
+      {deleteMessage && (
+        <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+          {deleteMessage}
+        </div>
+      )}
+
+      {deleting && (
+        <p role="status" className="text-xs font-medium text-slate-500">
+          Processing customer deletion…
+        </p>
       )}
 
       {/* SUMMARY CARDS */}
@@ -403,7 +430,75 @@ export default function CustomerManagement() {
           isSaving={updating}
         />
       )}
+      {showCreate && (
+        <CustomerCreateModal
+          onClose={() => setShowCreate(false)}
+          onCreate={async (payload) => {
+            await dispatch(createCustomer(payload)).unwrap();
+            setShowCreate(false);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function CustomerCreateModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (payload: CreateCustomerDto) => Promise<void>;
+}) {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await onCreate({ firstName, lastName, email, phone, password });
+    } catch (reason) {
+      setError(typeof reason === "string" ? reason : reason instanceof Error ? reason.message : "Unable to create customer.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="flex items-center justify-between border-b border-slate-200 p-5">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Customer Management</p>
+          <h2 className="mt-1 text-lg font-bold text-slate-900">Add Customer</h2>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X size={18}/></button>
+      </div>
+      <form onSubmit={(event) => void submit(event)} className="space-y-4 p-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <InputField label="First name" value={firstName} onChange={setFirstName} required />
+          <InputField label="Last name" value={lastName} onChange={setLastName} required />
+          <InputField label="Email" value={email} onChange={setEmail} type="email" required />
+          <InputField label="Phone" value={phone} onChange={setPhone} required />
+          <InputField label="Temporary password" value={password} onChange={setPassword} type="password" required />
+        </div>
+        {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+          <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+          <button type="submit" disabled={saving} className="rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-50">{saving ? "Creating…" : "Create Customer"}</button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -989,8 +1084,14 @@ interface ModalProps {
 }
 
 function Modal({ children, onClose }: ModalProps) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/10 p-4 backdrop-blur-[2px]">
       <button
         type="button"
         aria-label="Close modal"

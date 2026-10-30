@@ -25,6 +25,7 @@ export interface Enquiry {
 }
 
 export interface CreateEnquiryPayload {
+  customerId?: string | null;
   name: string;
   phone: string;
   email?: string | null;

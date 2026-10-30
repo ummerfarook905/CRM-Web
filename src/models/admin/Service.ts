@@ -30,16 +30,16 @@ export interface CreateServicePayload {
 export interface ApiService {
   id: number | string;
   name: string;
-  categoryId: string;
+  categoryId?: number | string | null;
   description: string;
-  estimatedDuration: string;
-  basePrice: number;
+  estimatedDuration: number | string | { minutes?: number | string; value?: number | string };
+  basePrice: number | string;
   image?: string | null;
   requiresMaintenance: boolean;
   defaultMaintenanceFrequency: string | null;
   isActive: boolean;
-  category?: {
-    id: string;
+  category?: string | {
+    id?: number | string;
     name: string;
-  };
+  } | null;
 }

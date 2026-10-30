@@ -28,8 +28,10 @@ import {
 
 import { useAppDispatch, useAppSelector } from "../../app/Hooks";
 import { fetchServices } from "../../services/ServicesSlice";
+import { createCustomerAddress, fetchCustomers } from "../../services/CustomerSlice";
 
 import { useEnquiryManagementViewModel } from "../../viewmodels/admin/UseEnquiryManagementModel";
+import { useAssignableEmployees } from "../../viewmodels/shared/UseAssignableEmployees";
 
 import {
   addEnquiry as addEnquiryApi,
@@ -54,22 +56,6 @@ import {
 /* Demo data                                                                   */
 /* -------------------------------------------------------------------------- */
 
-const managers = [
-  "Arun Mathew",
-  "Meera Joseph",
-  "Rahul Nair",
-  "Fathima Ali",
-];
-
-const employees = [
-  "Employee 001 - Nikhil",
-  "Employee 002 - Adil",
-  "Employee 003 - Suresh",
-  "Employee 004 - Amal",
-  "Employee 005 - Sneha",
-  "Employee 006 - Riyas",
-];
-
 const statusStyles: Record<EnquiryStatus, string> = {
   New: "bg-blue-50 text-blue-700",
   Contacted: "bg-amber-50 text-amber-700",
@@ -84,12 +70,6 @@ const priorityStyles: Record<Priority, string> = {
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
-
-interface CustomerOption {
-  id: string;
-  name: string;
-  phone: string;
-}
 
 /* -------------------------------------------------------------------------- */
 /* Main page                                                                   */
@@ -111,17 +91,31 @@ export default function EnquiryManagement() {
   convertedEnquiries,
 } = useEnquiryManagementViewModel();
 
-const customers: CustomerOption[] = [];
-
   const dispatch = useAppDispatch();
+  const { employees: staff } = useAssignableEmployees();
+  const managers = staff.filter((person) =>
+    `${person.role ?? ""} ${person.designation}`.toLowerCase().includes("manager"),
+  );
+  const technicians = staff.filter((person) => {
+    const role = `${person.role ?? ""} ${person.designation}`.toLowerCase();
+    return role.includes("technician") || role.includes("engineer");
+  });
   const services = useAppSelector((state) => state.services.items);
+  const customers = useAppSelector((state) => state.customers.customers);
+  const customersLoading = useAppSelector((state) => state.customers.loading);
+  const customersError = useAppSelector((state) => state.customers.error);
 
   useEffect(() => {
     void dispatch(fetchServices());
+    void dispatch(fetchCustomers());
   }, [dispatch]);
 
   const [selected, setSelected] = useState<Enquiry | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId);
+  const [selectedLocationId, setSelectedLocationId] = useState("");
+  const [newLocationAddress, setNewLocationAddress] = useState("");
+  const [newLocationCity, setNewLocationCity] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [showService, setShowService] = useState(false);
 
@@ -135,6 +129,7 @@ const customers: CustomerOption[] = [];
   const [assignmentError, setAssignmentError] = useState("");
 
   const [form, setForm] = useState({
+    customerId: "",
     customerName: "",
     company: "",
     phone: "",
@@ -180,6 +175,7 @@ const addEnquiry = async (
   try {
     await dispatch(
       addEnquiryApi({
+        customerId: form.customerId,
         name: form.customerName.trim(),
         phone: form.phone.trim(),
         email: form.email.trim() || null,
@@ -193,6 +189,7 @@ const addEnquiry = async (
     await dispatch(fetchEnquiries()).unwrap();
 
     setForm({
+      customerId: "",
       customerName: "",
       company: "",
       phone: "",
@@ -222,6 +219,9 @@ const addEnquiry = async (
 
     setSelected(enquiry);
     setSelectedCustomerId(enquiry.customerId ?? "");
+    setSelectedLocationId(enquiry.serviceLocationId ?? "");
+    setNewLocationAddress("");
+    setNewLocationCity("");
     setServiceDate(today());
     setPreferredTime("10:30");
     setServiceNotes("");
@@ -261,13 +261,34 @@ const addEnquiry = async (
     setIsConverting(true);
 
     try {
+      let serviceLocationId = selectedLocationId || selected.serviceLocationId || "";
+      if (newLocationAddress.trim() || newLocationCity.trim()) {
+        if (!newLocationAddress.trim() || !newLocationCity.trim()) {
+          setAssignmentError("Enter both the service address and city.");
+          setIsConverting(false);
+          return;
+        }
+        const location = await dispatch(createCustomerAddress({
+          customerId,
+          name: "Service Location",
+          address: newLocationAddress.trim(),
+          city: newLocationCity.trim(),
+        })).unwrap();
+        serviceLocationId = String(location.id);
+        void dispatch(fetchCustomers());
+      }
+
+      if (!serviceLocationId) {
+        setAssignmentError("Select an existing service location or enter a new address and city.");
+        setIsConverting(false);
+        return;
+      }
+
       const payload = {
         id: selected.id,
         customerId,
         ...(selected.serviceId ? { serviceId: selected.serviceId } : {}),
-        ...(selected.serviceLocationId
-          ? { serviceLocationId: selected.serviceLocationId }
-          : {}),
+        serviceLocationId,
         preferredDate: serviceDate,
         preferredTime,
         ...(serviceNotes.trim() ? { remarks: serviceNotes.trim() } : {}),
@@ -279,6 +300,9 @@ const addEnquiry = async (
       setSelected(null);
       setShowService(false);
       setSelectedCustomerId("");
+      setSelectedLocationId("");
+      setNewLocationAddress("");
+      setNewLocationCity("");
       setServiceDate(today());
       setPreferredTime("10:30");
       setServiceNotes("");
@@ -847,32 +871,6 @@ const addEnquiry = async (
               </div>
             </div>
 
-            {/* Existing customer UUID - required by the conversion API */}
-            <div>
-              <label
-                htmlFor="conversionCustomerId"
-                className="mb-1.5 block text-sm font-semibold text-slate-700"
-              >
-                Customer ID <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="conversionCustomerId"
-                type="text"
-                value={selectedCustomerId}
-                onChange={(event) => {
-                  setSelectedCustomerId(event.target.value);
-                  setAssignmentError("");
-                }}
-                placeholder="Enter an existing customer's UUID"
-                autoComplete="off"
-                required
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-              />
-              <p className="mt-1.5 text-xs text-slate-500">
-                Use the ID of an existing customer from your customer API. A name or phone number is not a customer ID.
-              </p>
-            </div>
-
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-slate-700">
                 Select Customer <span className="text-red-500">*</span>
@@ -882,6 +880,9 @@ const addEnquiry = async (
                 value={selectedCustomerId}
                 onChange={(event) => {
                   setSelectedCustomerId(event.target.value);
+                  setSelectedLocationId("");
+                  setNewLocationAddress("");
+                  setNewLocationCity("");
                   setAssignmentError("");
                 }}
                 required
@@ -895,6 +896,57 @@ const addEnquiry = async (
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
+              <div>
+                <label htmlFor="serviceLocation" className="mb-1.5 block text-sm font-semibold text-slate-700">
+                  Existing Service Location
+                </label>
+                <select
+                  id="serviceLocation"
+                  value={selectedLocationId}
+                  onChange={(event) => {
+                    setSelectedLocationId(event.target.value);
+                    setNewLocationAddress("");
+                    setNewLocationCity("");
+                    setAssignmentError("");
+                  }}
+                  disabled={!selectedCustomer || selectedCustomer.serviceLocations.length === 0}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm"
+                >
+                  <option value="">Choose a saved location or enter a new one</option>
+                  {(selectedCustomer?.serviceLocations ?? []).filter((location) => String(location.id).trim()).map((location) => (
+                    <option key={location.id} value={String(location.id)}>
+                      {[location.name, location.address, location.city].filter(Boolean).join(" — ")}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <p className="text-center text-xs font-medium uppercase tracking-wide text-slate-400">Or add a service location</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field
+                  label="Service Address"
+                  value={newLocationAddress}
+                  onChange={(value) => {
+                    setNewLocationAddress(value);
+                    if (value) setSelectedLocationId("");
+                    setAssignmentError("");
+                  }}
+                  placeholder="Street address or site details"
+                />
+                <Field
+                  label="City"
+                  value={newLocationCity}
+                  onChange={(value) => {
+                    setNewLocationCity(value);
+                    if (value) setSelectedLocationId("");
+                    setAssignmentError("");
+                  }}
+                  placeholder="City"
+                />
+              </div>
             </div>
 
             {/* Preferred date */}
@@ -992,8 +1044,8 @@ const addEnquiry = async (
               >
                 <option value="">No manager selected</option>
                 {managers.map((manager) => (
-                  <option key={manager} value={manager}>
-                    {manager}
+                  <option key={manager.id} value={manager.name}>
+                    {manager.name}
                   </option>
                 ))}
               </select>
@@ -1017,12 +1069,12 @@ const addEnquiry = async (
               </p>
 
               <div className="grid gap-2 sm:grid-cols-2">
-                {employees.map((employee) => {
-                  const checked = assignedEmployees.includes(employee);
+                {technicians.map((employee) => {
+                  const checked = assignedEmployees.includes(employee.name);
 
                   return (
                     <label
-                      key={employee}
+                      key={employee.id}
                       className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${
                         checked
                           ? "border-emerald-500 bg-emerald-50"
@@ -1032,16 +1084,19 @@ const addEnquiry = async (
                       <input
                         type="checkbox"
                         checked={checked}
-                        onChange={() => toggleEmployee(employee)}
+                        onChange={() => toggleEmployee(employee.name)}
                         className="h-4 w-4 accent-emerald-700"
                       />
 
                       <span className="text-sm text-slate-700">
-                        {employee}
+                        {employee.name}
                       </span>
                     </label>
                   );
                 })}
+                {technicians.length === 0 && (
+                  <p className="text-xs text-amber-700">No active technicians or service engineers are available.</p>
+                )}
               </div>
             </div>
 
@@ -1176,40 +1231,48 @@ const addEnquiry = async (
         >
           <form onSubmit={addEnquiry} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field
-                label="Customer Name"
-                required
-                value={form.customerName}
-                onChange={(value) =>
-                  setForm({ ...form, customerName: value })
-                }
-                placeholder="Enter customer name"
-              />
-
-              <Field
-                label="Company"
-                required
-                value={form.company}
-                onChange={(value) => setForm({ ...form, company: value })}
-                placeholder="Company name"
-              />
-
-              <Field
-                label="Phone"
-                required
-                value={form.phone}
-                onChange={(value) => setForm({ ...form, phone: value })}
-                placeholder="+91..."
-              />
-
-              <Field
-                label="Email"
-                required
-                type="email"
-                value={form.email}
-                onChange={(value) => setForm({ ...form, email: value })}
-                placeholder="customer@example.com"
-              />
+              <div className="sm:col-span-2">
+                <label htmlFor="enquiryCustomer" className="mb-1.5 block text-sm font-semibold text-slate-700">
+                  Existing Customer <span className="ml-1 text-red-500">*</span>
+                </label>
+                <select
+                  id="enquiryCustomer"
+                  value={form.customerId}
+                  onChange={(event) => {
+                    const customer = customers.find((item) => item.id === event.target.value);
+                    setForm((current) => ({
+                      ...current,
+                      customerId: customer?.id ?? "",
+                      customerName: customer?.name ?? "",
+                      company: customer?.company ?? "",
+                      phone: customer?.phone ?? "",
+                      email: customer?.email ?? "",
+                    }));
+                  }}
+                  required
+                  disabled={customersLoading || customers.length === 0}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                >
+                  <option value="">
+                    {customersLoading ? "Loading customers…" : "Select a customer"}
+                  </option>
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name} — {customer.phone}{customer.company && customer.company !== "—" ? ` · ${customer.company}` : ""}
+                    </option>
+                  ))}
+                </select>
+                {!customersLoading && customers.length === 0 && (
+                  <p className="mt-1.5 text-xs text-amber-700">
+                    {customersError || "No customers are available. Add a customer before creating an enquiry."}
+                  </p>
+                )}
+                {form.customerId && (
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    {[form.company, form.phone, form.email].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+              </div>
 
               <div>
                 <label

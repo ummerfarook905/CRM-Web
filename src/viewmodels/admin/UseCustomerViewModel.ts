@@ -33,6 +33,7 @@ export function useCustomerViewModel() {
     useState<Customer | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
 
   useEffect(() => {
     dispatch(fetchCustomers());
@@ -132,9 +133,14 @@ const handleUpdateCustomer = async (customer: Customer) => {
 
     if (!confirmed) return;
 
+    dispatch(clearCustomerError());
+    setDeleteMessage(null);
     const result = await dispatch(deleteCustomer(customer.id));
 
     if (deleteCustomer.fulfilled.match(result)) {
+      setDeleteMessage(result.payload.deactivated
+        ? `${customer.name} has linked records, so the account was deactivated.`
+        : `${customer.name} and the linked user account were deleted.`);
       if (selectedCustomer?.id === customer.id) {
         closeDetails();
       }
@@ -155,6 +161,7 @@ const handleUpdateCustomer = async (customer: Customer) => {
     updating,
     deleting,
     error,
+    deleteMessage,
 
     activeCustomers,
     totalServiceLocations,

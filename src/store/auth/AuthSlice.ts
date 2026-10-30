@@ -133,6 +133,28 @@ const authSlice = createSlice({
       persistSession(null);
     },
 
+    sessionRefreshed: (state, action: { payload: { token: string; refreshToken: string } }) => {
+      state.token = action.payload.token;
+      state.refreshToken = action.payload.refreshToken;
+      if (state.user) {
+        persistSession({
+          user: state.user,
+          token: action.payload.token,
+          refreshToken: action.payload.refreshToken,
+        });
+      }
+    },
+
+    sessionExpired: (state) => {
+      state.user = null;
+      state.token = null;
+      state.refreshToken = null;
+      state.isAuthenticated = false;
+      state.loading = false;
+      state.error = null;
+      persistSession(null);
+    },
+
     clearAuthError: (state) => {
       state.error = null;
     },
@@ -174,7 +196,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearAuthError } =
+export const { logout, clearAuthError, sessionRefreshed, sessionExpired } =
   authSlice.actions;
 
 export default authSlice.reducer;

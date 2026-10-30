@@ -9,6 +9,7 @@ export interface Employee {
   phone: string;
   department: string;
   designation: string;
+  role?: string;
   joiningDate: string;
   status: EmployeeStatus;
   profilePhoto?: string | null;
@@ -19,6 +20,7 @@ export interface ApiEmployee {
   employeeNo?: string;
   joiningDate?: string | null;
   designation?: string | null;
+  role?: string | { name?: string | null } | null;
   createdAt?: string;
   updatedAt?: string;
   user?: {
@@ -30,6 +32,7 @@ export interface ApiEmployee {
     profilePhoto?: string | null;
     isActive?: boolean;
     isVerified?: boolean;
+    role?: string | null;
   };
 }
 
@@ -75,6 +78,10 @@ export function mapApiEmployee(employee: ApiEmployee): Employee {
     phone: user?.phone ?? "",
     department: "Operations",
     designation: employee.designation ?? "",
+    role:
+      typeof employee.role === "string"
+        ? employee.role
+        : employee.role?.name ?? user?.role ?? "",
     joiningDate: employee.joiningDate
       ? employee.joiningDate.slice(0, 10)
       : "",

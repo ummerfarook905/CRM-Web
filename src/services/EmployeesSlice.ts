@@ -23,6 +23,12 @@ interface EmployeesState {
   error: string | null;
 }
 
+export interface DeleteEmployeeResult {
+  id: string;
+  deleted: boolean;
+  deactivated: boolean;
+}
+
 const initialState: EmployeesState = {
   items: [],
   loading: false,
@@ -183,13 +189,21 @@ export const updateEmployeeApi = createAsyncThunk<
 
 /* Delete employee */
 export const deleteEmployeeApi = createAsyncThunk<
-  string,
+  DeleteEmployeeResult,
   string,
   { rejectValue: string }
 >("employees/delete", async (id, { rejectWithValue }) => {
   try {
-    await api.delete(`/employees/${encodeURIComponent(id)}`);
-    return id;
+    const response = await api.delete(`/employees/${encodeURIComponent(id)}`);
+    const result = response.data?.data ?? response.data;
+    if (!result || typeof result.id !== "string") {
+      return rejectWithValue("The API response did not contain the employee deletion result.");
+    }
+    return {
+      id: result.id,
+      deleted: Boolean(result.deleted),
+      deactivated: Boolean(result.deactivated),
+    };
   } catch (error: unknown) {
     return rejectWithValue(
       getErrorMessage(error, "Failed to delete employee"),
@@ -292,9 +306,15 @@ const employeesSlice = createSlice({
         state.error = null;
       })
       .addCase(deleteEmployeeApi.fulfilled, (state, action) => {
-        state.items = state.items.filter(
-          (item) => item.id !== action.payload,
-        );
+        if (action.payload.deactivated) {
+          state.items = state.items.map((item) =>
+            item.id === action.payload.id ? { ...item, status: "Inactive" } : item,
+          );
+        } else {
+          state.items = state.items.filter(
+            (item) => item.id !== action.payload.id,
+          );
+        }
       })
       .addCase(deleteEmployeeApi.rejected, (state, action) => {
         state.error = action.payload ?? "Failed to delete employee";
