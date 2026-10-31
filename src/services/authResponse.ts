@@ -51,7 +51,7 @@ interface ApiLoginPayload {
 const normalizeRole = (rawRole: string): Role => {
   const role = rawRole.trim().toLowerCase();
 
-  if (role === "admin" || role === "manager") {
+  if (role === "admin" || role === "manager" || role === "employee" || role === "super_admin") {
     return role;
   }
 

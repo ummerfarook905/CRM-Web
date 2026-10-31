@@ -1,6 +1,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useServiceReportPendingCount } from "../../hooks/useServiceReportPendingCount";
 import GlassmorphismSummary from "../../components/common/GlassmorphismSummary";
 import {
   ArrowRight,
@@ -214,6 +215,20 @@ function matchesCategory(work: WorkItem, title: string): boolean {
 
 export default function ManagerDashboard() {
   const navigate = useNavigate();
+  const reportReview = useServiceReportPendingCount("manager");
+  const dashboardStats: StatCard[] = [
+    ...stats,
+    {
+      title: "REPORTS AWAITING REVIEW",
+      value: reportReview.count == null ? (reportReview.loading ? "…" : "—") : String(reportReview.count),
+      percentage: "",
+      description: "Submitted service reports",
+      icon: CheckCircle2,
+      iconBg: "bg-amber-50",
+      iconColor: "text-amber-700",
+      accent: "border-t-amber-500",
+    },
+  ];
 
   const [selectedStat, setSelectedStat] =
     useState<StatCard | null>(null);
@@ -332,7 +347,7 @@ export default function ManagerDashboard() {
 
       {/* Statistics cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => {
+        {dashboardStats.map((stat) => {
           const Icon = stat.icon;
 
           return (
@@ -340,6 +355,10 @@ export default function ManagerDashboard() {
               key={stat.title}
               type="button"
               onClick={() => {
+                if (stat.title === "REPORTS AWAITING REVIEW") {
+                  navigate("/manager/WorkVerification");
+                  return;
+                }
                 setSearchTerm("");
                 setSelectedStat(stat);
               }}

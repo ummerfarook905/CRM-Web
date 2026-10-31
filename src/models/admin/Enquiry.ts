@@ -25,7 +25,6 @@ export interface Enquiry {
 }
 
 export interface CreateEnquiryPayload {
-  customerId?: string | null;
   name: string;
   phone: string;
   email?: string | null;
@@ -43,6 +42,7 @@ export interface ApiEnquiry {
   email?: string | null;
   serviceId?: string | null;
   serviceLocationId?: string | null;
+  location?: string | null;
   message?: string | null;
   status?: string | null;
   assignedManagerId?: string | null;
@@ -80,7 +80,7 @@ export function mapApiEnquiry(item: ApiEnquiry): Enquiry {
     serviceId: item.serviceId ?? item.service?.id ?? null,
     serviceLocationId: item.serviceLocationId ?? null,
     service: item.service?.name ?? "",
-    location: "",
+    location: item.location ?? "",
     message: item.message ?? "",
     receivedDate: item.createdAt ? item.createdAt.slice(0, 10) : "",
     priority: "Medium",

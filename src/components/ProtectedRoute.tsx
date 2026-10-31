@@ -5,7 +5,7 @@ import { useAppSelector } from "../app/Hooks";
 import type { Role } from "../models/auth/User";
 
 interface ProtectedRouteProps {
-  allowedRole: Role;
+  allowedRole: Role | Role[];
 }
 
 export default function ProtectedRoute({
@@ -19,7 +19,8 @@ export default function ProtectedRoute({
     return <Navigate to="/login" replace />;
   }
 
-  if (user.role !== allowedRole) {
+  const allowedRoles = Array.isArray(allowedRole) ? allowedRole : [allowedRole];
+  if (!allowedRoles.includes(user.role)) {
     return <Navigate to="/unauthorized" replace />;
   }
 

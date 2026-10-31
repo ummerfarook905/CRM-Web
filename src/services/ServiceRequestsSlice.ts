@@ -21,12 +21,16 @@ export interface ServiceRequest {
 
 export interface ConvertEnquiryPayload {
   id: string;
-  customerId?: string;
-  serviceId?: string;
-  serviceLocationId?: string;
+  customerId: string;
+  serviceId: string;
+  serviceLocationId: string;
   preferredDate: string;
   preferredTime: string;
+  priority: "LOW" | "NORMAL" | "HIGH";
+  managerId?: string;
+  employeeIds?: string[];
   remarks?: string;
+  instructions?: string;
 }
 
 export interface Booking {
@@ -101,16 +105,44 @@ export const convertEnquiryToBookingApi = createAsyncThunk<
           error as {
             response?: {
               data?: {
-                message?: string;
-                errors?: { fields?: string[] };
+                message?: unknown;
+                errors?: unknown;
+                details?: unknown;
+                validationErrors?: unknown;
               };
             };
           }
         ).response?.data;
+        console.error("Enquiry conversion API error", { enquiryId: id, requestBody: payload, response: apiError });
+
+        const errorText = (value: unknown): string[] => {
+          if (typeof value === "string") return [value];
+          if (Array.isArray(value)) return value.flatMap(errorText);
+          if (!value || typeof value !== "object") return [];
+          const record = value as Record<string, unknown>;
+          const field = typeof record.field === "string" ? record.field : typeof record.property === "string" ? record.property : "";
+          const messages = [record.message, record.messages, record.constraints].flatMap(errorText);
+          if (field && messages.length) return [`${field}: ${messages.join(", ")}`];
+          const nested = [record.fields, record.details, record.errors, record.validationErrors].flatMap(errorText);
+          if (nested.length) return nested;
+          return Object.entries(record).flatMap(([key, entry]) =>
+            typeof entry === "string"
+              ? [`${key}: ${entry}`]
+              : errorText(entry),
+          );
+        };
+        const details = [apiError?.errors, apiError?.details, apiError?.validationErrors]
+          .flatMap(errorText);
+        const message = apiError?.message;
+        let rawError = "";
+        if (message === "Validation failed" && apiError) {
+          try { rawError = JSON.stringify(apiError); } catch { rawError = ""; }
+        }
 
         return rejectWithValue(
-          apiError?.errors?.fields?.join(", ") ||
-            apiError?.message ||
+          details.join("; ") ||
+            (message === "Validation failed" && rawError ? `${message}: ${rawError}` : "") ||
+            (Array.isArray(message) ? message.join(", ") : typeof message === "string" ? message : "") ||
             "Failed to convert enquiry into a booking.",
         );
       }

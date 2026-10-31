@@ -7,7 +7,7 @@ import {
   MapPin,
   Clock,
   Building2,
-  Camera,
+  FileCheck2,
   ReceiptText,
   LogOut,
   Menu,
@@ -67,6 +67,11 @@ export default function AdminSideNav({
           icon: PanelsTopLeft,
         },
         {
+          name: "Expense Claims",
+          path: "/admin/Expenses",
+          icon: ReceiptText,
+        },
+        {
           name: "Work Orders & Enquiries",
           path: "/admin/Enquiries",
           icon: ClipboardList,
@@ -110,9 +115,9 @@ export default function AdminSideNav({
       icon: ChartNoAxesColumn,
       items: [
         {
-          name: "Field Photo Verification",
+          name: "Service Report Review",
           path: "/admin/WorkVerification",
-          icon: Camera,
+          icon: FileCheck2,
         },
         {
           name: "Work Monitoring",

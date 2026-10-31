@@ -11,6 +11,7 @@ export type ServiceStatus =
   | "Approved"
   | "Rejected"
   | "Scheduled"
+  | "Assigned"
   | "In Progress"
   | "Completed";
 
@@ -26,6 +27,13 @@ export interface Booking {
   requestedDate: string;
   scheduledDate: string;
   scheduledTime: string;
+  scheduledEndTime: string;
+  workOrderId: string;
+  managerId: string;
+  managerName: string;
+  employeeIds: string[];
+  employeeNames: string[];
+  serviceDurationMinutes: number;
   priority: Priority;
   status: ServiceStatus;
   assignedTo: string;
@@ -81,7 +89,15 @@ interface ApiBooking {
   } | null;
 
   workOrder?: {
+    id?: string;
     scheduledDate?: string | null;
+    scheduledStartTime?: string | null;
+    scheduledEndTime?: string | null;
+    manager?: { id?: string; user?: { firstName?: string | null; lastName?: string | null } | null } | null;
+    assignments?: Array<{
+      employeeId?: string;
+      employee?: { id?: string; user?: { firstName?: string | null; lastName?: string | null } | null } | null;
+    }>;
     scheduledTime?: string | null;
     assignedTo?: string | null;
   } | null;
@@ -183,6 +199,9 @@ function mapBookingStatus(status: string): ServiceStatus {
     case "SCHEDULED":
       return "Scheduled";
 
+    case "ASSIGNED":
+      return "Assigned";
+
     case "IN_PROGRESS":
       return "In Progress";
 
@@ -216,6 +235,15 @@ function mapApiBooking(item: ApiBooking): Booking {
   ]
     .filter(Boolean)
     .join(", ");
+  const workOrder = item.workOrder;
+  const employees = (workOrder?.assignments ?? []).flatMap((assignment) => {
+    const employee = assignment.employee;
+    const name = [employee?.user?.firstName, employee?.user?.lastName].filter(Boolean).join(" ");
+    const id = assignment.employeeId ?? employee?.id;
+    return id ? [{ id, name: name || "Employee" }] : [];
+  });
+  const managerName = [workOrder?.manager?.user?.firstName, workOrder?.manager?.user?.lastName]
+    .filter(Boolean).join(" ");
 
   return {
     id: item.id,
@@ -224,15 +252,22 @@ function mapApiBooking(item: ApiBooking): Booking {
     company: "—",
     serviceId: item.serviceId,
     location: locationName || "—",
-    requestedDate: item.preferredDate || "",
-    scheduledDate: item.workOrder?.scheduledDate || "",
+    requestedDate: item.preferredDate?.slice(0, 10) || "",
+    scheduledDate: workOrder?.scheduledDate?.slice(0, 10) || "",
     scheduledTime:
-      item.workOrder?.scheduledTime ||
+      workOrder?.scheduledStartTime || workOrder?.scheduledTime ||
       item.preferredTime ||
       "",
+    scheduledEndTime: workOrder?.scheduledEndTime || "",
+    workOrderId: workOrder?.id || "",
+    managerId: workOrder?.manager?.id || "",
+    managerName: managerName || "",
+    employeeIds: employees.map((employee) => employee.id),
+    employeeNames: employees.map((employee) => employee.name),
+    serviceDurationMinutes: Number(item.service?.estimatedDuration) || 60,
     priority: "Medium",
     status: mapBookingStatus(item.status),
-    assignedTo: item.workOrder?.assignedTo || "",
+    assignedTo: employees.map((employee) => employee.name).join(", ") || workOrder?.assignedTo || "",
     notes: [item.remarks, item.cancelReason]
       .filter(Boolean)
       .join("\n"),

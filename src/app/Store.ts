@@ -11,6 +11,7 @@ import employeesReducer from "../services/EmployeesSlice";
 import attendanceReducer from "../services/AttendancesSlice";
 import overtimeReducer from "../services/OvertimeSlice";// Import the bookings reducer
 import workMonitoringReducer from "../services/WorkMonitoringSlice";
+import designationsReducer from "../services/DesignationsSlice";
 
 export const store = configureStore({
   reducer: {
@@ -25,6 +26,7 @@ export const store = configureStore({
     attendance: attendanceReducer,
     overtime: overtimeReducer,
     workMonitoring: workMonitoringReducer,
+    designations: designationsReducer,
  // Add the bookings reducer here
   },
 });

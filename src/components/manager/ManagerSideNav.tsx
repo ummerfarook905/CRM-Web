@@ -3,8 +3,9 @@ import {
   LayoutDashboard,
   ClipboardList,
   Clock,
-  Camera,
+  FileCheck2,
   FileText,
+  ReceiptText,
   LogOut,
   Menu,
   Building2,
@@ -16,6 +17,7 @@ import {
   ChevronRight,
   ChevronDown,
   UsersRound,
+  UserRoundPlus,
 } from "lucide-react";
 
 import { useState } from "react";
@@ -73,12 +75,22 @@ export default function ManagerSideNav({
           path: "/manager/ServiceManagement",
           icon: PanelsTopLeft,
         },
+        {
+          name: "Expense Claims",
+          path: "/manager/Expenses",
+          icon: ReceiptText,
+        },
       ],
     },
     {
       title: "FIELD OPERATIONS MANAGER",
       icon: UsersRound,
       items: [
+        {
+          name: "Employee Management",
+          path: "/manager/Employees",
+          icon: UserRoundPlus,
+        },
         {
           name: "Technician Work Assignment",
           path: "/manager/WorkAssignment",
@@ -97,9 +109,9 @@ export default function ManagerSideNav({
         },
 
         {
-          name: "Field Photo Verification",
+          name: "Service Report Review",
           path: "/manager/WorkVerification",
-          icon: Camera,
+          icon: FileCheck2,
         },
       ],
     },

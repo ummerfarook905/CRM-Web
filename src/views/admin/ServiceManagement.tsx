@@ -30,6 +30,7 @@ const statusStyles: Record<string, string> = {
   Approved: "bg-blue-50 text-blue-700",
   Rejected: "bg-red-50 text-red-700",
   Scheduled: "bg-violet-50 text-violet-700",
+  Assigned: "bg-indigo-50 text-indigo-700",
   "In Progress": "bg-cyan-50 text-cyan-700",
   Completed: "bg-emerald-50 text-emerald-700",
 };
@@ -196,6 +197,7 @@ export default function ServiceManagement() {
                       "Approved",
                       "Rejected",
                       "Scheduled",
+                      "Assigned",
                       "In Progress",
                       "Completed",
                     ].map((status) => (
@@ -238,7 +240,7 @@ export default function ServiceManagement() {
                       "Location",
                       "Requested",
                       "Status",
-                      "Assigned To",
+                      "Manager / Employees",
                       "Actions",
                     ].map((heading) => (
                       <th
@@ -293,8 +295,9 @@ export default function ServiceManagement() {
                           <StatusBadge status={booking.status} />
                         </td>
 
-                        <td className="max-w-[140px] break-words px-3 py-4 text-slate-600 xl:px-4">
-                          {booking.assignedTo || "Unassigned"}
+                        <td className="max-w-[180px] break-words px-3 py-4 text-slate-600 xl:px-4">
+                          <p className="font-medium">{booking.managerName || "No manager"}</p>
+                          <p className="mt-1 text-xs text-slate-500">{booking.employeeNames.join(", ") || "No employees assigned"}</p>
                         </td>
 
                         <td className="px-3 py-4 xl:px-4">
@@ -516,25 +519,38 @@ export default function ServiceManagement() {
 
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-slate-700">
-                  Estimated Duration (minutes) *
+                  Estimated Duration *
                 </label>
 
-                <input
-                  type="number"
-                  min="5"
-                  max="1440"
-                  step="1"
-                  required
-                  value={vm.serviceForm.duration}
-                  onChange={(event) =>
-                    vm.setServiceForm((current) => ({
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    required
+                    value={vm.serviceForm.duration}
+                    onChange={(event) =>
+                      vm.setServiceForm((current) => ({
+                        ...current,
+                        duration: event.target.value,
+                      }))
+                    }
+                    placeholder="Enter duration"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                  />
+                  <select
+                    aria-label="Estimated duration unit"
+                    value={vm.serviceForm.durationUnit}
+                    onChange={(event) => vm.setServiceForm((current) => ({
                       ...current,
-                      duration: event.target.value,
-                    }))
-                  }
-                  placeholder="Enter duration in minutes"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-                />
+                      durationUnit: event.target.value as "days" | "months",
+                    }))}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
+                  >
+                    <option value="days">Days</option>
+                    <option value="months">Months</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -761,34 +777,21 @@ export default function ServiceManagement() {
               />
 
               <div className="sm:col-span-2">
-                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
-                  Assign To *
-                </label>
-                <select
-                  required
-                  value={vm.scheduleForm.assignedTo}
-                  onChange={(event) =>
-                    vm.setScheduleForm((current) => ({
-                      ...current,
-                      assignedTo: event.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
-                >
-                  <option value="">Select team member</option>
-                  {teamMembers.map((member) => (
-                    <option key={member.id} value={member.name}>
-                      {member.name} · {member.designation || member.role}
-                    </option>
-                  ))}
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">Assign Manager</label>
+                <select value={vm.scheduleForm.managerId} onChange={(event) => vm.setScheduleForm((current) => ({ ...current, managerId: event.target.value }))} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600">
+                  <option value="">{vm.managersLoading ? "Loading managers…" : vm.managersError ? "Manager list unavailable" : vm.managers.length ? "No manager selected" : "No active managers available"}</option>
+                  {vm.managers.map((manager) => <option key={manager.id} value={manager.id}>{manager.name}</option>)}
                 </select>
-                {teamLoading && <p className="mt-1 text-xs text-slate-500">Loading staff…</p>}
-                {!teamLoading && teamMembers.length === 0 && (
-                  <p className="mt-1 text-xs text-amber-700">
-                    {teamError || "No active staff found in the employee database."}
-                  </p>
-                )}
+                {vm.managersLoading && <p role="status" className="mt-1 text-xs text-slate-500">Loading managers…</p>}
+                {vm.managersError && <p role="alert" className="mt-1 text-xs text-red-600">{vm.managersError}</p>}
+                {!vm.managersLoading && !vm.managersError && vm.managers.length === 0 && <p role="status" className="mt-1 text-xs text-amber-700">No active Manager records are available.</p>}
               </div>
+
+              <fieldset className="sm:col-span-2">
+                <legend className="mb-1.5 text-xs font-semibold text-slate-700">Assign Employees</legend>
+                {teamLoading ? <p role="status" className="text-xs text-slate-500">Loading staff…</p> : teamMembers.length === 0 ? <p className="text-xs text-amber-700">{teamError || "No active staff found."}</p> : <div className="grid max-h-36 gap-2 overflow-y-auto rounded-lg border border-slate-200 p-3 sm:grid-cols-2">{teamMembers.map((member) => { const alreadyAssigned = (vm.scheduleBooking?.employeeIds ?? []).includes(member.id); return <label key={member.id} className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={vm.scheduleForm.employeeIds.includes(member.id)} disabled={alreadyAssigned} onChange={(event) => vm.setScheduleForm((current) => ({ ...current, employeeIds: event.target.checked ? [...new Set([...current.employeeIds, member.id])] : current.employeeIds.filter((id) => id !== member.id) }))} />{member.name}<span className="text-xs text-slate-400">{member.designation || member.role}{alreadyAssigned ? " · assigned" : ""}</span></label>; })}</div>}
+                {vm.scheduleBooking.employeeIds.length > 0 && <p className="mt-1 text-xs text-slate-500">Existing technicians remain assigned; this form can add technicians.</p>}
+              </fieldset>
 
               <div className="sm:col-span-2">
                 <label className="mb-1.5 block text-xs font-semibold text-slate-700">
@@ -929,7 +932,7 @@ function BookingActions({
         </>
       )}
 
-      {!["Rejected", "Completed", "In Progress"].includes(booking.status) && (
+      {!["Rejected", "Completed", "In Progress", "Assigned"].includes(booking.status) && (
         <button
           type="button"
           title="Schedule and assign service"
@@ -982,7 +985,8 @@ function BookingCard({
         <Detail label="Category" value={service?.category ?? "—"} />
         <Detail label="Location" value={booking.location || "—"} />
         <Detail label="Requested Date" value={booking.requestedDate || "—"} />
-        <Detail label="Assigned To" value={booking.assignedTo || "Unassigned"} />
+        <Detail label="Manager" value={booking.managerName || "Unassigned"} />
+        <Detail label="Assigned Employees" value={booking.employeeNames.join(", ") || "Unassigned"} />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
@@ -1013,7 +1017,7 @@ function BookingCard({
           </>
         )}
 
-        {!["Rejected", "Completed", "In Progress"].includes(booking.status) && (
+        {!["Rejected", "Completed", "In Progress", "Assigned"].includes(booking.status) && (
           <button
             type="button"
             onClick={onSchedule}
@@ -1087,7 +1091,7 @@ function ServiceCard({
           <div className="text-right">
             <p className="text-[10px] text-slate-400">Duration</p>
             <p className="text-xs font-medium text-slate-700">
-              {service.duration ? `${service.duration} min` : "—"}
+              {service.duration || "—"}
             </p>
           </div>
         </div>
@@ -1134,9 +1138,10 @@ function BookingDetails({
         <Detail label="Service" value={service?.name ?? "Service unavailable"} />
         <Detail label="Location" value={booking.location || "—"} />
         <Detail label="Requested Date" value={booking.requestedDate || "—"} />
-        <Detail label="Scheduled Date" value={booking.scheduledDate || "—"} />
+        <Detail label="Scheduled Date" value={booking.scheduledDate || booking.requestedDate || "—"} />
         <Detail label="Scheduled Time" value={booking.scheduledTime || "—"} />
-        <Detail label="Assigned To" value={booking.assignedTo || "Unassigned"} />
+        <Detail label="Manager" value={booking.managerName || "Unassigned"} />
+        <Detail label="Assigned Employees" value={booking.employeeNames.join(", ") || "Unassigned"} />
       </div>
 
       <div>

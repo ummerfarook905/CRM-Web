@@ -3,6 +3,8 @@ export interface ServiceLocation {
   name: string;
   address: string;
   city: string;
+  state?: string;
+  pincode?: string;
   type: string;
 }
 

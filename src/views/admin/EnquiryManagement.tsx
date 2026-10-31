@@ -25,7 +25,9 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 
+import { api } from "../../api/axios";
 import { useAppDispatch, useAppSelector } from "../../app/Hooks";
 import { fetchServices } from "../../services/ServicesSlice";
 import { createCustomerAddress, fetchCustomers } from "../../services/CustomerSlice";
@@ -71,6 +73,53 @@ const priorityStyles: Record<Priority, string> = {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+interface ManagerOption {
+  id: string;
+  name: string;
+}
+
+const asRecord = (value: unknown): Record<string, unknown> | undefined =>
+  value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+
+const extractManagerPage = (response: unknown) => {
+  const root = asRecord(response) ?? {};
+  const body = asRecord(root.data) ?? root;
+  const nested = asRecord(body.data);
+  const rows = Array.isArray(root.data)
+    ? root.data
+    : Array.isArray(body.items)
+      ? body.items
+      : Array.isArray(body.managers)
+        ? body.managers
+        : Array.isArray(body.data)
+          ? body.data
+          : Array.isArray(root.items)
+            ? root.items
+            : Array.isArray(root.managers)
+              ? root.managers
+              : [];
+  const pagination = asRecord(root.pagination)
+    ?? asRecord(root.meta)
+    ?? asRecord(body.pagination)
+    ?? asRecord(body.meta)
+    ?? asRecord(nested?.pagination)
+    ?? asRecord(nested?.meta);
+  return { rows, totalPages: Number(pagination?.totalPages ?? pagination?.pages ?? 1) || 1 };
+};
+
+const managerLoadError = (error: unknown): string => {
+  const response = asRecord(asRecord(error)?.response);
+  const data = asRecord(response?.data);
+  const message = data?.message;
+  if (Array.isArray(message)) return message.join(", ");
+  if (typeof message === "string") return message;
+  if (response?.status === 403) return "Your account is not authorized to view managers.";
+  if (response?.status === 401) return "Your session has expired. Sign in again to load managers.";
+  return error instanceof Error ? error.message : "Could not load managers from the server.";
+};
+
 /* -------------------------------------------------------------------------- */
 /* Main page                                                                   */
 /* -------------------------------------------------------------------------- */
@@ -93,9 +142,10 @@ export default function EnquiryManagement() {
 
   const dispatch = useAppDispatch();
   const { employees: staff } = useAssignableEmployees();
-  const managers = staff.filter((person) =>
-    `${person.role ?? ""} ${person.designation}`.toLowerCase().includes("manager"),
-  );
+  const [managers, setManagers] = useState<ManagerOption[]>([]);
+  const [managerRecordsCount, setManagerRecordsCount] = useState<number | null>(null);
+  const [managersLoading, setManagersLoading] = useState(false);
+  const [managersError, setManagersError] = useState("");
   const technicians = staff.filter((person) => {
     const role = `${person.role ?? ""} ${person.designation}`.toLowerCase();
     return role.includes("technician") || role.includes("engineer");
@@ -110,13 +160,58 @@ export default function EnquiryManagement() {
     void dispatch(fetchCustomers());
   }, [dispatch]);
 
+  useEffect(() => {
+    let active = true;
+    const loadManagers = async () => {
+      setManagersLoading(true);
+      setManagersError("");
+      try {
+        const first = await api.get("/managers", { params: { page: 1, limit: 100 } });
+        const firstPage = extractManagerPage(first.data);
+        const rows = [...firstPage.rows];
+        const totalPages = Math.min(firstPage.totalPages, 100);
+        for (let page = 2; page <= totalPages; page += 1) {
+          const response = await api.get("/managers", { params: { page, limit: 100 } });
+          rows.push(...extractManagerPage(response.data).rows);
+        }
+        const options = rows.flatMap((value): ManagerOption[] => {
+          const manager = asRecord(value);
+          const user = asRecord(manager?.user);
+          if (typeof manager?.id !== "string" || user?.isActive !== true) return [];
+          const name = [user.firstName, user.lastName]
+            .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+            .join(" ");
+          return [{ id: manager.id, name: name || String(manager.title || "Manager") }];
+        });
+        if (active) {
+          setManagerRecordsCount(rows.length);
+          setManagers(options);
+        }
+      } catch (error) {
+        if (active) {
+          setManagersError(managerLoadError(error));
+        }
+      } finally {
+        if (active) setManagersLoading(false);
+      }
+    };
+    void loadManagers();
+    return () => { active = false; };
+  }, []);
+
   const [selected, setSelected] = useState<Enquiry | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId);
   const [selectedLocationId, setSelectedLocationId] = useState("");
   const [newLocationAddress, setNewLocationAddress] = useState("");
   const [newLocationCity, setNewLocationCity] = useState("");
+  const [newLocationState, setNewLocationState] = useState("");
+  const [newLocationPincode, setNewLocationPincode] = useState("");
+  const [selectedServiceId, setSelectedServiceId] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [enquiryFormError, setEnquiryFormError] = useState("");
+  const [isSavingEnquiry, setIsSavingEnquiry] = useState(false);
+  const [enquirySaveNotice, setEnquirySaveNotice] = useState("");
   const [showService, setShowService] = useState(false);
 
   const [serviceDate, setServiceDate] = useState(today());
@@ -124,7 +219,11 @@ export default function EnquiryManagement() {
   const [serviceNotes, setServiceNotes] = useState("");
   const [isConverting, setIsConverting] = useState(false);
   const [servicePriority, setServicePriority] = useState<Priority>("Medium");
-  const [assignedManager, setAssignedManager] = useState("");
+  const [assignedManagerId, setAssignedManagerId] = useState("");
+  const selectedManager = managers.find((manager) => manager.id === assignedManagerId);
+  const employeeDesignatedManagers = staff.filter((employee) =>
+    `${employee.role ?? ""} ${employee.designation}`.toLowerCase().includes("manager"),
+  );
   const [assignedEmployees, setAssignedEmployees] = useState<string[]>([]);
   const [assignmentError, setAssignmentError] = useState("");
 
@@ -136,7 +235,6 @@ export default function EnquiryManagement() {
     email: "",
     service: "",
     serviceId: "",
-    location: "",
     message: "",
     priority: "Medium" as Priority,
   });
@@ -169,24 +267,22 @@ const addEnquiry = async (
   event: FormEvent<HTMLFormElement>
 ) => {
   event.preventDefault();
-
+  if (isSavingEnquiry) return;
+  setIsSavingEnquiry(true);
+  setEnquiryFormError("");
+  setEnquirySaveNotice("");
   dispatch(clearEnquiryError());
 
   try {
     await dispatch(
       addEnquiryApi({
-        customerId: form.customerId,
         name: form.customerName.trim(),
         phone: form.phone.trim(),
-        email: form.email.trim() || null,
-        serviceId: form.serviceId || null,
-        serviceLocationId: null,
-        message: form.message.trim() || null,
+        ...(form.email.trim() ? { email: form.email.trim() } : {}),
+        ...(form.serviceId ? { serviceId: form.serviceId } : {}),
+        ...(form.message.trim() ? { message: form.message.trim() } : {}),
       })
     ).unwrap();
-
-    // Reload the list so the UI receives the API's populated service relation.
-    await dispatch(fetchEnquiries()).unwrap();
 
     setForm({
       customerId: "",
@@ -196,14 +292,21 @@ const addEnquiry = async (
       email: "",
       service: "",
       serviceId: "",
-      location: "",
       message: "",
       priority: "Medium",
     });
 
     setShowForm(false);
+    setEnquirySaveNotice("Enquiry saved successfully.");
+    try {
+      await dispatch(fetchEnquiries()).unwrap();
+    } catch {
+      setEnquirySaveNotice("Enquiry saved, but the list could not refresh. Reload the page to see the latest enquiries.");
+    }
   } catch (error) {
-    console.error("Failed to save enquiry:", error);
+    setEnquiryFormError(typeof error === "string" ? error : "Could not save the enquiry. Check the required fields and try again.");
+  } finally {
+    setIsSavingEnquiry(false);
   }
 };
 
@@ -220,13 +323,16 @@ const addEnquiry = async (
     setSelected(enquiry);
     setSelectedCustomerId(enquiry.customerId ?? "");
     setSelectedLocationId(enquiry.serviceLocationId ?? "");
+    setSelectedServiceId(enquiry.serviceId ?? "");
     setNewLocationAddress("");
     setNewLocationCity("");
+    setNewLocationState("");
+    setNewLocationPincode("");
     setServiceDate(today());
     setPreferredTime("10:30");
     setServiceNotes("");
     setServicePriority(enquiry.priority || "Medium");
-    setAssignedManager(enquiry.assignedManager || "");
+    setAssignedManagerId(managers.find((manager) => manager.name === enquiry.assignedManager)?.id ?? "");
     setAssignedEmployees(
       Array.isArray(enquiry.assignedEmployees) ? enquiry.assignedEmployees : [],
     );
@@ -247,6 +353,11 @@ const addEnquiry = async (
       return;
     }
 
+    if (!selectedServiceId) {
+      setAssignmentError("Select a service before converting this enquiry.");
+      return;
+    }
+
     if (!serviceDate) {
       setAssignmentError("Please select a preferred date.");
       return;
@@ -262,24 +373,46 @@ const addEnquiry = async (
 
     try {
       let serviceLocationId = selectedLocationId || selected.serviceLocationId || "";
-      if (newLocationAddress.trim() || newLocationCity.trim()) {
-        if (!newLocationAddress.trim() || !newLocationCity.trim()) {
-          setAssignmentError("Enter both the service address and city.");
+      if (newLocationAddress.trim() || newLocationCity.trim() || newLocationState.trim() || newLocationPincode.trim()) {
+        if (!newLocationAddress.trim() || !newLocationCity.trim() || !newLocationState.trim() || !newLocationPincode.trim()) {
+          setAssignmentError("Enter the service address, city, state, and pincode.");
+          setIsConverting(false);
+          return;
+        }
+        if (!/^\d{6}$/.test(newLocationPincode.trim())) {
+          setAssignmentError("Enter a valid 6-digit pincode.");
           setIsConverting(false);
           return;
         }
         const location = await dispatch(createCustomerAddress({
           customerId,
-          name: "Service Location",
+          locationName: "Service Location",
           address: newLocationAddress.trim(),
           city: newLocationCity.trim(),
+          state: newLocationState.trim(),
+          pincode: newLocationPincode.trim(),
         })).unwrap();
         serviceLocationId = String(location.id);
         void dispatch(fetchCustomers());
       }
 
       if (!serviceLocationId) {
-        setAssignmentError("Select an existing service location or enter a new address and city.");
+        setAssignmentError("Select an existing service location or enter a new address, city, state, and pincode.");
+        setIsConverting(false);
+        return;
+      }
+
+      const managerId = assignedManagerId ? selectedManager?.id : undefined;
+      if (assignedManagerId && !managerId) {
+        setAssignmentError("The selected manager is no longer available. Refresh the manager list and select them again.");
+        setIsConverting(false);
+        return;
+      }
+      const employeeIds = assignedEmployees.map((name) =>
+        technicians.find((employee) => employee.name === name)?.id,
+      );
+      if (employeeIds.some((id) => !id)) {
+        setAssignmentError("A selected employee is no longer available. Refresh the employee list and select the team again.");
         setIsConverting(false);
         return;
       }
@@ -287,12 +420,22 @@ const addEnquiry = async (
       const payload = {
         id: selected.id,
         customerId,
-        ...(selected.serviceId ? { serviceId: selected.serviceId } : {}),
+        serviceId: selectedServiceId,
         serviceLocationId,
         preferredDate: serviceDate,
         preferredTime,
-        ...(serviceNotes.trim() ? { remarks: serviceNotes.trim() } : {}),
+        priority: ({ Low: "LOW", Medium: "NORMAL", High: "HIGH" } as const)[servicePriority],
+        ...(managerId ? { managerId } : {}),
+        ...(employeeIds.length ? { employeeIds: employeeIds as string[] } : {}),
+        ...(serviceNotes.trim() ? { instructions: serviceNotes.trim() } : {}),
       };
+
+      // The manager selector stores the Manager record's top-level profile ID.
+      if (selectedManager && payload.managerId !== selectedManager.id) {
+        setAssignmentError("The selected manager ID is invalid. Select the manager again before converting.");
+        setIsConverting(false);
+        return;
+      }
 
       await dispatch(convertEnquiryToBookingApi(payload)).unwrap();
       await dispatch(fetchEnquiries()).unwrap();
@@ -301,13 +444,16 @@ const addEnquiry = async (
       setShowService(false);
       setSelectedCustomerId("");
       setSelectedLocationId("");
+      setSelectedServiceId("");
       setNewLocationAddress("");
       setNewLocationCity("");
+      setNewLocationState("");
+      setNewLocationPincode("");
       setServiceDate(today());
       setPreferredTime("10:30");
       setServiceNotes("");
       setServicePriority("Medium");
-      setAssignedManager("");
+      setAssignedManagerId("");
       setAssignedEmployees([]);
       setAssignmentError("");
       alert("Enquiry converted into a booking successfully.");
@@ -374,13 +520,15 @@ const addEnquiry = async (
         </div>
 
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => { setEnquiryFormError(""); setEnquirySaveNotice(""); setShowForm(true); }}
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-900"
         >
           <Plus size={17} />
           Receive Enquiry
         </button>
       </div>
+
+      {enquirySaveNotice && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{enquirySaveNotice}</p>}
 
       {enquiriesLoading && (
         <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
@@ -883,6 +1031,8 @@ const addEnquiry = async (
                   setSelectedLocationId("");
                   setNewLocationAddress("");
                   setNewLocationCity("");
+                  setNewLocationState("");
+                  setNewLocationPincode("");
                   setAssignmentError("");
                 }}
                 required
@@ -898,6 +1048,24 @@ const addEnquiry = async (
               </select>
             </div>
 
+            {!selectedServiceId && (
+              <div>
+                <label htmlFor="conversionService" className="mb-1.5 block text-sm font-semibold text-slate-700">
+                  Select Service <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="conversionService"
+                  required
+                  value={selectedServiceId}
+                  onChange={(event) => { setSelectedServiceId(event.target.value); setAssignmentError(""); }}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm"
+                >
+                  <option value="">Choose a service</option>
+                  {services.map((service) => <option key={service.id} value={String(service.id)}>{service.name}</option>)}
+                </select>
+              </div>
+            )}
+
             <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
               <div>
                 <label htmlFor="serviceLocation" className="mb-1.5 block text-sm font-semibold text-slate-700">
@@ -910,6 +1078,8 @@ const addEnquiry = async (
                     setSelectedLocationId(event.target.value);
                     setNewLocationAddress("");
                     setNewLocationCity("");
+                    setNewLocationState("");
+                    setNewLocationPincode("");
                     setAssignmentError("");
                   }}
                   disabled={!selectedCustomer || selectedCustomer.serviceLocations.length === 0}
@@ -918,7 +1088,7 @@ const addEnquiry = async (
                   <option value="">Choose a saved location or enter a new one</option>
                   {(selectedCustomer?.serviceLocations ?? []).filter((location) => String(location.id).trim()).map((location) => (
                     <option key={location.id} value={String(location.id)}>
-                      {[location.name, location.address, location.city].filter(Boolean).join(" — ")}
+                    {[location.name, location.address, location.city, location.state, location.pincode].filter(Boolean).join(" — ")}
                     </option>
                   ))}
                 </select>
@@ -928,6 +1098,7 @@ const addEnquiry = async (
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field
                   label="Service Address"
+                  required={Boolean(newLocationAddress || newLocationCity || newLocationState || newLocationPincode)}
                   value={newLocationAddress}
                   onChange={(value) => {
                     setNewLocationAddress(value);
@@ -938,6 +1109,7 @@ const addEnquiry = async (
                 />
                 <Field
                   label="City"
+                  required={Boolean(newLocationAddress || newLocationCity || newLocationState || newLocationPincode)}
                   value={newLocationCity}
                   onChange={(value) => {
                     setNewLocationCity(value);
@@ -945,6 +1117,28 @@ const addEnquiry = async (
                     setAssignmentError("");
                   }}
                   placeholder="City"
+                />
+                <Field
+                  label="State"
+                  required={Boolean(newLocationAddress || newLocationCity || newLocationState || newLocationPincode)}
+                  value={newLocationState}
+                  onChange={(value) => {
+                    setNewLocationState(value);
+                    if (value) setSelectedLocationId("");
+                    setAssignmentError("");
+                  }}
+                  placeholder="State"
+                />
+                <Field
+                  label="Pincode (6 digits)"
+                  required={Boolean(newLocationAddress || newLocationCity || newLocationState || newLocationPincode)}
+                  value={newLocationPincode}
+                  onChange={(value) => {
+                    setNewLocationPincode(value.replace(/\D/g, "").slice(0, 6));
+                    if (value) setSelectedLocationId("");
+                    setAssignmentError("");
+                  }}
+                  placeholder="123456"
                 />
               </div>
             </div>
@@ -1035,20 +1229,39 @@ const addEnquiry = async (
               </label>
 
               <select
-                value={assignedManager}
+                value={assignedManagerId}
                 onChange={(event) => {
-                  setAssignedManager(event.target.value);
+                  setAssignedManagerId(event.target.value);
                   setAssignmentError("");
                 }}
+                disabled={managersLoading}
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
               >
-                <option value="">No manager selected</option>
+                <option value="">
+                  {managersLoading
+                    ? "Loading managers…"
+                    : managersError
+                      ? "Manager list failed to load"
+                      : managers.length
+                        ? "No manager selected"
+                        : "No active managers available"}
+                </option>
                 {managers.map((manager) => (
-                  <option key={manager.id} value={manager.name}>
+                  <option key={manager.id} value={manager.id}>
                     {manager.name}
                   </option>
                 ))}
               </select>
+              {!managersLoading && !managersError && managers.length === 0 && (
+                <p role="status" className="mt-1.5 text-xs text-amber-700">
+                  {managerRecordsCount === 0 && employeeDesignatedManagers.length > 0
+                    ? "The Managers API returned no Manager records, but employees with a Manager designation exist. They cannot be assigned as managers until backend Manager records are created."
+                    : managerRecordsCount !== null && managerRecordsCount > 0
+                      ? "Manager records were returned, but none have an active user account."
+                      : "No active Manager records are available."}
+                </p>
+              )}
+              {managersError && <p role="alert" className="mt-1.5 text-xs text-red-600">{managersError}</p>}
             </div>
 
             {/* Assign multiple employees */}
@@ -1153,7 +1366,7 @@ const addEnquiry = async (
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-500">Manager</span>
                   <span className="text-right font-semibold text-slate-800">
-                    {assignedManager || "Not assigned"}
+                    {selectedManager?.name || "Not assigned"}
                   </span>
                 </div>
 
@@ -1227,9 +1440,12 @@ const addEnquiry = async (
       {showForm && (
         <Modal
           title="Receive Customer Enquiry"
-          onClose={() => setShowForm(false)}
+          onClose={() => { if (!isSavingEnquiry) setShowForm(false); }}
         >
           <form onSubmit={addEnquiry} className="space-y-4">
+            {enquiryFormError && (
+              <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{enquiryFormError}</p>
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <label htmlFor="enquiryCustomer" className="mb-1.5 block text-sm font-semibold text-slate-700">
@@ -1312,14 +1528,6 @@ const addEnquiry = async (
                 )}
               </div>
 
-              <Field
-                label="Service Location"
-                required
-                value={form.location}
-                onChange={(value) => setForm({ ...form, location: value })}
-                placeholder="City or site"
-              />
-
               <div>
                 <label className="mb-1.5 block text-sm font-semibold text-slate-700">
                   Enquiry Priority
@@ -1361,7 +1569,8 @@ const addEnquiry = async (
             <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
               <button
                 type="button"
-                onClick={() => setShowForm(false)}
+                onClick={() => { setEnquiryFormError(""); setShowForm(false); }}
+                disabled={isSavingEnquiry}
                 className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
               >
                 Cancel
@@ -1369,10 +1578,11 @@ const addEnquiry = async (
 
               <button
                 type="submit"
+                disabled={isSavingEnquiry}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-900"
               >
                 <Plus size={16} />
-                Save Enquiry
+                {isSavingEnquiry ? "Saving…" : "Save Enquiry"}
               </button>
             </div>
           </form>
@@ -1428,15 +1638,15 @@ function Modal({
   onClose: () => void;
   children: ReactNode;
 }) {
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-3 sm:p-6"
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm sm:p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
+      <div className="my-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-3rem)]">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
           <h2 className="text-lg font-bold text-slate-900">{title}</h2>
 
           <button
@@ -1449,9 +1659,10 @@ function Modal({
           </button>
         </div>
 
-        <div className="overflow-y-auto p-5 sm:p-6">{children}</div>
+        <div className="min-h-0 overflow-y-auto p-5 sm:p-6">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

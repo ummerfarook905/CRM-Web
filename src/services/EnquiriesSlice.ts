@@ -18,13 +18,28 @@ interface EnquiryState {
 
 const initialState: EnquiryState = { items: [], loading: false, error: null };
 
-type ApiErrorShape = { response?: { data?: { message?: string } } };
+type ApiErrorShape = { response?: { data?: { message?: unknown; errors?: unknown; details?: unknown; validationErrors?: unknown } } };
+function errorDetails(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(errorDetails);
+  if (!value || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  const field = typeof record.field === "string" ? record.field : typeof record.property === "string" ? record.property : "";
+  const messages = [record.message, record.messages, record.constraints].flatMap(errorDetails);
+  if (field && messages.length) return [`${field}: ${messages.join(", ")}`];
+  const nested = [record.fields, record.details, record.errors, record.validationErrors].flatMap(errorDetails);
+  return [...messages, ...nested];
+}
 function getApiError(error: unknown, fallback: string): string {
   if (typeof error === "object" && error !== null && "response" in error) {
-    const message = (error as ApiErrorShape).response?.data?.message;
-    if (message) return message;
+    const data = (error as ApiErrorShape).response?.data;
+    const details = [data?.errors, data?.details, data?.validationErrors].flatMap(errorDetails);
+    if (details.length) return details.join("; ");
+    const message = data?.message;
+    if (Array.isArray(message)) return message.join(", ");
+    if (typeof message === "string") return message;
   }
-  return fallback;
+  return error instanceof Error ? error.message : fallback;
 }
 
 export const fetchEnquiries = createAsyncThunk<Enquiry[], void, { rejectValue: string }>(
@@ -53,7 +68,7 @@ export const addEnquiry = createAsyncThunk<Enquiry, CreateEnquiryPayload, { reje
     try {
       const response = await api.post("/enquiries", payload);
       const result = response.data?.data ?? response.data;
-      return mapApiEnquiry(result as ApiEnquiry);
+      return mapApiEnquiry((result?.enquiry ?? result) as ApiEnquiry);
     } catch (error: unknown) {
       return rejectWithValue(getApiError(error, "Failed to add enquiry"));
     }

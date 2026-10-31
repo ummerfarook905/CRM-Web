@@ -46,23 +46,29 @@ const displayText = (value: unknown): string => {
   return "";
 };
 
-const durationMinutes = (value: unknown): string => {
-  const raw =
-    value && typeof value === "object"
-      ? (value as Record<string, unknown>).minutes ??
-        (value as Record<string, unknown>).value
-      : value;
-
-  if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
-  if (typeof raw !== "string") return "";
-
-  const text = raw.trim();
-  const match = text.match(/^(\d+(?:\.\d+)?)\s*(minutes?|mins?|hours?|hrs?)?$/i);
+const durationLabel = (value: unknown): string => {
+  const record = value && typeof value === "object" ? value as Record<string, unknown> : null;
+  const raw = record?.minutes ?? record?.value ?? record?.days ?? record?.months ?? value;
+  if (typeof raw !== "number" && typeof raw !== "string") return "";
+  const text = String(raw).trim();
+  const match = text.match(/^(\d+(?:\.\d+)?)\s*(minutes?|mins?|hours?|hrs?|days?|months?)?$/i);
   if (!match) return "";
 
   const amount = Number(match[1]);
-  const unit = match[2]?.toLowerCase() ?? "minutes";
-  return String(unit.startsWith("h") ? amount * 60 : amount);
+  const rawUnit = String(record?.unit ?? match[2] ?? (typeof raw === "number" ? "minutes" : "days")).toLowerCase();
+  let days: number;
+  if (rawUnit.startsWith("month")) days = amount * 30;
+  else if (rawUnit.startsWith("day")) days = amount;
+  else if (rawUnit.startsWith("hour") || rawUnit.startsWith("hr")) days = amount / 24;
+  else days = amount / 1440;
+
+  if (!Number.isFinite(days) || days <= 0) return "";
+  if (days >= 30 && Math.abs(days % 30) < 0.0001) {
+    const months = days / 30;
+    return `${Number(months.toFixed(2))} ${months === 1 ? "month" : "months"}`;
+  }
+  const roundedDays = Number(days.toFixed(2));
+  return `${roundedDays} ${roundedDays === 1 ? "day" : "days"}`;
 };
 
 /** Convert the backend response into the fields your existing UI uses */
@@ -83,7 +89,7 @@ const mapApiService = (service: ApiService): Service => {
     category: displayText(categoryName),
     categoryId: displayText(service.categoryId ?? relatedCategoryId),
     description: displayText(service.description),
-    duration: durationMinutes(service.estimatedDuration),
+    duration: durationLabel(service.estimatedDuration),
     price: Number(service.basePrice) || 0,
     image: displayText(service.image),
     requiresMaintenance: Boolean(service.requiresMaintenance),
@@ -153,7 +159,22 @@ export const updateService = createAsyncThunk<
     const { id, ...payload } = service;
     const response = await api.patch(`/services/${id}`, payload);
     const result = response.data?.data ?? response.data;
-    return mapApiService((result?.service ?? result) as ApiService);
+    const updated = result?.service ?? result;
+    // Some PATCH handlers return only changed fields. Fill omitted fields from
+    // the submitted values so the UI reflects the saved duration immediately.
+    return mapApiService({
+      id: updated?.id ?? id,
+      name: updated?.name ?? payload.name,
+      categoryId: updated?.categoryId ?? payload.categoryId,
+      description: updated?.description ?? payload.description,
+      estimatedDuration: updated?.estimatedDuration ?? payload.estimatedDuration,
+      basePrice: updated?.basePrice ?? payload.basePrice,
+      image: updated?.image ?? payload.image,
+      requiresMaintenance: updated?.requiresMaintenance ?? payload.requiresMaintenance,
+      defaultMaintenanceFrequency: updated?.defaultMaintenanceFrequency ?? payload.defaultMaintenanceFrequency,
+      isActive: updated?.isActive ?? payload.isActive,
+      category: updated?.category,
+    } as ApiService);
   } catch (error: any) {
     return rejectWithValue(errorText(error.response?.data?.message, "Failed to update service."));
   }
@@ -215,7 +236,7 @@ const servicesSlice = createSlice({
         );
 
         if (index !== -1) {
-          state.items[index] = action.payload;
+          state.items[index] = { ...state.items[index], ...action.payload };
         }
         state.error = null;
       })

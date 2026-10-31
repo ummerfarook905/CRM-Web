@@ -8,9 +8,9 @@ import type { Role, User } from "../../models/auth/User";
 
 class AuthViewModel {
   getDashboardPath(role: Role): string {
-    return role === "admin"
-      ? "/admin/dashboard"
-      : "/manager/dashboard";
+    if (role === "employee") return "/expenses";
+    if (role === "manager") return "/manager/dashboard";
+    return "/admin/dashboard";
   }
 
   hasRole(

@@ -65,22 +65,50 @@ function getErrorMessage(error: unknown): string {
     : "An unexpected error occurred.";
 }
 
+function describeResponseShape(value: unknown, depth = 0): unknown {
+  if (value === null) return { type: "null" };
+  if (Array.isArray(value)) {
+    return {
+      type: "array",
+      length: value.length,
+      ...(value.length && depth < 3 ? { firstItem: describeResponseShape(value[0], depth + 1) } : {}),
+    };
+  }
+  if (typeof value !== "object") return { type: typeof value };
+
+  const fields: Record<string, unknown> = {};
+  for (const [key, fieldValue] of Object.entries(value as Record<string, unknown>)) {
+    if (/token|authorization|password|secret|credential/i.test(key)) {
+      fields[key] = "[redacted]";
+    } else if (depth >= 3) {
+      fields[key] = { type: Array.isArray(fieldValue) ? "array" : typeof fieldValue };
+    } else {
+      fields[key] = describeResponseShape(fieldValue, depth + 1);
+    }
+  }
+  return { type: "object", fields };
+}
+
 
 interface ApiAddress {
   id?: string | number;
+  locationName?: string | null;
   name?: string | null;
   address?: string | null;
   street?: string | null;
   city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
   type?: string | null;
 }
 
 export interface CreateCustomerAddressPayload {
   customerId: string;
-  name: string;
+  locationName: string;
   address: string;
   city: string;
-  type?: string;
+  state: string;
+  pincode: string;
 }
 
 interface ApiCustomer {
@@ -123,9 +151,11 @@ function mapApiCustomer(apiCustomer: ApiCustomer): Customer {
 
     serviceLocations: addresses.map((address) => ({
       id: address.id ?? "",
-      name: address.name ?? "Service Location",
+      name: address.locationName ?? address.name ?? "Service Location",
       address: address.address ?? address.street ?? "",
       city: address.city ?? "",
+      state: address.state ?? "",
+      pincode: address.pincode ?? "",
       type: address.type ?? "Service",
     })),
 
@@ -190,37 +220,30 @@ export const createCustomerAddress = createAsyncThunk<
   import("../models/admin/Customer").ServiceLocation,
   CreateCustomerAddressPayload,
   { rejectValue: string }
->("customers/createAddress", async ({ customerId, ...address }, { rejectWithValue }) => {
-  const payload = { ...address, type: address.type ?? "Service" };
-  const nestedPath = `/customers/${encodeURIComponent(customerId)}/addresses`;
-
+>("customers/createAddress", async (payload, { rejectWithValue }) => {
   try {
-    let response;
-    try {
-      response = await api.post(nestedPath, payload);
-    } catch (error: unknown) {
-      if (!axios.isAxiosError(error) || error.response?.status !== 404) throw error;
-      try {
-        response = await api.post("/addresses", { customerId, ...payload });
-      } catch (fallbackError: unknown) {
-        if (!axios.isAxiosError(fallbackError) || fallbackError.response?.status !== 404) throw fallbackError;
-        response = await api.post("/service-locations", { customerId, ...payload });
-      }
-    }
+    const response = await api.post("/service-locations", payload);
 
-    const body = response.data?.data ?? response.data;
-    const result = body?.address ?? body;
-    const id = result?.id ?? result?.addressId ?? result?.serviceLocationId;
-    if (!result || (typeof id !== "string" && typeof id !== "number")) {
-      throw new Error("The saved location response did not include its ID.");
+    const envelope = response.data as { success?: unknown; data?: unknown } | null;
+    const result = envelope?.data;
+    const location = result && typeof result === "object" && !Array.isArray(result)
+      ? result as Record<string, unknown>
+      : null;
+    const id = location?.id;
+    if (envelope?.success !== true || !location || typeof id !== "string" || !id.trim()) {
+      throw new Error(
+        `The service location API response did not include data.id. Received response shape: ${JSON.stringify(describeResponseShape(response.data))}`,
+      );
     }
 
     return {
       id,
-      name: result.name ?? payload.name,
-      address: result.address ?? result.street ?? payload.address,
-      city: result.city ?? payload.city,
-      type: result.type ?? payload.type,
+      name: typeof location.locationName === "string" ? location.locationName : payload.locationName,
+      address: typeof location.address === "string" ? location.address : payload.address,
+      city: typeof location.city === "string" ? location.city : payload.city,
+      state: typeof location.state === "string" ? location.state : payload.state,
+      pincode: typeof location.pincode === "string" ? location.pincode : payload.pincode,
+      type: typeof location.type === "string" ? location.type : "Service",
     };
   } catch (error: unknown) {
     return rejectWithValue(getErrorMessage(error));

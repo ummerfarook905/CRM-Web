@@ -8,6 +8,7 @@ import {
   fetchEmployees,
   updateEmployeeApi,
 } from "../../services/EmployeesSlice";
+import { createDesignation, fetchDesignations } from "../../services/DesignationsSlice";
 
 import { useAppDispatch, useAppSelector } from "../../app/Hooks";
 
@@ -50,6 +51,8 @@ export function useEmployeesViewModel() {
   const error = useAppSelector(
     (state) => state.employees.error,
   );
+  const designations = useAppSelector((state) => state.designations.items);
+  const designationsLoading = useAppSelector((state) => state.designations.loading);
 
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("All");
@@ -66,10 +69,15 @@ export function useEmployeesViewModel() {
 
   const [formError, setFormError] = useState("");
   const [deleteMessage, setDeleteMessage] = useState("");
+  const [designationModalOpen, setDesignationModalOpen] = useState(false);
+  const [newDesignation, setNewDesignation] = useState("");
+  const [designationSaving, setDesignationSaving] = useState(false);
+  const [designationError, setDesignationError] = useState("");
 
   // Load employee records from the API through Redux.
   useEffect(() => {
     void dispatch(fetchEmployees());
+    void dispatch(fetchDesignations());
   }, [dispatch]);
 
   const activeCount = employees.filter(
@@ -84,19 +92,6 @@ export function useEmployeesViewModel() {
         .sort(),
     [employees],
   );
-
-  const designations = useMemo(() => {
-    const seen = new Set<string>();
-    return employees
-      .map((employee) => employee.designation.trim())
-      .filter((designation) => {
-        const normalized = designation.toLocaleLowerCase();
-        if (!normalized || seen.has(normalized)) return false;
-        seen.add(normalized);
-        return true;
-      })
-      .sort((a, b) => a.localeCompare(b));
-  }, [employees]);
 
   const filteredEmployees = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -178,6 +173,31 @@ export function useEmployeesViewModel() {
       ...current,
       [key]: value,
     }));
+  }
+
+  async function handleCreateDesignation(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = newDesignation.trim();
+    if (!name) {
+      setDesignationError("Enter a designation name.");
+      return;
+    }
+    if (designations.some((item) => item.name.toLowerCase() === name.toLowerCase())) {
+      setDesignationError("That designation already exists. Select it from the list.");
+      return;
+    }
+    setDesignationSaving(true);
+    setDesignationError("");
+    try {
+      const created = await dispatch(createDesignation(name)).unwrap();
+      updateForm("designation", created.name);
+      setNewDesignation("");
+      setDesignationModalOpen(false);
+    } catch (error) {
+      setDesignationError(typeof error === "string" ? error : "Could not create designation.");
+    } finally {
+      setDesignationSaving(false);
+    }
   }
 
   
@@ -327,6 +347,14 @@ async function handleSubmit(
     inactiveCount,
     departments,
     designations,
+    designationsLoading,
+    designationModalOpen,
+    setDesignationModalOpen,
+    newDesignation,
+    setNewDesignation,
+    designationSaving,
+    designationError,
+    handleCreateDesignation,
     filteredEmployees,
     search,
     setSearch,

@@ -1,5 +1,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { api } from "../../api/axios";
 
 import {
   useAppDispatch,
@@ -22,6 +23,7 @@ import {
   fetchBookings,
   updateBooking,
 } from "../../services/BookingsSlice";
+import { fetchWorkOrders } from "../../services/WorkMonitoringSlice";
 
 import type { Booking } from "../../services/BookingsSlice";
 
@@ -41,7 +43,8 @@ const initialServiceForm = {
   name: "",
   category: "",
   description: "",
-  duration: "120",
+  duration: "1",
+  durationUnit: "days" as "days" | "months",
   price: "0",
   status: "Active" as Service["status"],
   requiresMaintenance: false,
@@ -51,9 +54,12 @@ const initialServiceForm = {
 const initialScheduleForm = {
   date: "",
   time: "09:00",
-  assignedTo: "",
+  managerId: "",
+  employeeIds: [] as string[],
   notes: "",
 };
+
+interface ManagerOption { id: string; name: string }
 
 export function useServiceManagementViewModel() {
   const dispatch = useAppDispatch();
@@ -75,8 +81,14 @@ export function useServiceManagementViewModel() {
   const [scheduleBooking, setScheduleBooking] =
     useState<Booking | null>(null);
 
-  const [selectedBooking, setSelectedBooking] =
-    useState<Booking | null>(null);
+  const [selectedBookingId, setSelectedBookingId] = useState<Booking["id"] | null>(null);
+  const selectedBooking = bookings.find((booking) => String(booking.id) === String(selectedBookingId)) ?? null;
+  const setSelectedBooking = useCallback((booking: Booking | null) => {
+    setSelectedBookingId(booking?.id ?? null);
+  }, []);
+  const [managers, setManagers] = useState<ManagerOption[]>([]);
+  const [managersLoading, setManagersLoading] = useState(false);
+  const [managersError, setManagersError] = useState("");
 
   const [editingService, setEditingService] =
     useState<Service | null>(null);
@@ -95,6 +107,44 @@ export function useServiceManagementViewModel() {
     dispatch(fetchBookings());
     dispatch(fetchCategories());
   }, [dispatch]);
+
+  useEffect(() => {
+    let active = true;
+    const loadManagers = async () => {
+      setManagersLoading(true);
+      setManagersError("");
+      try {
+        const response = await api.get("/managers", { params: { page: 1, limit: 100 } });
+        const root = response.data as Record<string, unknown>;
+        const data = root.data as Record<string, unknown> | unknown[] | undefined;
+        const rows = Array.isArray(data)
+          ? data
+          : data && typeof data === "object" && Array.isArray(data.data)
+            ? data.data as unknown[]
+            : data && typeof data === "object" && Array.isArray(data.items)
+              ? data.items as unknown[]
+              : [];
+        const options = rows.flatMap((value): ManagerOption[] => {
+          if (!value || typeof value !== "object") return [];
+          const manager = value as Record<string, unknown>;
+          const user = manager.user as Record<string, unknown> | undefined;
+          if (typeof manager.id !== "string" || user?.isActive !== true) return [];
+          const name = [user.firstName, user.lastName].filter((part): part is string => typeof part === "string").join(" ");
+          return [{ id: manager.id, name: name || String(manager.title || "Manager") }];
+        });
+        if (active) setManagers(options);
+      } catch (error) {
+        if (active) {
+          const data = (error as { response?: { data?: { message?: unknown } } })?.response?.data;
+          setManagersError(Array.isArray(data?.message) ? data.message.join(", ") : typeof data?.message === "string" ? data.message : "Unable to load managers.");
+        }
+      } finally {
+        if (active) setManagersLoading(false);
+      }
+    };
+    void loadManagers();
+    return () => { active = false; };
+  }, []);
 
   // Resolve a booking's service
   const getService = useCallback(
@@ -177,12 +227,16 @@ export function useServiceManagementViewModel() {
   };
 
   const openEditService = (service: Service) => {
+    const durationMatch = service.duration.match(/^(\d+(?:\.\d+)?)\s*(days?|months?)$/i);
+    const durationValue = durationMatch?.[1] ?? "1";
+    const durationUnit = durationMatch?.[2]?.toLowerCase().startsWith("month") ? "months" : "days";
     setEditingService(service);
     setServiceForm({
       name: service.name,
       category: service.categoryId,
       description: service.description,
-      duration: service.duration,
+      duration: durationValue,
+      durationUnit,
       price: String(service.price),
       status: service.status,
       requiresMaintenance: service.requiresMaintenance ?? false,
@@ -200,7 +254,8 @@ export function useServiceManagementViewModel() {
     event.preventDefault();
 
     const price = Number(serviceForm.price);
-    const duration = Number(serviceForm.duration);
+    const durationAmount = Number(serviceForm.duration);
+    const duration = durationAmount * (serviceForm.durationUnit === "months" ? 30 : 1) * 24 * 60;
 
     if (!serviceForm.name.trim() || !serviceForm.category) {
       setNotice("Please enter a service name and select a category.");
@@ -212,8 +267,8 @@ export function useServiceManagementViewModel() {
       return;
     }
 
-    if (!Number.isFinite(duration) || duration < 5 || duration > 1440) {
-      setNotice("Please enter a duration between 5 and 1440 minutes.");
+    if (!Number.isFinite(durationAmount) || durationAmount <= 0) {
+      setNotice("Please enter an estimated duration greater than zero.");
       return;
     }
 
@@ -392,9 +447,10 @@ const addCategory = async (
   const openSchedule = (booking: Booking) => {
     setScheduleBooking(booking);
     setScheduleForm({
-      date: booking.scheduledDate,
+      date: booking.scheduledDate || booking.requestedDate,
       time: booking.scheduledTime || "09:00",
-      assignedTo: booking.assignedTo,
+      managerId: booking.managerId,
+      employeeIds: booking.employeeIds,
       notes: booking.notes,
     });
   };
@@ -408,34 +464,72 @@ const addCategory = async (
       !scheduleBooking ||
       !scheduleForm.date ||
       !scheduleForm.time ||
-      !scheduleForm.assignedTo
+      (!scheduleForm.managerId && scheduleForm.employeeIds.length === 0)
     ) {
-      setNotice("Please complete the date, time, and assignee.");
+      setNotice("Please select a manager or at least one employee.");
       return;
     }
 
     try {
-      await dispatch(
-        updateBooking({
-          id: scheduleBooking.id,
-          updates: {
-            scheduledDate: scheduleForm.date,
-            scheduledTime: scheduleForm.time,
-            assignedTo: scheduleForm.assignedTo,
-            notes: scheduleForm.notes,
-            status: "Scheduled",
-          },
-        })
-      ).unwrap();
+      const [hours, minutes] = scheduleForm.time.split(":").map(Number);
+      const end = new Date(2000, 0, 1, hours, minutes + scheduleBooking.serviceDurationMinutes);
+      const scheduledEndTime = `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+
+      if (scheduleBooking.workOrderId) {
+        await api.patch(`/work-orders/${encodeURIComponent(scheduleBooking.workOrderId)}/schedule`, {
+          scheduledDate: scheduleForm.date,
+          scheduledStartTime: scheduleForm.time,
+          scheduledEndTime,
+        });
+
+        if (scheduleForm.managerId && scheduleForm.managerId !== scheduleBooking.managerId) {
+          await api.patch(`/work-orders/${encodeURIComponent(scheduleBooking.workOrderId)}/manager`, {
+            managerId: scheduleForm.managerId,
+          });
+        }
+
+        const newEmployeeIds = scheduleForm.employeeIds.filter((id) => !scheduleBooking.employeeIds.includes(id));
+        if (newEmployeeIds.length) {
+          await api.post("/work-assignments", {
+            workOrderId: scheduleBooking.workOrderId,
+            employeeIds: newEmployeeIds,
+          });
+        }
+      } else {
+        if (scheduleBooking.status === "Pending") {
+          await dispatch(updateBooking({ id: scheduleBooking.id, updates: { status: "Approved" } })).unwrap();
+          setScheduleBooking((current) => current ? { ...current, status: "Approved" } : current);
+        } else if (scheduleBooking.status !== "Approved" && scheduleBooking.status !== "Scheduled") {
+          throw new Error(`Cannot create a work order for a ${scheduleBooking.status} booking.`);
+        }
+
+        await api.post("/work-orders", {
+          bookingId: String(scheduleBooking.id),
+          scheduledDate: scheduleForm.date,
+          scheduledStartTime: scheduleForm.time,
+          scheduledEndTime,
+          ...(scheduleForm.managerId ? { managerId: scheduleForm.managerId } : {}),
+          ...(scheduleForm.employeeIds.length ? { employeeIds: scheduleForm.employeeIds } : {}),
+          ...(scheduleForm.notes.trim() ? { instructions: scheduleForm.notes.trim() } : {}),
+        });
+      }
+
+      await Promise.all([
+        dispatch(fetchBookings()).unwrap(),
+        dispatch(fetchWorkOrders({ page: 1, limit: 20 })).unwrap(),
+      ]);
 
       setScheduleBooking(null);
-      setNotice("Service scheduled and assigned successfully.");
+      setNotice("Schedule and assignments saved successfully.");
     } catch (error) {
-      setNotice(
-        typeof error === "string"
-          ? error
-          : "Failed to schedule service."
-      );
+      const responseMessage = (error as { response?: { data?: { message?: unknown } } })?.response?.data?.message;
+      setNotice(typeof error === "string"
+        ? error
+        : Array.isArray(responseMessage)
+          ? responseMessage.join(", ")
+          : typeof responseMessage === "string"
+            ? responseMessage
+            : error instanceof Error ? error.message : "Failed to schedule service.");
     }
   };
 
@@ -468,6 +562,9 @@ const addCategory = async (
     setScheduleBooking,
     selectedBooking,
     setSelectedBooking,
+    managers,
+    managersLoading,
+    managersError,
     editingService,
     categoryName,
     setCategoryName,

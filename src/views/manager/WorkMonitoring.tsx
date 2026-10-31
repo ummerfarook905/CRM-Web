@@ -46,6 +46,7 @@ export default function WorkMonitoring() {
     if (!detail?.serviceReport) return;
     const result = await dispatch(approveWorkServiceReport({ reportId: detail.serviceReport.id, note: approvalNote }));
     if (approveWorkServiceReport.fulfilled.match(result)) {
+      window.dispatchEvent(new CustomEvent("crm:service-reports-reviewed"));
       void dispatch(fetchWorkOrderDetail(detail.id));
       void dispatch(fetchWorkOrders({ page, limit: 20, status: status || undefined }));
       setApprovalNote("");

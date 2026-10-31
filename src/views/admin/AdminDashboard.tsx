@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Clock3,
   Headphones,
+  FileCheck2,
   Users,
   UserRoundPlus,
   Wrench,
@@ -14,6 +15,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdminDashboardViewModel } from "../../viewmodels/admin/UseAdminDashboardViewModel";
+import { useServiceReportPendingCount } from "../../hooks/useServiceReportPendingCount";
 
 const dateKey = (date: Date) => {
   const year = date.getFullYear();
@@ -48,6 +50,7 @@ export default function AdminDashboard() {
   const vm = useAdminDashboardViewModel();
   const navigate = useNavigate();
   const [now, setNow] = useState(() => new Date());
+  const reportReview = useServiceReportPendingCount("admin");
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
@@ -123,6 +126,14 @@ export default function AdminDashboard() {
       icon: Activity,
       tone: "blue",
       path: "/admin/Customers",
+    },
+    {
+      title: "Reports awaiting review",
+      value: reportReview.count ?? "—",
+      note: reportReview.loading ? "Loading submitted reports" : "Submitted service reports",
+      icon: FileCheck2,
+      tone: "teal",
+      path: "/admin/WorkVerification",
     },
   ];
 

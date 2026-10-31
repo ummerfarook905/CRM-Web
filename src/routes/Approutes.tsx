@@ -24,7 +24,7 @@ import EnquiryManagement from "../views/admin/EnquiryManagement";
 import ServiceManagement from "../views/admin/ServiceManagement";
 import WorkAssignment from "../views/manager/WorkAssignment";
 import WorkMonitoring from "../views/manager/WorkMonitoring";
-import WorkVerification from "../views/manager/WorkVerification";
+import ServiceReportReviews from "../views/shared/ServiceReportReviews";
 import Employees from "../views/admin/Employees";
 import Overtime from "../views/admin/Overtime";
 import Attendance from "../views/admin/Attendance";
@@ -32,6 +32,8 @@ import Overtime1 from "../views/manager/Overtime1";
 import EnquiryManagement1 from "../views/manager/EnquiryManagement1";
 import ClientDirectory from "../views/manager/ClientDirectory";
 import ServiceManagement1 from "../views/manager/ServiceManagement1";
+import Expenses from "../views/shared/Expenses";
+import EmployeeLayout from "../layouts/EmployeeLayout";
 
 
 export default function AppRoutes() {
@@ -44,13 +46,15 @@ export default function AppRoutes() {
       return "/login";
     }
 
-    if (user.role === "admin") {
+    if (user.role === "admin" || user.role === "super_admin") {
       return "/admin/dashboard";
     }
 
     if (user.role === "manager") {
       return "/manager/dashboard";
     }
+
+    if (user.role === "employee") return "/expenses";
 
     return "/login";
   };
@@ -81,7 +85,7 @@ export default function AppRoutes() {
 
       <Route
         element={
-          <ProtectedRoute allowedRole="admin" />
+          <ProtectedRoute allowedRole={["admin", "super_admin"]} />
         }
       >
         <Route
@@ -141,8 +145,10 @@ export default function AppRoutes() {
 
           <Route
             path="WorkVerification"
-            element={<WorkVerification />}
+            element={<ServiceReportReviews />}
           />
+
+          <Route path="Expenses" element={<Expenses review />} />
           
 
         </Route>
@@ -182,6 +188,8 @@ export default function AppRoutes() {
             element={<WorkAssignment />}
           />
 
+          <Route path="Employees" element={<Employees />} />
+
           <Route
             path="WorkMonitoring"
             element={<WorkMonitoring />}
@@ -189,7 +197,7 @@ export default function AppRoutes() {
 
           <Route
             path="WorkVerification"
-            element={<WorkVerification />}
+            element={<ServiceReportReviews />}
           />
 
           <Route
@@ -212,6 +220,14 @@ export default function AppRoutes() {
             element={<ServiceManagement1 />}
           />
 
+          <Route path="Expenses" element={<Expenses review />} />
+
+        </Route>
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRole="employee" />}>
+        <Route path="/" element={<EmployeeLayout />}>
+          <Route path="expenses" element={<Expenses />} />
         </Route>
       </Route>
 

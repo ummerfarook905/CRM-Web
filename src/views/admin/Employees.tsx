@@ -58,6 +58,14 @@ export default function Employees() {
     inactiveCount,
     departments,
     designations,
+    designationsLoading,
+    designationModalOpen,
+    setDesignationModalOpen,
+    newDesignation,
+    setNewDesignation,
+    designationSaving,
+    designationError,
+    handleCreateDesignation,
     filteredEmployees,
     search,
     setSearch,
@@ -666,32 +674,27 @@ export default function Employees() {
                   </FormField>
 
                   <FormField label="Designation" required>
-                    <select
-                      required
-                      disabled={loading || (designations.length === 0 && !form.designation)}
-                      value={form.designation}
-                      onChange={(event) =>
-                        updateForm("designation", event.target.value)
-                      }
-                      className={inputClass}
-                    >
-                      <option value="">
-                        {loading ? "Loading designations…" : "Select a designation"}
-                      </option>
-                      {form.designation && !designations.includes(form.designation) && (
-                        <option value={form.designation}>{form.designation}</option>
-                      )}
-                      {designations.map((designation) => (
-                        <option key={designation} value={designation}>
-                          {designation}
-                        </option>
-                      ))}
-                    </select>
-                    {!loading && designations.length === 0 && !error && (
-                      <p className="mt-1 text-xs text-amber-700">
-                        No designations are available in the employee database yet.
-                      </p>
-                    )}
+                    <div className="flex gap-2">
+                      <select
+                        required
+                        disabled={designationsLoading}
+                        value={form.designation}
+                        onChange={(event) => updateForm("designation", event.target.value)}
+                        className={inputClass}
+                      >
+                        <option value="">{designationsLoading ? "Loading designations…" : "Select a designation"}</option>
+                        {designations.map((designation) => (
+                          <option key={designation.id} value={designation.name}>{designation.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => { setNewDesignation(""); setDesignationModalOpen(true); }}
+                        className="shrink-0 rounded-lg border border-emerald-200 px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
+                      >
+                        + Create
+                      </button>
+                    </div>
                   </FormField>
 
                   <FormField label="Joining Date" required>
@@ -766,6 +769,25 @@ export default function Employees() {
               </form>
             )}
           </div>
+        </div>,
+        document.body,
+      )}
+      {designationModalOpen && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !designationSaving) setDesignationModalOpen(false); }}>
+          <form onSubmit={handleCreateDesignation} role="dialog" aria-modal="true" aria-labelledby="create-designation-title" className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-2xl">
+            <div>
+              <h2 id="create-designation-title" className="text-lg font-bold text-slate-900">Create Designation</h2>
+              <p className="mt-1 text-sm text-slate-500">Add a designation to the shared list, then assign it to this employee.</p>
+            </div>
+            <FormField label="Designation name" required>
+              <input autoFocus required maxLength={100} value={newDesignation} onChange={(event) => setNewDesignation(event.target.value)} placeholder="e.g. Field Technician" className={inputClass}/>
+            </FormField>
+            {designationError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{designationError}</p>}
+            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+              <button type="button" disabled={designationSaving} onClick={() => setDesignationModalOpen(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50">Cancel</button>
+              <button type="submit" disabled={designationSaving} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">{designationSaving ? "Creating…" : "Create designation"}</button>
+            </div>
+          </form>
         </div>,
         document.body,
       )}
