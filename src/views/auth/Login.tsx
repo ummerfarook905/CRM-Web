@@ -11,7 +11,7 @@ import {
   UsersRound,
   Wrench,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../app/Hooks";
 import { loginUser } from "../../store/auth/AuthSlice";
 import AuthViewModel from "../../viewmodels/auth/AuthViewModel";
@@ -50,11 +50,6 @@ export default function Login() {
     if (loginUser.fulfilled.match(result)) {
       navigate(AuthViewModel.getDashboardPath(result.payload.user.role), { replace: true });
     }
-  };
-
-  const fillDemo = (role: "admin" | "manager") => {
-    setEmail(role === "admin" ? "admin@specterra.com" : "manager@specterra.com");
-    setPassword(role === "admin" ? "Spectra-Z1rMbYmFA1a" : "ChangeMe@12345");
   };
 
   return (
@@ -113,9 +108,8 @@ export default function Login() {
               <button type="submit" disabled={loading} className="login-submit flex min-h-[62px] w-full items-center justify-center gap-3 rounded-2xl bg-emerald-700 px-6 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-70">{loading ? "Signing in…" : <>Sign In <ArrowRight size={21} /></>}</button>
             </form>
 
-            <div className="my-5 flex items-center gap-4 text-xs font-medium text-slate-500"><span className="h-px flex-1 bg-slate-200" />Quick-fill demo account<span className="h-px flex-1 bg-slate-200" /></div>
-            <div className="grid grid-cols-2 gap-3"><button type="button" className="demo-button" onClick={() => fillDemo("admin")}>Admin demo</button><button type="button" className="demo-button" onClick={() => fillDemo("manager")}>Manager demo</button></div>
             <div className="mt-5 flex items-center justify-center gap-2 text-xs text-slate-500 sm:text-sm"><ShieldCheck size={19} className="text-slate-500" />Your data is secure and protected</div>
+            <div className="mt-4 text-center"><Link to="/privacy" className="text-xs font-semibold text-emerald-800 underline underline-offset-2 hover:text-emerald-950">Privacy Policy</Link></div>
           </div>
           <div className="nextradev-credit mt-3 flex items-center justify-center gap-2 text-xs text-slate-500"><span>Designed &amp; Developed by</span><span className="nextradev-logo-highlight"><img src="/nextradev-logo.svg" alt="Nextradev Technologies" /></span></div>
         </div>

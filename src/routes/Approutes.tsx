@@ -7,6 +7,7 @@ import {
 import { useAppSelector } from "../app/Hooks";
 
 import Login from "../views/auth/Login";
+import PrivacyPolicy from "../views/auth/PrivacyPolicy";
 
 import AdminLayout from "../layouts/AdminLayout";
 import ManagerLayout from "../layouts/ManagerLayout";
@@ -78,6 +79,8 @@ export default function AppRoutes() {
           )
         }
       />
+
+      <Route path="/privacy" element={<PrivacyPolicy />} />
 
       {/* ========================= */}
       {/* ADMIN */}

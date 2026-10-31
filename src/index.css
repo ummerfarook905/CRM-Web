@@ -213,8 +213,6 @@
 .login-input-wrap input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #102332; font-size: 14px; }
 .login-input-wrap input::placeholder { color: #9aa5b1; }
 .password-toggle { display: grid; flex: none; place-items: center; color: #718096; }
-.demo-button { min-height: 45px; border: 1px solid #dce4e9; border-radius: 12px; background: #fff; color: #405264; font-size: 13px; font-weight: 600; }
-.demo-button:hover { border-color: #8dd9c2; background: #f0fbf7; color: #08795f; }
 .login-submit:focus-visible { outline-color: #10b981; }
 
 @media (max-width: 1023px) {
