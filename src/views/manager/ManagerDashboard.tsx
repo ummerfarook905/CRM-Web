@@ -1,6 +1,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAppDispatch, useAppSelector } from "../../app/Hooks";
+import { fetchWorkOrders, type MonitoredWorkOrder } from "../../services/WorkMonitoringSlice";
 import { useServiceReportPendingCount } from "../../hooks/useServiceReportPendingCount";
 import GlassmorphismSummary from "../../components/common/GlassmorphismSummary";
 import {
@@ -17,12 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-type WorkStatus =
-  | "New"
-  | "Pending"
-  | "Assigned"
-  | "In Progress"
-  | "Completed";
+type WorkStatus = "New" | "Pending" | "Assigned" | "In Progress" | "Completed";
 
 type WorkPriority = "High" | "Medium" | "Low";
 
@@ -38,7 +35,7 @@ interface StatCard {
 }
 
 interface WorkItem {
-  id: number;
+  id: string;
   customer: string;
   service: string;
   location: string;
@@ -47,142 +44,25 @@ interface WorkItem {
   date: string;
 }
 
-const stats: StatCard[] = [
-  {
-    title: "NEW WORKS",
-    value: "48",
-    percentage: "+12.5%",
-    description: "12 New Today",
-    icon: Download,
-    iconBg: "bg-emerald-50",
-    iconColor: "text-emerald-800",
-    accent: "border-t-slate-900",
-  },
-  {
-    title: "ASSIGNED WORKS",
-    value: "126",
-    percentage: "+8.4%",
-    description: "Total Assigned Works",
-    icon: ClipboardList,
-    iconBg: "bg-blue-50",
-    iconColor: "text-blue-700",
-    accent: "border-t-blue-500",
-  },
-  {
-    title: "IN PROGRESS",
-    value: "92",
-    percentage: "+6.2%",
-    description: "Works In Progress",
-    icon: Wrench,
-    iconBg: "bg-violet-50",
-    iconColor: "text-violet-700",
-    accent: "border-t-violet-500",
-  },
-  {
-    title: "COMPLETED WORKS",
-    value: "64",
-    percentage: "+10.1%",
-    description: "Works Completed",
-    icon: CheckCircle2,
-    iconBg: "bg-emerald-50",
-    iconColor: "text-emerald-700",
-    accent: "border-t-lime-500",
-  },
-];
-
-// Sample UI records. Replace these with your API/database records.
-const recentWorks: WorkItem[] = [
-  {
-    id: 1,
-    customer: "ABC Industries",
-    service: "RO Maintenance",
-    location: "Chennai",
-    priority: "High",
-    status: "New",
-    date: "2026-10-10",
-  },
-  {
-    id: 2,
-    customer: "GreenTech Pvt Ltd",
-    service: "AMC Service",
-    location: "Coimbatore",
-    priority: "Medium",
-    status: "Pending",
-    date: "2026-10-10",
-  },
-  {
-    id: 3,
-    customer: "Sunrise Apartments",
-    service: "Filter Replacement",
-    location: "Madurai",
-    priority: "High",
-    status: "Assigned",
-    date: "2026-10-09",
-  },
-  {
-    id: 4,
-    customer: "Global Foods",
-    service: "System Checkup",
-    location: "Trichy",
-    priority: "Medium",
-    status: "New",
-    date: "2026-10-09",
-  },
-  {
-    id: 5,
-    customer: "Sri Hospitals",
-    service: "AMC Visit",
-    location: "Salem",
-    priority: "Low",
-    status: "Pending",
-    date: "2026-10-08",
-  },
-  {
-    id: 6,
-    customer: "Metro Solutions",
-    service: "RO Installation",
-    location: "Kochi",
-    priority: "High",
-    status: "New",
-    date: "2026-10-08",
-  },
-  {
-    id: 7,
-    customer: "BlueSky Hotels",
-    service: "AMC Service",
-    location: "Thrissur",
-    priority: "Medium",
-    status: "Assigned",
-    date: "2026-10-07",
-  },
-  {
-    id: 8,
-    customer: "City Care Hospital",
-    service: "Filter Replacement",
-    location: "Calicut",
-    priority: "Low",
-    status: "In Progress",
-    date: "2026-10-07",
-  },
-  {
-    id: 9,
-    customer: "Green Valley",
-    service: "System Checkup",
-    location: "Palakkad",
-    priority: "Medium",
-    status: "Completed",
-    date: "2026-10-06",
-  },
-  {
-    id: 10,
-    customer: "Prime Industries",
-    service: "Water Plant Maintenance",
-    location: "Kannur",
-    priority: "High",
-    status: "Pending",
-    date: "2026-10-06",
-  },
-];
+const toWorkItem = (work: MonitoredWorkOrder): WorkItem => {
+  const rawStatus = work.status.toUpperCase().replaceAll("_", " ");
+  const status: WorkStatus = rawStatus === "REQUESTED" || rawStatus === "NEW" ? "New"
+    : rawStatus === "PENDING" ? "Pending"
+      : rawStatus === "IN PROGRESS" ? "In Progress"
+        : rawStatus === "COMPLETED" ? "Completed" : "Assigned";
+  const rawPriority = work.priority.toLowerCase();
+  const priority: WorkPriority = rawPriority === "high" || rawPriority === "urgent" ? "High"
+    : rawPriority === "low" ? "Low" : "Medium";
+  return {
+    id: work.id,
+    customer: work.customer,
+    service: work.service,
+    location: work.location,
+    priority,
+    status,
+    date: work.createdAt ? new Date(work.createdAt).toLocaleDateString("en-IN") : "—",
+  };
+};
 
 const destinationPaths: Record<string, string> = {
   "NEW WORKS": "/manager/WorkAssignment",
@@ -201,7 +81,7 @@ const destinationLabels: Record<string, string> = {
 function matchesCategory(work: WorkItem, title: string): boolean {
   switch (title) {
     case "NEW WORKS":
-      return work.status === "New";
+      return work.status === "New" || work.status === "Pending";
     case "ASSIGNED WORKS":
       return work.status === "Assigned";
     case "IN PROGRESS":
@@ -215,6 +95,19 @@ function matchesCategory(work: WorkItem, title: string): boolean {
 
 export default function ManagerDashboard() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { items: workOrders, loading: worksLoading, error: worksError } = useAppSelector((state) => state.workMonitoring);
+  useEffect(() => { void dispatch(fetchWorkOrders({ page: 1, limit: 100 })); }, [dispatch]);
+  const recentWorks = useMemo(() => workOrders.map(toWorkItem), [workOrders]);
+  const stats: StatCard[] = useMemo(() => {
+    const count = (status: WorkStatus) => recentWorks.filter((work) => work.status === status).length;
+    return [
+      { title: "NEW WORKS", value: String(count("New")), percentage: "", description: "New work orders", icon: Download, iconBg: "bg-emerald-50", iconColor: "text-emerald-800", accent: "border-t-slate-900" },
+      { title: "ASSIGNED WORKS", value: String(count("Assigned")), percentage: "", description: "Assigned work orders", icon: ClipboardList, iconBg: "bg-blue-50", iconColor: "text-blue-700", accent: "border-t-blue-500" },
+      { title: "IN PROGRESS", value: String(count("In Progress")), percentage: "", description: "Work in progress", icon: Wrench, iconBg: "bg-violet-50", iconColor: "text-violet-700", accent: "border-t-violet-500" },
+      { title: "COMPLETED WORKS", value: String(count("Completed")), percentage: "", description: "Completed work orders", icon: CheckCircle2, iconBg: "bg-emerald-50", iconColor: "text-emerald-700", accent: "border-t-lime-500" },
+    ];
+  }, [recentWorks]);
   const reportReview = useServiceReportPendingCount("manager");
   const dashboardStats: StatCard[] = [
     ...stats,
@@ -327,23 +220,25 @@ export default function ManagerDashboard() {
             items={[
               {
                 label: "New Works",
-                value: stats[0]?.value ?? "0",
+                value: worksLoading ? "…" : stats[0]?.value ?? "0",
                 icon: Download,
               },
               {
                 label: "Assigned",
-                value: stats[1]?.value ?? "0",
+                value: worksLoading ? "…" : stats[1]?.value ?? "0",
                 icon: ClipboardList,
               },
               {
                 label: "In Progress",
-                value: stats[2]?.value ?? "0",
+                value: worksLoading ? "…" : stats[2]?.value ?? "0",
                 icon: Wrench,
               },
             ]}
           />
         </div>
       </div>
+
+      {worksError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{worksError}</p>}
 
       {/* Statistics cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -443,7 +338,7 @@ export default function ManagerDashboard() {
 
         {/* MOBILE AND TABLET CARDS */}
         <div className="mt-5 divide-y divide-slate-100 lg:hidden">
-          {recentWorks.slice(0, 5).map((work) => (
+          {worksLoading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading work orders…</p> : recentWorks.slice(0, 5).map((work) => (
             <div
               key={work.id}
               className="min-w-0 space-y-3 py-4 first:pt-0 last:pb-0"
@@ -504,7 +399,7 @@ export default function ManagerDashboard() {
             </div>
           ))}
 
-          {recentWorks.length === 0 && (
+          {!worksLoading && recentWorks.length === 0 && (
             <div className="py-10 text-center">
               <FileText
                 size={30}
@@ -545,7 +440,7 @@ export default function ManagerDashboard() {
             </thead>
 
             <tbody>
-              {recentWorks.slice(0, 5).map((work) => (
+              {worksLoading ? <tr><td colSpan={7} className="px-3 py-10 text-center text-sm text-slate-500">Loading work orders…</td></tr> : recentWorks.slice(0, 5).map((work) => (
                 <tr
                   key={work.id}
                   className="border-b border-slate-100 transition hover:bg-slate-50"
@@ -580,7 +475,7 @@ export default function ManagerDashboard() {
                 </tr>
               ))}
 
-              {recentWorks.length === 0 && (
+              {!worksLoading && recentWorks.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-3 py-12 text-center">
                     <FileText

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { ElementType } from "react";
+import { useAppDispatch, useAppSelector } from "../../app/Hooks";
+import { decideOvertime, fetchOvertime, recordOvertimePayment, type OvertimeRequest as ApiOvertimeRequest } from "../../services/OvertimeSlice";
 
 import {
 
@@ -38,47 +40,12 @@ import {
 
 
 
-type OvertimeStatus = "Pending" | "Approved" | "Rejected";
-
-
-
-interface OvertimeRequest {
-
-  id: string;
-
-  employeeId: string;
-
-  employeeName: string;
-
-  department: string;
-
-  designation: string;
-
-  date: string;
-
-  regularHours: number;
-
-  overtimeHours: number;
-
-  overtimeSalary?: number;
-
-  reason: string;
-
-  submittedAt: string;
-
-  status: OvertimeStatus;
-
-  reviewedAt?: string;
-
-  rejectionReason?: string;
-
-}
-
-
-
-const STORAGE_KEY = "admin_overtime_requests";
-
-
+type OvertimeStatus = ApiOvertimeRequest["status"];
+type OvertimeRequest = ApiOvertimeRequest & {
+  employeeId: string; employeeName: string; department: string; designation: string;
+  date: string; regularHours: number; overtimeHours: number; reason: string; submittedAt: string;
+  overtimeSalary?: number; rejectionReason?: string;
+};
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -94,269 +61,20 @@ const daysAgo = (days: number) => {
 
 };
 
-
-
-const initialRequests: OvertimeRequest[] = [
-
-  {
-
-    id: "OT-1001",
-
-    employeeId: "EMP-1001",
-
-    employeeName: "Arun Kumar",
-
-    department: "Operations",
-
-    designation: "Operations Manager",
-
-    date: today(),
-
-    regularHours: 8,
-
-    overtimeHours: 2,
-
-    reason: "Urgent service coordination and completion of pending reports.",
-
-    submittedAt: `${today()}T09:15:00`,
-
-    status: "Pending",
-
-  },
-
-  {
-
-    id: "OT-1002",
-
-    employeeId: "EMP-1002",
-
-    employeeName: "Rahul Nair",
-
-    department: "Technical",
-
-    designation: "Senior Technician",
-
-    date: today(),
-
-    regularHours: 8,
-
-    overtimeHours: 3,
-
-    reason: "Emergency maintenance work at the customer site.",
-
-    submittedAt: `${today()}T10:20:00`,
-
-    status: "Pending",
-
-  },
-
-  {
-
-    id: "OT-1003",
-
-    employeeId: "EMP-1003",
-
-    employeeName: "Anjali Menon",
-
-    department: "Administration",
-
-    designation: "HR Executive",
-
-    date: daysAgo(1),
-
-    regularHours: 8,
-
-    overtimeHours: 1.5,
-
-    reason: "Monthly employee records and payroll documentation.",
-
-    submittedAt: `${daysAgo(1)}T16:30:00`,
-
-    status: "Approved",
-    overtimeSalary: 1000,
-
-    reviewedAt: `${daysAgo(1)}T17:00:00`,
-
-  },
-
-  {
-
-    id: "OT-1004",
-
-    employeeId: "EMP-1004",
-
-    employeeName: "Vishnu Raj",
-
-    department: "Technical",
-
-    designation: "Field Technician",
-
-    date: daysAgo(1),
-
-    regularHours: 8,
-
-    overtimeHours: 2.5,
-
-    reason: "Additional time required to complete an installation.",
-
-    submittedAt: `${daysAgo(1)}T17:15:00`,
-
-    status: "Rejected",
-
-    reviewedAt: `${daysAgo(1)}T18:00:00`,
-
-    rejectionReason: "Please attach the work completion report.",
-
-  },
-
-  {
-
-    id: "OT-1005",
-
-    employeeId: "EMP-1005",
-
-    employeeName: "Sneha Thomas",
-
-    department: "Finance",
-
-    designation: "Accountant",
-
-    date: daysAgo(2),
-
-    regularHours: 8,
-
-    overtimeHours: 1,
-
-    reason: "Month-end financial reconciliation.",
-
-    submittedAt: `${daysAgo(2)}T15:40:00`,
-
-    status: "Pending",
-
-  },
-
-  {
-
-    id: "OT-1006",
-
-    employeeId: "EMP-1006",
-
-    employeeName: "Nithin Das",
-
-    department: "Operations",
-
-    designation: "Service Coordinator",
-
-    date: daysAgo(3),
-
-    regularHours: 8,
-
-    overtimeHours: 2,
-
-    reason: "Coordination of delayed service requests.",
-
-    submittedAt: `${daysAgo(3)}T18:10:00`,
-
-    status: "Approved",
-    overtimeSalary: 750,
-
-    reviewedAt: `${daysAgo(3)}T18:30:00`,
-
-  },
-
-  {
-
-    id: "OT-1007",
-
-    employeeId: "EMP-1007",
-
-    employeeName: "Fahad Ali",
-
-    department: "Technical",
-
-    designation: "Field Technician",
-
-    date: daysAgo(4),
-
-    regularHours: 8,
-
-    overtimeHours: 4,
-
-    reason: "Emergency repair and additional equipment testing.",
-
-    submittedAt: `${daysAgo(4)}T19:00:00`,
-
-    status: "Pending",
-
-  },
-
-  {
-
-    id: "OT-1008",
-
-    employeeId: "EMP-1008",
-
-    employeeName: "Meera Joseph",
-
-    department: "Customer Support",
-
-    designation: "Support Executive",
-
-    date: daysAgo(5),
-
-    regularHours: 8,
-
-    overtimeHours: 1.5,
-
-    reason: "Customer support calls extending beyond working hours.",
-
-    submittedAt: `${daysAgo(5)}T17:45:00`,
-
-    status: "Rejected",
-
-    reviewedAt: `${daysAgo(5)}T18:20:00`,
-
-    rejectionReason: "The requested hours exceed the approved schedule.",
-
-  },
-
-];
-
-
-
-function loadRequests(): OvertimeRequest[] {
-
-  try {
-
-    const stored = localStorage.getItem(STORAGE_KEY);
-
-
-
-    if (stored) {
-
-      const parsed: unknown = JSON.parse(stored);
-
-
-
-      if (Array.isArray(parsed)) {
-
-        return parsed as OvertimeRequest[];
-
-      }
-
-    }
-
-  } catch {
-
-    // Fall back to demonstration records.
-
-  }
-
-
-
-  return initialRequests;
-
-}
+const toViewRequest = (request: ApiOvertimeRequest): OvertimeRequest => ({
+  ...request,
+  employeeId: request.employeeId || "—",
+  employeeName: request.employeeName || "Unknown Employee",
+  department: request.department || "—",
+  designation: request.designation || "—",
+  date: request.date || "",
+  regularHours: request.regularHours ?? 0,
+  overtimeHours: request.overtimeHours ?? 0,
+  reason: request.reason || "",
+  submittedAt: request.submittedAt || "",
+  overtimeSalary: request.amount,
+  rejectionReason: request.status === "Rejected" ? request.note : undefined,
+});
 
 
 
@@ -443,10 +161,10 @@ function getInitials(name: string): string {
 
 
 export default function Overtime() {
-
-  const [requests, setRequests] =
-
-    useState<OvertimeRequest[]>(loadRequests);
+  const dispatch = useAppDispatch();
+  const overtimeState = useAppSelector((state) => state.overtime);
+  const requests = useMemo(() => overtimeState.requests.map(toViewRequest), [overtimeState.requests]);
+  useEffect(() => { void dispatch(fetchOvertime({ page: 1, limit: 100 })); }, [dispatch]);
 
 
 
@@ -477,14 +195,6 @@ export default function Overtime() {
   const [rejectionReason, setRejectionReason] = useState("");
 
   const [actionError, setActionError] = useState("");
-
-
-
-  useEffect(() => {
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(requests));
-
-  }, [requests]);
 
 
 
@@ -604,95 +314,26 @@ export default function Overtime() {
 
 
 
-  function updateRequestStatus(
-
-  requestId: string,
-
-  status: "Approved" | "Rejected",
-
-  reason?: string,
-
-  overtimeSalary?: number
-
-) {
-
-  const reviewedAt = new Date().toISOString();
-
-
-
-  const updatedRequest = (request: OvertimeRequest) =>
-
-    request.id === requestId
-
-      ? {
-
-          ...request,
-
-          status,
-
-          reviewedAt,
-
-          overtimeSalary:
-
-            status === "Approved" ? overtimeSalary : undefined,
-
-          rejectionReason:
-
-            status === "Rejected" ? reason : undefined,
-
-        }
-
-      : request;
-
-
-
-  setRequests((current) => current.map(updatedRequest));
-
-
-
-  setSelectedRequest((current) =>
-
-    current ? updatedRequest(current) : current
-
-  );
-
-
-
-  setRejectionTarget(null);
-
-  setRejectionReason("");
-
-  setActionError("");
-
-}
-
-
-
-function approveRequest(request: OvertimeRequest) {
-
+  async function approveRequest(request: OvertimeRequest) {
   const salary = Number(overtimeSalaryInput);
-
-
-
   if (!Number.isFinite(salary) || salary <= 0) {
-
     setActionError("Please enter a valid overtime salary greater than ₹0.");
-
     return;
-
   }
-
-
-
   if (request.status !== "Pending") return;
 
-
-
-  updateRequestStatus(request.id, "Approved", undefined, salary);
-
+  setActionError("");
+  try {
+    await dispatch(decideOvertime({ id: request.id, changes: { decision: "APPROVED" } })).unwrap();
+    const paid = await dispatch(recordOvertimePayment({ id: request.id, payment: { amount: salary } })).unwrap();
+    await dispatch(fetchOvertime({ page: 1, limit: 100 })).unwrap();
+    setSelectedRequest(toViewRequest(paid));
+    setOvertimeSalaryInput("");
+  } catch (error) {
+    setActionError(typeof error === "string" ? error : error instanceof Error ? error.message : "Failed to approve overtime request.");
+    void dispatch(fetchOvertime({ page: 1, limit: 100 }));
+  }
 }
-
-
 
   function openRejectDialog(request: OvertimeRequest) {
 
@@ -712,37 +353,25 @@ function approveRequest(request: OvertimeRequest) {
 
 
 
-  function confirmRejection(event: React.FormEvent<HTMLFormElement>) {
-
+  async function confirmRejection(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-
-
     if (!rejectionTarget) return;
-
-
-
     const reason = rejectionReason.trim();
-
-
-
     if (!reason) {
-
       setActionError("Please provide a reason for rejection.");
-
       return;
-
     }
-
-
-
-    updateRequestStatus(rejectionTarget.id, "Rejected", reason);
-
+    setActionError("");
+    try {
+      const rejected = await dispatch(decideOvertime({ id: rejectionTarget.id, changes: { decision: "REJECTED", note: reason } })).unwrap();
+      await dispatch(fetchOvertime({ page: 1, limit: 100 })).unwrap();
+      setSelectedRequest(toViewRequest(rejected));
+      setRejectionTarget(null);
+      setRejectionReason("");
+    } catch (error) {
+      setActionError(typeof error === "string" ? error : error instanceof Error ? error.message : "Failed to reject overtime request.");
+    }
   }
-
-
-
-
 
   return (
 
@@ -779,6 +408,9 @@ function approveRequest(request: OvertimeRequest) {
         </div>
 
       </div>
+
+      {overtimeState.loading && <p role="status" className="text-sm text-slate-500">Loading overtime requests…</p>}
+      {overtimeState.error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{overtimeState.error}</p>}
 
 
 
@@ -1336,7 +968,7 @@ function approveRequest(request: OvertimeRequest) {
 
     {/* MOBILE EMPTY STATE */}
 
-    {filteredRequests.length === 0 && (
+    {!overtimeState.loading && filteredRequests.length === 0 && (
 
       <div className="px-4 py-12 text-center">
 
@@ -1666,7 +1298,7 @@ function approveRequest(request: OvertimeRequest) {
 
 
 
-        {filteredRequests.length === 0 && (
+        {!overtimeState.loading && filteredRequests.length === 0 && (
 
           <tr>
 

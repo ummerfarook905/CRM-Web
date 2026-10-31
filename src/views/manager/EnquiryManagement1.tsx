@@ -27,6 +27,11 @@ import {
   type ReactNode,
 } from "react";
 import { useAssignableEmployees } from "../../viewmodels/shared/UseAssignableEmployees";
+import { useAppDispatch, useAppSelector } from "../../app/Hooks";
+import { addEnquiry as createEnquiryApi, fetchEnquiries, updateEnquiryApi } from "../../services/EnquiriesSlice";
+import { convertEnquiryToBookingApi } from "../../services/ServiceRequestsSlice";
+import type { Enquiry as ApiEnquiryModel } from "../../models/admin/Enquiry";
+import { fetchWorkOrders } from "../../services/WorkMonitoringSlice";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -36,7 +41,10 @@ type EnquiryStatus = "New" | "Contacted" | "Assigned" | "Converted";
 type Priority = "Low" | "Medium" | "High";
 
 interface Enquiry {
-  id: number;
+  id: string;
+  customerId?: string | null;
+  serviceId?: string | null;
+  serviceLocationId?: string | null;
   reference: string;
   customerName: string;
   company: string;
@@ -51,96 +59,15 @@ interface Enquiry {
   assignedEmployees: string[];
 }
 
-interface ServiceRequest {
-  id: string;
-  enquiryReference: string;
-  customerName: string;
-  company: string;
-  phone: string;
-  email: string;
-  service: string;
-  location: string;
-  serviceDate: string;
-  notes: string;
-  assignedEmployees: string[];
-  status: "Scheduled";
-  createdAt: string;
-}
-
-/* -------------------------------------------------------------------------- */
-/* Demo data                                                                   */
-/* -------------------------------------------------------------------------- */
-
-const initialEnquiries: Enquiry[] = [
-  {
-    id: 1,
-    reference: "ENQ-1001",
-    customerName: "Rajesh Kumar",
-    company: "ABC Industries",
-    phone: "+919876543210",
-    email: "rajesh@example.com",
-    service: "RO System Maintenance",
-    location: "Chennai",
-    message:
-      "We need maintenance for our industrial RO water treatment system. Please arrange an inspection.",
-    receivedDate: "2026-10-08",
-    priority: "High",
-    status: "New",
-    assignedEmployees: [],
-  },
-  {
-    id: 2,
-    reference: "ENQ-1002",
-    customerName: "Anil Thomas",
-    company: "GreenTech Pvt Ltd",
-    phone: "+919847012345",
-    email: "anil@example.com",
-    service: "Water Treatment Plant Installation",
-    location: "Coimbatore",
-    message:
-      "We are planning a new water treatment plant and would like a site visit and quotation.",
-    receivedDate: "2026-10-08",
-    priority: "High",
-    status: "Assigned",
-    assignedEmployees: ["Employee 001 - Nikhil"],
-  },
-  {
-    id: 3,
-    reference: "ENQ-1003",
-    customerName: "Priya Menon",
-    company: "Sunrise Apartments",
-    phone: "+919847156789",
-    email: "priya@example.com",
-    service: "Annual Maintenance Contract",
-    location: "Madurai",
-    message:
-      "Please share AMC plans and the maintenance schedule for our apartment RO plant.",
-    receivedDate: "2026-10-07",
-    priority: "Medium",
-    status: "Contacted",
-    assignedEmployees: [],
-  },
-  {
-    id: 4,
-    reference: "ENQ-1004",
-    customerName: "Suresh Nair",
-    company: "Sri Hospitals",
-    phone: "+919995077889",
-    email: "suresh@example.com",
-    service: "Filter Replacement",
-    location: "Kochi",
-    message:
-      "We need replacement filters for our existing water purification system.",
-    receivedDate: "2026-10-06",
-    priority: "Low",
-    status: "Converted",
-    assignedEmployees: [
-      "Employee 002 - Adil",
-      "Employee 003 - Suresh",
-    ],
-  },
-];
-
+const fromApiEnquiry = (item: ApiEnquiryModel): Enquiry => {
+  const detail = (label: string) => item.message.match(new RegExp(`^${label}:\\s*(.*)$`, "mi"))?.[1] ?? "";
+  return {
+    id: item.id, customerId: item.customerId, serviceId: item.serviceId, serviceLocationId: item.serviceLocationId,
+    reference: item.reference, customerName: item.customerName, company: item.company || detail("Company"), phone: item.phone, email: item.email,
+    service: item.service || detail("Requested service"), location: item.location || detail("Service location"), message: item.message, receivedDate: item.receivedDate,
+    priority: (detail("Priority") || item.priority || "Medium") as Priority, status: item.status, assignedEmployees: item.assignedEmployees,
+  };
+};
 
 const statusStyles: Record<EnquiryStatus, string> = {
   New: "bg-blue-50 text-blue-700",
@@ -162,15 +89,11 @@ const today = () => new Date().toISOString().slice(0, 10);
 /* -------------------------------------------------------------------------- */
 
 export default function EnquiryManagement() {
+  const dispatch = useAppDispatch();
+  const { items: apiEnquiries, loading: enquiryLoading, error: enquiryError } = useAppSelector((state) => state.enquiries);
   const { employees, loading: employeeLoading, error: employeeError } = useAssignableEmployees();
-  const [enquiries, setEnquiries] = useState<Enquiry[]>(() => {
-    try {
-      const saved = localStorage.getItem("admin_enquiries");
-      return saved ? (JSON.parse(saved) as Enquiry[]) : initialEnquiries;
-    } catch {
-      return initialEnquiries;
-    }
-  });
+  const enquiries = useMemo(() => apiEnquiries.map(fromApiEnquiry), [apiEnquiries]);
+  useEffect(() => { void dispatch(fetchEnquiries()); }, [dispatch]);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -180,10 +103,8 @@ export default function EnquiryManagement() {
   const [showService, setShowService] = useState(false);
 
   const [serviceDate, setServiceDate] = useState(today());
-  const [serviceLocation, setServiceLocation] = useState("");
   const [serviceNotes, setServiceNotes] = useState("");
 
-  // Temporary UI state only; this value is not saved to localStorage.
   const [servicePriority, setServicePriority] =
     useState<Priority>("Medium");
 
@@ -200,10 +121,6 @@ export default function EnquiryManagement() {
     message: "",
     priority: "Medium" as Priority,
   });
-
-  useEffect(() => {
-    localStorage.setItem("admin_enquiries", JSON.stringify(enquiries));
-  }, [enquiries]);
 
   const filteredEnquiries = useMemo(() => {
     const query = search.toLowerCase().trim();
@@ -233,58 +150,28 @@ export default function EnquiryManagement() {
     });
   }, [enquiries, search, statusFilter]);
 
-  const updateEnquiry = (
-    id: number,
-    updates: Partial<Enquiry>,
-  ) => {
-    setEnquiries((current) =>
-      current.map((enquiry) =>
-        enquiry.id === id ? { ...enquiry, ...updates } : enquiry,
-      ),
-    );
-
-    setSelected((current) =>
-      current?.id === id ? { ...current, ...updates } : current,
-    );
+  const updateEnquiry = async (id: string, updates: Partial<Enquiry>) => {
+    try {
+      const saved = await dispatch(updateEnquiryApi({ id, updates })).unwrap();
+      setSelected((current) => current?.id === id ? fromApiEnquiry(saved) : current);
+    } catch (error) {
+      setAssignmentError(typeof error === "string" ? error : "Failed to update enquiry.");
+    }
   };
 
   /* Receive a new enquiry */
 
-  const addEnquiry = (event: FormEvent<HTMLFormElement>) => {
+  const addEnquiry = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    const nextNumber =
-      Math.max(
-        1000,
-        ...enquiries.map((enquiry) => {
-          const number = Number(enquiry.reference.replace("ENQ-", ""));
-          return Number.isFinite(number) ? number : 1000;
-        }),
-      ) + 1;
-
-    const newEnquiry: Enquiry = {
-      ...form,
-      id: Date.now(),
-      reference: `ENQ-${nextNumber}`,
-      receivedDate: today(),
-      status: "New",
-      assignedEmployees: [],
-    };
-
-    setEnquiries((current) => [newEnquiry, ...current]);
-
-    setForm({
-      customerName: "",
-      company: "",
-      phone: "",
-      email: "",
-      service: "",
-      location: "",
-      message: "",
-      priority: "Medium",
-    });
-
-    setShowForm(false);
+    try {
+      const details = [form.company && `Company: ${form.company}`, form.service && `Requested service: ${form.service}`, form.location && `Service location: ${form.location}`, `Priority: ${form.priority}`, form.message].filter(Boolean).join("\n");
+      await dispatch(createEnquiryApi({ name: form.customerName.trim(), phone: form.phone.trim(), email: form.email.trim() || null, message: details || null })).unwrap();
+      await dispatch(fetchEnquiries()).unwrap();
+      setForm({ customerName: "", company: "", phone: "", email: "", service: "", location: "", message: "", priority: "Medium" });
+      setShowForm(false);
+    } catch (error) {
+      setAssignmentError(typeof error === "string" ? error : "Failed to create enquiry.");
+    }
   };
 
   /* Open the Create Service modal */
@@ -297,7 +184,6 @@ export default function EnquiryManagement() {
 
     setSelected(enquiry);
     setServiceDate(today());
-    setServiceLocation(enquiry.location || "");
     setServiceNotes("");
 
     // Default to the enquiry priority, but allow changing it in the modal.
@@ -310,14 +196,9 @@ export default function EnquiryManagement() {
 
   /* Create one service request */
 
-  const createService = () => {
+  const createService = async () => {
     if (!selected || !serviceDate) {
       setAssignmentError("Please select a service date.");
-      return;
-    }
-
-    if (!serviceLocation.trim()) {
-      setAssignmentError("Enter a service location before creating the service.");
       return;
     }
 
@@ -327,50 +208,23 @@ export default function EnquiryManagement() {
     }
 
     try {
-      const existingServices: ServiceRequest[] = JSON.parse(
-        localStorage.getItem("admin_service_requests") || "[]",
-      );
-
-      const alreadyCreated = existingServices.some(
-        (service) => service.enquiryReference === selected.reference,
-      );
-
-      if (alreadyCreated) {
-        setAssignmentError(
-          "A service request already exists for this enquiry.",
-        );
+      if (!selected.customerId || !selected.serviceId || !selected.serviceLocationId) {
+        setAssignmentError("This enquiry is missing its customer, service, or service location record. Update the enquiry before converting it.");
         return;
       }
-
-      const newService: ServiceRequest = {
-        id: `SRV-${Date.now()}`,
-        enquiryReference: selected.reference,
-        customerName: selected.customerName,
-        company: selected.company,
-        phone: selected.phone,
-        email: selected.email,
-        service: selected.service,
-        location: serviceLocation.trim(),
-        serviceDate,
-        notes: serviceNotes.trim(),
-
-        // Service priority is intentionally NOT included here.
-
-        assignedEmployees,
-        status: "Scheduled",
-        createdAt: new Date().toISOString(),
-      };
-
-      localStorage.setItem(
-        "admin_service_requests",
-        JSON.stringify([newService, ...existingServices]),
-      );
-
-      updateEnquiry(selected.id, {
-        status: "Converted",
-        assignedEmployees,
-      });
-
+      const employeeIds = assignedEmployees.map((name) => employees.find((employee) => employee.name === name)?.id).filter((id): id is string => Boolean(id));
+      await dispatch(convertEnquiryToBookingApi({
+        id: selected.id,
+        customerId: selected.customerId,
+        serviceId: selected.serviceId,
+        serviceLocationId: selected.serviceLocationId,
+        preferredDate: serviceDate,
+        preferredTime: "09:00",
+        priority: servicePriority === "High" ? "HIGH" : servicePriority === "Low" ? "LOW" : "NORMAL",
+        employeeIds,
+        ...(serviceNotes.trim() ? { instructions: serviceNotes.trim() } : {}),
+      })).unwrap();
+      await Promise.all([dispatch(fetchEnquiries()).unwrap(), dispatch(fetchWorkOrders({ page: 1, limit: 100 })).unwrap()]);
       setShowService(false);
       setSelected(null);
       setServiceDate(today());
@@ -379,11 +233,8 @@ export default function EnquiryManagement() {
       setAssignedEmployees([]);
       setAssignmentError("");
 
-      alert("Service request created and team assigned successfully.");
-    } catch {
-      setAssignmentError(
-        "Could not save the service request. Please try again.",
-      );
+    } catch (error) {
+      setAssignmentError(typeof error === "string" ? error : error instanceof Error ? error.message : "Could not create the service request.");
     }
   };
 
@@ -397,8 +248,8 @@ export default function EnquiryManagement() {
     )}`;
   };
 
-  const markContacted = (enquiry: Enquiry) => {
-    updateEnquiry(enquiry.id, { status: "Contacted" });
+  const markContacted = async (enquiry: Enquiry) => {
+    await updateEnquiry(enquiry.id, { status: "Contacted" });
     setSelected(null);
   };
 
@@ -418,6 +269,8 @@ export default function EnquiryManagement() {
 
   return (
     <div className="space-y-6">
+      {(enquiryError || assignmentError) && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{assignmentError || enquiryError}</p>}
+      {enquiryLoading && <p role="status" className="text-sm text-slate-500">Loading enquiries…</p>}
       {/* Header */}
 
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -926,11 +779,9 @@ export default function EnquiryManagement() {
               <textarea
                 id="managerServiceLocation"
                 rows={2}
-                value={serviceLocation}
-                onChange={(event) => setServiceLocation(event.target.value)}
-                placeholder="Enter the site address and city"
-                required
-                className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                value={selected?.location || "No service location recorded"}
+                readOnly
+                className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700 outline-none"
               />
             </div>
 
@@ -960,7 +811,7 @@ export default function EnquiryManagement() {
               </div>
             </div>
 
-            {/* Service priority: temporary UI selection only */}
+            {/* Service priority */}
 
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-slate-700">
@@ -979,10 +830,6 @@ export default function EnquiryManagement() {
                 <option value="High">High Priority</option>
               </select>
 
-              <p className="mt-1.5 text-xs text-slate-500">
-                This selection is only displayed in this window and is not
-                saved with the service request.
-              </p>
             </div>
 
 

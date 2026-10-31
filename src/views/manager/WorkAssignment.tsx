@@ -12,8 +12,11 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAssignableEmployees } from "../../viewmodels/shared/UseAssignableEmployees";
+import { useAppDispatch, useAppSelector } from "../../app/Hooks";
+import { fetchWorkOrders, type MonitoredWorkOrder } from "../../services/WorkMonitoringSlice";
+import { api } from "../../api/axios";
 
 type Priority = "Low" | "Medium" | "High" | "Urgent";
 
@@ -25,7 +28,7 @@ type WorkStatus =
   | "Completed";
 
 interface WorkOrder {
-  id: number;
+  id: string;
   reference: string;
   customer: string;
   company: string;
@@ -38,101 +41,27 @@ interface WorkOrder {
   priority: Priority;
   status: WorkStatus;
   employees: string[];
+  employeeIds: string[];
   instructions: string;
   duration: string;
 }
 
-const initialWorkOrders: WorkOrder[] = [
-  {
-    id: 1,
-    reference: "WO-2026-101",
-    customer: "Rajesh Kumar",
-    company: "ABC Industries",
-    service: "RO System Maintenance",
-    category: "Maintenance",
-    location: "Thrissur, Kerala",
-    requestedDate: "2026-10-09",
-    workDate: "",
-    workTime: "09:00",
-    priority: "Urgent",
-    status: "Incoming",
-    employees: [],
-    instructions:
-      "Inspect the RO system, check water pressure and identify the fault.",
-    duration: "3 hours",
-  },
-  {
-    id: 2,
-    reference: "WO-2026-102",
-    customer: "Anil Thomas",
-    company: "GreenTech Pvt Ltd",
-    service: "Water Treatment Plant Inspection",
-    category: "Inspection",
-    location: "Kochi, Kerala",
-    requestedDate: "2026-10-09",
-    workDate: "2026-10-12",
-    workTime: "10:00",
-    priority: "High",
-    status: "Scheduled",
-    employees: ["John Mathew", "Meera Joseph"],
-    instructions:
-      "Check filters, inspect pumps and submit the inspection report.",
-    duration: "4 hours",
-  },
-  {
-    id: 3,
-    reference: "WO-2026-103",
-    customer: "Priya Menon",
-    company: "Sunrise Apartments",
-    service: "Filter Replacement",
-    category: "Repair",
-    location: "Kozhikode, Kerala",
-    requestedDate: "2026-10-08",
-    workDate: "",
-    workTime: "11:00",
-    priority: "Medium",
-    status: "Incoming",
-    employees: [],
-    instructions:
-      "Replace damaged filters and verify the output water quality.",
-    duration: "2 hours",
-  },
-  {
-    id: 4,
-    reference: "WO-2026-104",
-    customer: "Suresh Nair",
-    company: "Sri Hospitals",
-    service: "Annual Maintenance",
-    category: "AMC",
-    location: "Palakkad, Kerala",
-    requestedDate: "2026-10-07",
-    workDate: "2026-10-13",
-    workTime: "14:00",
-    priority: "High",
-    status: "Assigned",
-    employees: ["Rahul Nair"],
-    instructions:
-      "Perform preventive maintenance and update the equipment checklist.",
-    duration: "5 hours",
-  },
-  {
-    id: 5,
-    reference: "WO-2026-105",
-    customer: "Arun Joseph",
-    company: "Global Foods",
-    service: "Pump Repair",
-    category: "Repair",
-    location: "Ernakulam, Kerala",
-    requestedDate: "2026-10-06",
-    workDate: "2026-10-10",
-    workTime: "09:30",
-    priority: "Low",
-    status: "Completed",
-    employees: ["Sanjay Kumar"],
-    instructions: "Inspect pump motor and verify system operation.",
-    duration: "2 hours",
-  },
-];
+const mapWorkOrder = (item: MonitoredWorkOrder): WorkOrder => {
+  const status = item.status.toUpperCase().replaceAll("_", " ");
+  const workStatus: WorkStatus = status === "COMPLETED" ? "Completed" : status === "IN PROGRESS" ? "In Progress" : item.scheduledDate ? "Scheduled" : item.assignments.length ? "Assigned" : "Incoming";
+  const priority = item.priority.toUpperCase();
+  return {
+    id: item.id, reference: item.reference, customer: item.customer, company: item.company,
+    service: item.service, category: "", location: item.location,
+    requestedDate: item.createdAt.slice(0, 10), workDate: item.scheduledDate.slice(0, 10),
+    workTime: item.scheduledStartTime || "09:00",
+    priority: priority === "URGENT" ? "Urgent" : priority === "HIGH" ? "High" : priority === "LOW" ? "Low" : "Medium",
+    status: workStatus,
+    employees: item.assignments.map((assignment) => assignment.employeeName),
+    employeeIds: item.assignments.map((assignment) => assignment.employeeId),
+    instructions: item.instructions, duration: "—",
+  };
+};
 
 const priorityStyles: Record<Priority, string> = {
   Low: "bg-slate-100 text-slate-600",
@@ -150,9 +79,11 @@ const statusStyles: Record<WorkStatus, string> = {
 };
 
 export default function WorkAssignment() {
+  const dispatch = useAppDispatch();
+  const { items: apiWorkOrders, loading: workLoading, error: workError } = useAppSelector((state) => state.workMonitoring);
   const { employees: assignableEmployees, loading: employeeLoading, error: employeeError } = useAssignableEmployees();
-  const [workOrders, setWorkOrders] =
-    useState<WorkOrder[]>(initialWorkOrders);
+  const workOrders = useMemo(() => apiWorkOrders.map(mapWorkOrder), [apiWorkOrders]);
+  useEffect(() => { void dispatch(fetchWorkOrders({ page: 1, limit: 100 })); }, [dispatch]);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -173,17 +104,6 @@ export default function WorkAssignment() {
     priority: "Medium" as Priority,
     instructions: "",
   });
-
-  const updateWork = (
-    id: number,
-    updates: Partial<WorkOrder>
-  ) => {
-    setWorkOrders((current) =>
-      current.map((work) =>
-        work.id === id ? { ...work, ...updates } : work
-      )
-    );
-  };
 
   const filteredWork = useMemo(() => {
     const query = search.toLowerCase().trim();
@@ -221,7 +141,7 @@ export default function WorkAssignment() {
     setSelectedWork(work);
 
     setForm({
-      employees: [...work.employees],
+      employees: [...work.employeeIds],
       workDate: work.workDate,
       workTime: work.workTime || "09:00",
       priority: work.priority,
@@ -229,7 +149,7 @@ export default function WorkAssignment() {
     });
   };
 
-  const saveAssignment = (
+  const saveAssignment = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
@@ -246,19 +166,26 @@ export default function WorkAssignment() {
       return;
     }
 
-    updateWork(selectedWork.id, {
-      employees: form.employees,
-      workDate: form.workDate,
-      workTime: form.workTime,
-      priority: form.priority,
-      instructions: form.instructions.trim(),
-      status: "Scheduled",
-    });
-
-    setSelectedWork(null);
-    setNotice(
-      `${selectedWork.reference} scheduled and assigned successfully.`
-    );
+    try {
+      const order = apiWorkOrders.find((item) => item.id === selectedWork.id);
+      if (!order) throw new Error("Work order is no longer available. Refresh and try again.");
+      const [hours, minutes] = form.workTime.split(":").map(Number);
+      const end = new Date(2000, 0, 1, hours, minutes + 60);
+      await api.patch(`/work-orders/${encodeURIComponent(selectedWork.id)}/schedule`, {
+        scheduledDate: form.workDate,
+        scheduledStartTime: form.workTime,
+        scheduledEndTime: `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`,
+      });
+      const newEmployeeIds = form.employees.filter((id) => !order.assignments.some((assignment) => assignment.employeeId === id));
+      if (newEmployeeIds.length) await api.post("/work-assignments", { workOrderId: selectedWork.id, employeeIds: newEmployeeIds });
+      await dispatch(fetchWorkOrders({ page: 1, limit: 100 })).unwrap();
+      setSelectedWork(null);
+      setNotice(`${selectedWork.reference} schedule and technician assignments saved.`);
+    } catch (error) {
+      void dispatch(fetchWorkOrders({ page: 1, limit: 100 }));
+      const message = (error as { response?: { data?: { message?: unknown } } })?.response?.data?.message;
+      setNotice(typeof error === "string" ? error : Array.isArray(message) ? message.join(", ") : typeof message === "string" ? message : error instanceof Error ? error.message : "Failed to save work assignment.");
+    }
   };
 
   const toggleEmployee = (employee: string) => {
@@ -272,18 +199,6 @@ export default function WorkAssignment() {
     }));
   };
 
-  const updateStatus = (
-    work: WorkOrder,
-    status: WorkStatus
-  ) => {
-    updateWork(work.id, { status });
-    setDetailsWork((current) =>
-      current?.id === work.id
-        ? { ...current, status }
-        : current
-    );
-    setNotice(`${work.reference} status updated to ${status}.`);
-  };
 
   const summary = [
     {
@@ -362,6 +277,7 @@ export default function WorkAssignment() {
           </button>
         </div>
       )}
+      {workError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{workError}</p>}
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -470,7 +386,7 @@ export default function WorkAssignment() {
 
   {/* MOBILE AND TABLET CARDS */}
   <div className="divide-y divide-slate-100 lg:hidden">
-    {filteredWork.map((work) => (
+    {workLoading ? <p role="status" className="p-8 text-center text-sm text-slate-500">Loading work orders…</p> : filteredWork.map((work) => (
       <article
         key={work.id}
         className="min-w-0 space-y-4 p-4 transition hover:bg-slate-50/70 sm:p-5"
@@ -590,12 +506,12 @@ export default function WorkAssignment() {
           {work.status !== "Completed" && (
             <button
               type="button"
-              title="Assign and schedule work"
+              title={work.employeeIds.length ? "Edit technician assignment" : "Assign and schedule work"}
               onClick={() => openAssignment(work)}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-900"
             >
               <Plus size={14} />
-              Assign
+              {work.employeeIds.length ? "Edit" : "Assign"}
             </button>
           )}
         </div>
@@ -645,7 +561,7 @@ export default function WorkAssignment() {
       </thead>
 
       <tbody>
-        {filteredWork.map((work) => (
+              {workLoading ? <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">Loading work orders…</td></tr> : filteredWork.map((work) => (
           <tr
             key={work.id}
             className="border-t border-slate-100 hover:bg-slate-50"
@@ -743,12 +659,12 @@ export default function WorkAssignment() {
                 {work.status !== "Completed" && (
                   <button
                     type="button"
-                    title="Assign and schedule work"
+                    title={work.employeeIds.length ? "Edit technician assignment" : "Assign and schedule work"}
                     onClick={() => openAssignment(work)}
                     className="inline-flex items-center gap-1 rounded-md bg-emerald-800 px-2.5 py-2 text-[10px] font-semibold text-white hover:bg-emerald-900"
                   >
                     <Plus size={13} />
-                    Assign
+                    {work.employeeIds.length ? "Edit" : "Assign"}
                   </button>
                 )}
               </div>
@@ -834,7 +750,7 @@ export default function WorkAssignment() {
 
               <div className="grid gap-2 sm:grid-cols-2">
                 {assignableEmployees.map((employee) => {
-                  const checked = form.employees.includes(employee.name);
+                  const checked = form.employees.includes(employee.id);
 
                   return (
                     <label
@@ -848,8 +764,9 @@ export default function WorkAssignment() {
                       <input
                         type="checkbox"
                         checked={checked}
-                        onChange={() => toggleEmployee(employee.name)}
-                        className="h-4 w-4 accent-emerald-800"
+                        disabled={Boolean(selectedWork.employeeIds.includes(employee.id))}
+                        onChange={() => toggleEmployee(employee.id)}
+                        className="h-4 w-4 accent-emerald-800 disabled:opacity-60"
                       />
                       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-700">
                         {employee.name
@@ -913,52 +830,6 @@ export default function WorkAssignment() {
                   className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
                 />
               </div>
-            </div>
-
-            {/* Priority */}
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-700">
-                Work Priority
-              </label>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {(
-                  ["Low", "Medium", "High", "Urgent"] as Priority[]
-                ).map((priority) => (
-                  <button
-                    key={priority}
-                    type="button"
-                    onClick={() =>
-                      setForm({ ...form, priority })
-                    }
-                    className={`rounded-lg border px-3 py-2.5 text-xs font-semibold transition ${
-                      form.priority === priority
-                        ? "border-emerald-800 bg-emerald-800 text-white"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    {priority}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Instructions */}
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-700">
-                Work Instructions
-              </label>
-              <textarea
-                rows={4}
-                value={form.instructions}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    instructions: event.target.value,
-                  })
-                }
-                placeholder="Enter job details, tools required, safety instructions and customer requirements..."
-                className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
-              />
             </div>
 
             <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
@@ -1086,31 +957,10 @@ export default function WorkAssignment() {
                   }}
                   className="rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-900"
                 >
-                  Assign / Edit Work
+                  {detailsWork.employeeIds.length > 0 ? "Edit Assignment" : "Assign Work"}
                 </button>
               )}
 
-              {detailsWork.status === "Scheduled" && (
-                <button
-                  onClick={() =>
-                    updateStatus(detailsWork, "In Progress")
-                  }
-                  className="rounded-lg border border-cyan-200 px-4 py-2.5 text-sm font-semibold text-cyan-700 hover:bg-cyan-50"
-                >
-                  Start Work
-                </button>
-              )}
-
-              {detailsWork.status === "In Progress" && (
-                <button
-                  onClick={() =>
-                    updateStatus(detailsWork, "Completed")
-                  }
-                  className="rounded-lg border border-emerald-200 px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
-                >
-                  Mark Completed
-                </button>
-              )}
             </div>
           </div>
         </Modal>

@@ -85,6 +85,17 @@ export default function Employees() {
     handleSubmit,
     handleDelete,
     clearFilters,
+    canManageAdmins,
+    canDeleteBusinessData,
+    adminFormOpen,
+    setAdminFormOpen,
+    adminForm,
+    setAdminForm,
+    adminSaving,
+    adminError,
+    setAdminError,
+    adminNotice,
+    handleCreateAdmin,
   } = vm;
 
   React.useEffect(() => {
@@ -112,15 +123,17 @@ export default function Employees() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openAddModal}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
-        >
-          <Plus size={18} />
-          Add Employee
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={openAddModal} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2">
+            <Plus size={18} /> Add Employee
+          </button>
+          {canManageAdmins && <button type="button" onClick={() => { setAdminError(""); setAdminFormOpen(true); }} className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-700 px-4 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-50">
+            <UserPlus size={18} /> Admin User
+          </button>}
+        </div>
       </div>
+
+      {adminNotice && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{adminNotice}</p>}
 
       {/* LOADING AND API ERROR */}
       {loading && (
@@ -341,12 +354,12 @@ export default function Employees() {
                   icon={Pencil}
                 />
 
-                <ActionButton
+                {canDeleteBusinessData && <ActionButton
                   label="Delete employee"
                   onClick={() => void handleDelete(employee)}
                   icon={Trash2}
                   danger
-                />
+                />}
               </div>
             </div>
           ))}
@@ -441,12 +454,12 @@ export default function Employees() {
                           icon={Pencil}
                         />
 
-                        <ActionButton
+                        {canDeleteBusinessData && <ActionButton
                           label="Delete employee"
                           onClick={() => void handleDelete(employee)}
                           icon={Trash2}
                           danger
-                        />
+                        />}
                       </div>
                     </td>
                   </tr>
@@ -771,6 +784,22 @@ export default function Employees() {
           </div>
         </div>,
         document.body,
+      )}
+
+      {adminFormOpen && canManageAdmins && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !adminSaving) setAdminFormOpen(false); }}>
+          <form onSubmit={(event) => void handleCreateAdmin(event)} role="dialog" aria-modal="true" aria-labelledby="create-admin-title" className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Account management</p><h2 id="create-admin-title" className="mt-1 text-xl font-bold text-slate-900">Create Admin User</h2></div><button type="button" aria-label="Close" disabled={adminSaving} onClick={() => setAdminFormOpen(false)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X size={19}/></button></div>
+            {adminError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{adminError}</p>}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {([ ["firstName", "First name"], ["lastName", "Last name"] ] as const).map(([key, label]) => <label key={key} className="text-sm font-medium text-slate-700">{label}<input required maxLength={100} value={adminForm[key]} onChange={(event) => setAdminForm((current) => ({ ...current, [key]: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-emerald-600"/></label>)}
+              <label className="text-sm font-medium text-slate-700 sm:col-span-2">Email<input required type="email" autoComplete="email" value={adminForm.email} onChange={(event) => setAdminForm((current) => ({ ...current, email: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-emerald-600"/></label>
+              <label className="text-sm font-medium text-slate-700">Phone (optional)<input type="tel" autoComplete="tel" value={adminForm.phone} onChange={(event) => setAdminForm((current) => ({ ...current, phone: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-emerald-600"/></label>
+              <label className="text-sm font-medium text-slate-700">Password<input required type="password" autoComplete="new-password" minLength={8} value={adminForm.password} onChange={(event) => setAdminForm((current) => ({ ...current, password: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-emerald-600"/></label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" disabled={adminSaving} onClick={() => setAdminFormOpen(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700">Cancel</button><button type="submit" disabled={adminSaving} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{adminSaving ? "Creating…" : "Create Admin User"}</button></div>
+          </form>
+        </div>, document.body
       )}
       {designationModalOpen && createPortal(
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !designationSaving) setDesignationModalOpen(false); }}>

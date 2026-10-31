@@ -14,203 +14,43 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAssignableEmployees } from "../../viewmodels/shared/UseAssignableEmployees";
+import { useAppDispatch, useAppSelector } from "../../app/Hooks";
+import { fetchBookings, updateBooking, type Booking } from "../../services/BookingsSlice";
+import { fetchServices, createService, updateService } from "../../services/ServicesSlice";
+import type { Service as ApiService, CreateServicePayload } from "../../models/admin/Service";
+import { fetchCategories, createCategory } from "../../services/CategoriesSlice";
+import { fetchWorkOrders } from "../../services/WorkMonitoringSlice";
+import { api } from "../../api/axios";
 
-type ServiceStatus =
-  | "Pending"
-  | "Approved"
-  | "Rejected"
-  | "Scheduled"
-  | "In Progress"
-  | "Completed";
-
-type Priority = "Low" | "Medium" | "High";
-
-interface Service {
-  id: number;
-  name: string;
-  category: string;
-  description: string;
-  duration: string;
-  price: number;
-  status: "Active" | "Inactive";
-}
-
-interface Booking {
-  id: number;
-  reference: string;
-  customer: string;
-  company: string;
-  serviceId: number;
-  location: string;
-  requestedDate: string;
-  scheduledDate: string;
-  scheduledTime: string;
-  priority: Priority;
-  status: ServiceStatus;
-  assignedTo: string;
-  notes: string;
-}
-
-const initialCategories = [
-  "Maintenance",
-  "Installation",
-  "Repair",
-  "Inspection",
-  "Annual Maintenance Contract",
-];
-
-const initialServices: Service[] = [
-  {
-    id: 1,
-    name: "RO System Maintenance",
-    category: "Maintenance",
-    description:
-      "Routine inspection and maintenance of industrial RO systems.",
-    duration: "2 hours",
-    price: 2500,
-    status: "Active",
-  },
-  {
-    id: 2,
-    name: "Water Treatment Plant Installation",
-    category: "Installation",
-    description:
-      "Installation, testing and commissioning of water treatment plants.",
-    duration: "1 day",
-    price: 15000,
-    status: "Active",
-  },
-  {
-    id: 3,
-    name: "Filter Replacement",
-    category: "Repair",
-    description:
-      "Replacement and testing of water filtration components.",
-    duration: "1 hour",
-    price: 1200,
-    status: "Active",
-  },
-  {
-    id: 4,
-    name: "System Inspection",
-    category: "Inspection",
-    description:
-      "Equipment inspection and water system performance verification.",
-    duration: "90 minutes",
-    price: 1800,
-    status: "Active",
-  },
-  {
-    id: 5,
-    name: "Annual Maintenance Contract",
-    category: "Annual Maintenance Contract",
-    description:
-      "Scheduled preventive maintenance under an annual contract.",
-    duration: "As scheduled",
-    price: 25000,
-    status: "Active",
-  },
-];
-
-const initialBookings: Booking[] = [
-  {
-    id: 1,
-    reference: "SR-1001",
-    customer: "Rajesh Kumar",
-    company: "ABC Industries",
-    serviceId: 1,
-    location: "Chennai",
-    requestedDate: "2026-10-10",
-    scheduledDate: "",
-    scheduledTime: "",
-    priority: "High",
-    status: "Pending",
-    assignedTo: "",
-    notes: "RO system pressure is low. Inspection required.",
-  },
-  {
-    id: 2,
-    reference: "SR-1002",
-    customer: "Anil Thomas",
-    company: "GreenTech Pvt Ltd",
-    serviceId: 2,
-    location: "Coimbatore",
-    requestedDate: "2026-10-09",
-    scheduledDate: "2026-10-12",
-    scheduledTime: "10:00",
-    priority: "High",
-    status: "Scheduled",
-    assignedTo: "John Mathew",
-    notes: "Coordinate site access with the facility manager.",
-  },
-  {
-    id: 3,
-    reference: "SR-1003",
-    customer: "Priya Menon",
-    company: "Sunrise Apartments",
-    serviceId: 3,
-    location: "Madurai",
-    requestedDate: "2026-10-08",
-    scheduledDate: "",
-    scheduledTime: "",
-    priority: "Medium",
-    status: "Approved",
-    assignedTo: "",
-    notes: "Replace filters and verify output quality.",
-  },
-  {
-    id: 4,
-    reference: "SR-1004",
-    customer: "Arun Joseph",
-    company: "Global Foods",
-    serviceId: 4,
-    location: "Thrissur",
-    requestedDate: "2026-10-07",
-    scheduledDate: "",
-    scheduledTime: "",
-    priority: "Low",
-    status: "Rejected",
-    assignedTo: "",
-    notes: "Customer requested a date outside the available service window.",
-  },
-  {
-    id: 5,
-    reference: "SR-1005",
-    customer: "Suresh Nair",
-    company: "Sri Hospitals",
-    serviceId: 5,
-    location: "Kochi",
-    requestedDate: "2026-10-06",
-    scheduledDate: "2026-10-15",
-    scheduledTime: "14:00",
-    priority: "Medium",
-    status: "In Progress",
-    assignedTo: "Meera Joseph",
-    notes: "Perform the scheduled AMC inspection.",
-  },
-];
+type ServiceStatus = Booking["status"];
+type Service = ApiService;
 
 const statusStyles: Record<ServiceStatus, string> = {
   Pending: "bg-amber-50 text-amber-700",
   Approved: "bg-blue-50 text-blue-700",
   Rejected: "bg-red-50 text-red-700",
   Scheduled: "bg-violet-50 text-violet-700",
+  Assigned: "bg-violet-50 text-violet-700",
   "In Progress": "bg-cyan-50 text-cyan-700",
   Completed: "bg-emerald-50 text-emerald-700",
 };
 
 export default function ServiceManagement() {
+  const dispatch = useAppDispatch();
+  const serviceState = useAppSelector((state) => state.services);
+  const bookingState = useAppSelector((state) => state.bookings);
+  const categoryState = useAppSelector((state) => state.categories);
+  const services = serviceState.items;
+  const bookings = bookingState.items;
+  const categories = categoryState.items.map((item) => item.name);
+  useEffect(() => {
+    void dispatch(fetchServices());
+    void dispatch(fetchBookings());
+    void dispatch(fetchCategories());
+  }, [dispatch]);
   const { employees: teamMembers, loading: teamLoading, error: teamError } = useAssignableEmployees();
-  const [services, setServices] =
-    useState<Service[]>(initialServices);
-
-  const [bookings, setBookings] =
-    useState<Booking[]>(initialBookings);
-
-  const [categories, setCategories] =
-    useState<string[]>(initialCategories);
 
   const [activeTab, setActiveTab] =
     useState<"bookings" | "services" | "categories">(
@@ -240,7 +80,7 @@ export default function ServiceManagement() {
 
   const [serviceForm, setServiceForm] = useState({
     name: "",
-    category: initialCategories[0],
+    category: "",
     description: "",
     duration: "2 hours",
     price: "0",
@@ -256,8 +96,8 @@ export default function ServiceManagement() {
 
   const [notice, setNotice] = useState("");
 
-  const getService = (id: number) =>
-    services.find((service) => service.id === id);
+  const getService = (id: number | string) =>
+    services.find((service) => String(service.id) === String(id));
 
   const filteredBookings = useMemo(() => {
     const query = search.toLowerCase().trim();
@@ -286,19 +126,6 @@ export default function ServiceManagement() {
     });
   }, [bookings, services, search, statusFilter]);
 
-  const updateBooking = (
-    id: number,
-    updates: Partial<Booking>
-  ) => {
-    setBookings((current) =>
-      current.map((booking) =>
-        booking.id === id
-          ? { ...booking, ...updates }
-          : booking
-      )
-    );
-  };
-
   const openAddService = () => {
     setEditingService(null);
     setServiceForm({
@@ -325,7 +152,7 @@ export default function ServiceManagement() {
     setServiceModal(true);
   };
 
-  const saveService = (
+  const saveService = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
@@ -341,46 +168,37 @@ export default function ServiceManagement() {
       return;
     }
 
-    if (editingService) {
-      setServices((current) =>
-        current.map((service) =>
-          service.id === editingService.id
-            ? {
-                ...service,
-                ...serviceForm,
-                name: serviceForm.name.trim(),
-                description: serviceForm.description.trim(),
-                price,
-              }
-            : service
-        )
-      );
-      setNotice("Service updated successfully.");
-    } else {
-      setServices((current) => [
-        ...current,
-        {
-          id: Date.now(),
-          ...serviceForm,
-          name: serviceForm.name.trim(),
-          description: serviceForm.description.trim(),
-          price,
-        },
-      ]);
-      setNotice("Service added successfully.");
+    const categoryId = categoryState.items.find((item) => item.name === serviceForm.category)?.id;
+    const durationMatch = serviceForm.duration.trim().match(/^(\d+(?:\.\d+)?)\s*(minutes?|mins?|hours?|hrs?|days?)?$/i);
+    if (!categoryId || !durationMatch) {
+      setNotice(!categoryId ? "Select a valid service category." : "Enter a duration such as 90 minutes or 2 hours.");
+      return;
     }
-
-    setServiceModal(false);
+    const amount = Number(durationMatch[1]);
+    const unit = (durationMatch[2] ?? "minutes").toLowerCase();
+    const estimatedDuration = Math.round(amount * (unit.startsWith("day") ? 1440 : unit.startsWith("hour") || unit.startsWith("hr") ? 60 : 1));
+    const payload: CreateServicePayload = {
+      name: serviceForm.name.trim(), categoryId, description: serviceForm.description.trim(),
+      estimatedDuration, basePrice: price, requiresMaintenance: editingService?.requiresMaintenance ?? false,
+      defaultMaintenanceFrequency: editingService?.defaultMaintenanceFrequency ?? null, isActive: serviceForm.status === "Active",
+    };
+    try {
+      if (editingService) await dispatch(updateService({ id: editingService.id, ...payload })).unwrap();
+      else await dispatch(createService(payload)).unwrap();
+      await dispatch(fetchServices()).unwrap();
+      setServiceModal(false);
+      setNotice(editingService ? "Service updated successfully." : "Service added successfully.");
+    } catch (error) { setNotice(typeof error === "string" ? error : "Failed to save service."); }
   };
 
-  const addCategory = (
+  const addCategory = async (
     event: React.FormEvent<HTMLFormElement>
-  ) => {
+  ): Promise<boolean> => {
     event.preventDefault();
 
     const value = categoryName.trim();
 
-    if (!value) return;
+    if (!value) return false;
 
     if (
       categories.some(
@@ -389,12 +207,16 @@ export default function ServiceManagement() {
       )
     ) {
       setNotice("That category already exists.");
-      return;
+      return false;
     }
 
-    setCategories((current) => [...current, value]);
-    setCategoryName("");
-    setNotice("Category added successfully.");
+    try {
+      await dispatch(createCategory(value)).unwrap();
+      await dispatch(fetchCategories()).unwrap();
+      setCategoryName("");
+      setNotice("Category added successfully.");
+      return true;
+    } catch (error) { setNotice(typeof error === "string" ? error : "Failed to create category."); return false; }
   };
 
   const openSchedule = (booking: Booking) => {
@@ -408,7 +230,7 @@ export default function ServiceManagement() {
     });
   };
 
-  const saveSchedule = (
+  const saveSchedule = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
@@ -422,21 +244,36 @@ export default function ServiceManagement() {
       return;
     }
 
-    updateBooking(scheduleBooking.id, {
-      scheduledDate: scheduleForm.date,
-      scheduledTime: scheduleForm.time,
-      assignedTo: scheduleForm.assignedTo,
-      notes: scheduleForm.notes,
-      status: "Scheduled",
-    });
-
-    setScheduleBooking(null);
-    setNotice("Service scheduled and assigned successfully.");
+    try {
+      const employeeId = teamMembers.find((member) => member.name === scheduleForm.assignedTo)?.id;
+      if (!employeeId) throw new Error("Select an active technician from the team list.");
+      const [hours, minutes] = scheduleForm.time.split(":").map(Number);
+      const end = new Date(2000, 0, 1, hours, minutes + scheduleBooking.serviceDurationMinutes);
+      const scheduledEndTime = `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+      if (scheduleBooking.workOrderId) {
+        await api.patch(`/work-orders/${encodeURIComponent(scheduleBooking.workOrderId)}/schedule`, { scheduledDate: scheduleForm.date, scheduledStartTime: scheduleForm.time, scheduledEndTime });
+        const newEmployeeIds = scheduleBooking.employeeIds.includes(employeeId) ? [] : [employeeId];
+        if (newEmployeeIds.length) await api.post("/work-assignments", { workOrderId: scheduleBooking.workOrderId, employeeIds: newEmployeeIds });
+      } else {
+        if (scheduleBooking.status === "Pending") await dispatch(updateBooking({ id: scheduleBooking.id, updates: { status: "Approved" } })).unwrap();
+        else if (scheduleBooking.status !== "Approved" && scheduleBooking.status !== "Scheduled") throw new Error(`Cannot schedule a ${scheduleBooking.status} booking.`);
+        await api.post("/work-orders", { bookingId: String(scheduleBooking.id), scheduledDate: scheduleForm.date, scheduledStartTime: scheduleForm.time, scheduledEndTime, employeeIds: [employeeId], ...(scheduleForm.notes.trim() ? { instructions: scheduleForm.notes.trim() } : {}) });
+      }
+      await Promise.all([dispatch(fetchBookings()).unwrap(), dispatch(fetchWorkOrders({ page: 1, limit: 100 })).unwrap()]);
+      setScheduleBooking(null);
+      setNotice("Service scheduled and assigned successfully.");
+    } catch (error) {
+      const message = (error as { response?: { data?: { message?: unknown } } })?.response?.data?.message;
+      setNotice(typeof error === "string" ? error : Array.isArray(message) ? message.join(", ") : typeof message === "string" ? message : error instanceof Error ? error.message : "Failed to schedule service.");
+    }
   };
 
-  const approveBooking = (booking: Booking) => {
-    updateBooking(booking.id, { status: "Approved" });
-    setNotice(`${booking.reference} approved.`);
+  const approveBooking = async (booking: Booking) => {
+    try {
+      await dispatch(updateBooking({ id: booking.id, updates: { status: "Approved" } })).unwrap();
+      await dispatch(fetchBookings()).unwrap();
+      setNotice(`${booking.reference} approved.`);
+    } catch (error) { setNotice(typeof error === "string" ? error : "Failed to approve booking."); }
   };
 
   return (
@@ -478,6 +315,8 @@ export default function ServiceManagement() {
           </button>
         </div>
       )}
+      {(serviceState.error || bookingState.error || categoryState.error) && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{serviceState.error || bookingState.error || categoryState.error}</p>}
+      {(serviceState.loading || bookingState.loading || categoryState.loading) && <p role="status" className="text-sm text-slate-500">Loading service data…</p>}
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -592,6 +431,7 @@ export default function ServiceManagement() {
             <option value="Pending">Pending</option>
             <option value="Approved">Approved</option>
             <option value="Scheduled">Scheduled</option>
+            <option value="Assigned">Assigned</option>
             <option value="In Progress">In Progress</option>
             <option value="Completed">Completed</option>
           </select>
@@ -1155,8 +995,7 @@ export default function ServiceManagement() {
         >
           <form
             onSubmit={(event) => {
-              addCategory(event);
-              setCategoryModal(false);
+              void addCategory(event).then((created) => { if (created) setCategoryModal(false); });
             }}
             className="space-y-4"
           >

@@ -11,6 +11,7 @@ import {
 import { createDesignation, fetchDesignations } from "../../services/DesignationsSlice";
 
 import { useAppDispatch, useAppSelector } from "../../app/Hooks";
+import { api } from "../../api/axios";
 
 import type {
   Employee,
@@ -39,6 +40,9 @@ const emptyForm: EmployeeFormValues = {
 
 export function useEmployeesViewModel() {
   const dispatch = useAppDispatch();
+  const role = useAppSelector((state) => state.auth.user?.role);
+  const canManageAdmins = role === "admin" || role === "super_admin";
+  const canDeleteBusinessData = canManageAdmins;
 
   const employees = useAppSelector(
     (state) => state.employees.items,
@@ -73,6 +77,11 @@ export function useEmployeesViewModel() {
   const [newDesignation, setNewDesignation] = useState("");
   const [designationSaving, setDesignationSaving] = useState(false);
   const [designationError, setDesignationError] = useState("");
+  const [adminFormOpen, setAdminFormOpen] = useState(false);
+  const [adminForm, setAdminForm] = useState({ firstName: "", lastName: "", email: "", phone: "", password: "" });
+  const [adminSaving, setAdminSaving] = useState(false);
+  const [adminError, setAdminError] = useState("");
+  const [adminNotice, setAdminNotice] = useState("");
 
   // Load employee records from the API through Redux.
   useEffect(() => {
@@ -200,6 +209,41 @@ export function useEmployeesViewModel() {
     }
   }
 
+  async function handleCreateAdmin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canManageAdmins) {
+      setAdminError("You do not have permission to create admin users.");
+      return;
+    }
+    const payload = {
+      firstName: adminForm.firstName.trim(),
+      lastName: adminForm.lastName.trim(),
+      email: adminForm.email.trim().toLowerCase(),
+      ...(adminForm.phone.trim() ? { phone: adminForm.phone.trim() } : {}),
+      password: adminForm.password,
+    };
+    setAdminSaving(true);
+    setAdminError("");
+    setAdminNotice("");
+    try {
+      await api.post("/users/admins", payload);
+      // Refresh the existing employee account list after account creation.
+      await dispatch(fetchEmployees());
+      setAdminNotice("Admin user created successfully.");
+      setAdminForm({ firstName: "", lastName: "", email: "", phone: "", password: "" });
+      setAdminFormOpen(false);
+    } catch (error: unknown) {
+      const response = (error as { response?: { status?: number; data?: { message?: string | string[] } } })?.response;
+      const message = response?.data?.message;
+      setAdminError(response?.status === 403
+        ? (Array.isArray(message) ? message.join(", ") : message) || "You do not have permission to create admin users."
+        : Array.isArray(message) ? message.join(", ") : message || "Could not create admin user.");
+    } finally {
+      setAdminForm((current) => ({ ...current, password: "" }));
+      setAdminSaving(false);
+    }
+  }
+
   
 async function handleSubmit(
   event: React.FormEvent<HTMLFormElement>,
@@ -309,6 +353,10 @@ async function handleSubmit(
 
 
   async function handleDelete(employee: Employee) {
+    if (!canDeleteBusinessData) {
+      setDeleteMessage("You do not have permission to delete employee records.");
+      return;
+    }
     const confirmed = window.confirm(
       `Are you sure you want to delete ${employee.name}?`,
     );
@@ -354,6 +402,17 @@ async function handleSubmit(
     setNewDesignation,
     designationSaving,
     designationError,
+    canManageAdmins,
+    canDeleteBusinessData,
+    adminFormOpen,
+    setAdminFormOpen,
+    adminForm,
+    setAdminForm,
+    adminSaving,
+    adminError,
+    setAdminError,
+    adminNotice,
+    handleCreateAdmin,
     handleCreateDesignation,
     filteredEmployees,
     search,
