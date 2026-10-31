@@ -1,725 +1,177 @@
-
+import {
+  Activity,
+  ArrowRight,
+  CalendarDays,
+  CalendarRange,
+  CircleHelp,
+  Clock3,
+  ClipboardList,
+  FileCheck2,
+  Headphones,
+  UserRoundPlus,
+  Wrench,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../app/Hooks";
 import { fetchWorkOrders, type MonitoredWorkOrder } from "../../services/WorkMonitoringSlice";
 import { useServiceReportPendingCount } from "../../hooks/useServiceReportPendingCount";
-import GlassmorphismSummary from "../../components/common/GlassmorphismSummary";
-import {
-  ArrowRight,
-  ArrowUpRight,
-  CheckCircle2,
-  ClipboardList,
-  Clock,
-  Download,
-  FileText,
-  Search,
-  Wrench,
-  X,
-  type LucideIcon,
-} from "lucide-react";
 
-type WorkStatus = "New" | "Pending" | "Assigned" | "In Progress" | "Completed";
-
-type WorkPriority = "High" | "Medium" | "Low";
-
-interface StatCard {
-  title: string;
-  value: string;
-  percentage: string;
-  description: string;
-  icon: LucideIcon;
-  iconBg: string;
-  iconColor: string;
-  accent: string;
-}
-
-interface WorkItem {
-  id: string;
-  customer: string;
-  service: string;
-  location: string;
-  priority: WorkPriority;
-  status: WorkStatus;
-  date: string;
-}
-
-const toWorkItem = (work: MonitoredWorkOrder): WorkItem => {
-  const rawStatus = work.status.toUpperCase().replaceAll("_", " ");
-  const status: WorkStatus = rawStatus === "REQUESTED" || rawStatus === "NEW" ? "New"
-    : rawStatus === "PENDING" ? "Pending"
-      : rawStatus === "IN PROGRESS" ? "In Progress"
-        : rawStatus === "COMPLETED" ? "Completed" : "Assigned";
-  const rawPriority = work.priority.toLowerCase();
-  const priority: WorkPriority = rawPriority === "high" || rawPriority === "urgent" ? "High"
-    : rawPriority === "low" ? "Low" : "Medium";
-  return {
-    id: work.id,
-    customer: work.customer,
-    service: work.service,
-    location: work.location,
-    priority,
-    status,
-    date: work.createdAt ? new Date(work.createdAt).toLocaleDateString("en-IN") : "—",
-  };
+const dateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
-const destinationPaths: Record<string, string> = {
-  "NEW WORKS": "/manager/WorkAssignment",
-  "ASSIGNED WORKS": "/manager/WorkAssignment",
-  "IN PROGRESS": "/manager/WorkMonitoring",
-  "COMPLETED WORKS": "/manager/WorkVerification",
+const displayDate = (value?: string) => {
+  if (!value) return "Date not set";
+  const parsed = new Date(`${value.slice(0, 10)}T00:00:00`);
+  return Number.isNaN(parsed.getTime())
+    ? value
+    : parsed.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 };
 
-const destinationLabels: Record<string, string> = {
-  "NEW WORKS": "VIEW INCOMING WORKS",
-  "ASSIGNED WORKS": "VIEW ASSIGNED WORKS",
-  "IN PROGRESS": "VIEW IN-PROGRESS WORKS",
-  "COMPLETED WORKS": "VIEW COMPLETED WORKS",
+const statusTone = (status: string) => {
+  const normalized = status.toLowerCase();
+  if (["completed", "approved", "active"].includes(normalized)) return "bg-emerald-50 text-emerald-700";
+  if (["scheduled", "assigned", "in progress"].includes(normalized)) return "bg-blue-50 text-blue-700";
+  if (["rejected", "cancelled"].includes(normalized)) return "bg-rose-50 text-rose-700";
+  return "bg-amber-50 text-amber-700";
 };
 
-function matchesCategory(work: WorkItem, title: string): boolean {
-  switch (title) {
-    case "NEW WORKS":
-      return work.status === "New" || work.status === "Pending";
-    case "ASSIGNED WORKS":
-      return work.status === "Assigned";
-    case "IN PROGRESS":
-      return work.status === "In Progress";
-    case "COMPLETED WORKS":
-      return work.status === "Completed";
-    default:
-      return true;
-  }
-}
+const statusName = (work: MonitoredWorkOrder) => {
+  if (work.status.toUpperCase() === "ASSIGNED" && work.scheduledDate) return "Scheduled";
+  return work.status.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
 
 export default function ManagerDashboard() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { items: workOrders, loading: worksLoading, error: worksError } = useAppSelector((state) => state.workMonitoring);
-  useEffect(() => { void dispatch(fetchWorkOrders({ page: 1, limit: 100 })); }, [dispatch]);
-  const recentWorks = useMemo(() => workOrders.map(toWorkItem), [workOrders]);
-  const stats: StatCard[] = useMemo(() => {
-    const count = (status: WorkStatus) => recentWorks.filter((work) => work.status === status).length;
-    return [
-      { title: "NEW WORKS", value: String(count("New")), percentage: "", description: "New work orders", icon: Download, iconBg: "bg-emerald-50", iconColor: "text-emerald-800", accent: "border-t-slate-900" },
-      { title: "ASSIGNED WORKS", value: String(count("Assigned")), percentage: "", description: "Assigned work orders", icon: ClipboardList, iconBg: "bg-blue-50", iconColor: "text-blue-700", accent: "border-t-blue-500" },
-      { title: "IN PROGRESS", value: String(count("In Progress")), percentage: "", description: "Work in progress", icon: Wrench, iconBg: "bg-violet-50", iconColor: "text-violet-700", accent: "border-t-violet-500" },
-      { title: "COMPLETED WORKS", value: String(count("Completed")), percentage: "", description: "Completed work orders", icon: CheckCircle2, iconBg: "bg-emerald-50", iconColor: "text-emerald-700", accent: "border-t-lime-500" },
-    ];
-  }, [recentWorks]);
+  const { items: workOrders, loading, error } = useAppSelector((state) => state.workMonitoring);
   const reportReview = useServiceReportPendingCount("manager");
-  const dashboardStats: StatCard[] = [
-    ...stats,
-    {
-      title: "REPORTS AWAITING REVIEW",
-      value: reportReview.count == null ? (reportReview.loading ? "…" : "—") : String(reportReview.count),
-      percentage: "",
-      description: "Submitted service reports",
-      icon: CheckCircle2,
-      iconBg: "bg-amber-50",
-      iconColor: "text-amber-700",
-      accent: "border-t-amber-500",
-    },
-  ];
-
-  const [selectedStat, setSelectedStat] =
-    useState<StatCard | null>(null);
-
-  const [searchTerm, setSearchTerm] = useState("");
-
-  const filteredRecords = useMemo(() => {
-    if (!selectedStat) return [];
-
-    const query = searchTerm.trim().toLowerCase();
-
-    return recentWorks.filter((work) => {
-      const categoryMatches = matchesCategory(
-        work,
-        selectedStat.title
-      );
-
-      const searchableValues = [
-        work.customer,
-        work.service,
-        work.location,
-        work.status,
-        work.priority,
-        String(work.id),
-        `WRK-${String(work.id).padStart(4, "0")}`,
-      ];
-
-      const searchMatches = searchableValues.some((value) =>
-        value.toLowerCase().includes(query)
-      );
-
-      return categoryMatches && searchMatches;
-    });
-  }, [selectedStat, searchTerm]);
+  const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    if (!selectedStat) return;
+    void dispatch(fetchWorkOrders({ page: 1, limit: 100 }));
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, [dispatch]);
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setSelectedStat(null);
-        setSearchTerm("");
-      }
-    };
+  const today = dateKey(now);
+  const scheduledToday = workOrders.filter((work) => work.scheduledDate?.slice(0, 10) === today);
+  const completedCount = workOrders.filter((work) => work.status.toUpperCase() === "COMPLETED").length;
+  const completionRate = workOrders.length ? Math.round((completedCount / workOrders.length) * 100) : 0;
+  const counts = useMemo(() => ({
+    incoming: workOrders.filter((work) => ["REQUESTED", "PENDING", "NEW"].includes(work.status.toUpperCase())).length,
+    assigned: workOrders.filter((work) => work.assignments.length > 0 && !["IN_PROGRESS", "COMPLETED"].includes(work.status.toUpperCase())).length,
+    inProgress: workOrders.filter((work) => work.status.toUpperCase() === "IN_PROGRESS").length,
+    completed: completedCount,
+  }), [workOrders, completedCount]);
 
-    document.addEventListener("keydown", handleKeyDown);
+  const week = useMemo(() => {
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + index);
+      const key = dateKey(date);
+      const count = workOrders.filter((work) =>
+        [work.createdAt, work.scheduledDate].some((value) => value?.slice(0, 10) === key),
+      ).length;
+      return { key, label: date.toLocaleDateString("en-IN", { weekday: "short" }), count };
+    });
+  }, [now, workOrders]);
+  const maxWeekCount = Math.max(1, ...week.map((day) => day.count));
+  const recentWorks = [...workOrders].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")).slice(0, 4);
 
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [selectedStat]);
-
-  function closePopup() {
-    setSelectedStat(null);
-    setSearchTerm("");
-  }
-
-  function goToAllocatedPage() {
-    if (!selectedStat) return;
-
-    const path = destinationPaths[selectedStat.title];
-
-    closePopup();
-
-    if (path) {
-      navigate(path);
-    }
-  }
+  const miniStats = [
+    { title: "Incoming work", value: counts.incoming, note: "Waiting for assignment", icon: UserRoundPlus, tone: "blue", path: "/manager/WorkAssignment" },
+    { title: "Assigned work", value: counts.assigned, note: "Technicians assigned", icon: ClipboardList, tone: "green", path: "/manager/WorkAssignment" },
+    { title: "In progress", value: counts.inProgress, note: "Active field work", icon: Wrench, tone: "sky", path: "/manager/WorkMonitoring" },
+    { title: "Completed work", value: counts.completed, note: "Completed work orders", icon: Activity, tone: "teal", path: "/manager/WorkVerification" },
+    { title: "Reports awaiting review", value: reportReview.count ?? "—", note: reportReview.loading ? "Loading submitted reports" : "Submitted service reports", icon: FileCheck2, tone: "blue", path: "/manager/WorkVerification" },
+  ];
+  const toneClasses: Record<string, string> = {
+    blue: "bg-blue-100 text-blue-700",
+    green: "bg-emerald-100 text-emerald-700",
+    sky: "bg-sky-100 text-sky-700",
+    teal: "bg-teal-100 text-teal-700",
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Dashboard header */}
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+    <div className="space-y-6 pb-5 text-slate-900">
+      <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            Manager Dashboard
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Manage service works, assign employees and track progress.
+          <p className="text-xs font-medium text-slate-500">
+            Welcome back <span className="mx-1 text-blue-600">•</span>
+            {now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-[27px]">Service operations</h1>
         </div>
-
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <Clock size={15} />
-          Last updated: Just now
+        <div className="flex items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-sm sm:self-auto">
+          <span className={`h-2 w-2 rounded-full ${loading ? "animate-pulse bg-amber-400" : "bg-emerald-500"}`} />
+          {loading ? "Syncing backend data" : "Backend data connected"}
         </div>
-      </div>
+      </header>
 
-{/* Glassmorphism summary (left side) */}
-      <div className="flex justify-start">
-        <div className="w-full max-w-3xl">
-          <GlassmorphismSummary
-            title="Works Summary"
-            subtitle="Overall work status overview"
-            variant="light"
-            items={[
-              {
-                label: "New Works",
-                value: worksLoading ? "…" : stats[0]?.value ?? "0",
-                icon: Download,
-              },
-              {
-                label: "Assigned",
-                value: worksLoading ? "…" : stats[1]?.value ?? "0",
-                icon: ClipboardList,
-              },
-              {
-                label: "In Progress",
-                value: worksLoading ? "…" : stats[2]?.value ?? "0",
-                icon: Wrench,
-              },
-            ]}
-          />
-        </div>
-      </div>
+      {error && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Some manager data is unavailable: {error}</div>}
 
-      {worksError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{worksError}</p>}
+      <section aria-label="Manager operations overview" className="space-y-3 rounded-[26px] border border-blue-200/70 bg-gradient-to-br from-blue-100 via-blue-300 to-blue-600 p-3 shadow-[0_18px_50px_rgba(37,99,235,0.17)] sm:p-4">
+        <div className="grid gap-3 xl:grid-cols-[minmax(178px,1fr)_minmax(220px,1.45fr)_minmax(165px,0.95fr)_minmax(210px,1.35fr)_minmax(180px,1fr)]">
+          <article className="relative flex min-h-[210px] flex-col justify-between overflow-hidden rounded-[22px] bg-gradient-to-br from-[#3288f1] to-[#1559c2] p-5 text-white shadow-sm">
+            <div className="absolute -right-10 -top-12 h-36 w-36 rounded-full border-[24px] border-white/10" />
+            <div className="relative"><p className="text-sm font-semibold text-blue-50">Completion rate</p><p className="mt-5 text-[42px] font-bold leading-none tracking-tight">{loading ? "—" : `${completionRate}%`}</p></div>
+            <div className="relative rounded-2xl bg-white/15 px-3.5 py-3 text-xs leading-5 text-white/95">{completedCount} completed from {workOrders.length} work orders</div>
+          </article>
 
-      {/* Statistics cards */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {dashboardStats.map((stat) => {
-          const Icon = stat.icon;
-
-          return (
-            <button
-              key={stat.title}
-              type="button"
-              onClick={() => {
-                if (stat.title === "REPORTS AWAITING REVIEW") {
-                  navigate("/manager/WorkVerification");
-                  return;
-                }
-                setSearchTerm("");
-                setSelectedStat(stat);
-              }}
-              className={`
-                group relative overflow-hidden rounded-xl border
-                border-slate-200 border-t-4 ${stat.accent}
-                bg-white p-5 text-left shadow-sm transition duration-200
-                hover:-translate-y-0.5 hover:shadow-md
-                focus:outline-none focus:ring-2 focus:ring-emerald-500
-              `}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="max-w-[180px] text-[11px] font-bold leading-5 tracking-wide text-slate-500">
-                    {stat.title}
-                  </p>
-                  <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-                    {stat.value}
-                  </p>
-                </div>
-
-                <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${stat.iconBg} ${stat.iconColor}`}
-                >
-                  <Icon size={21} strokeWidth={2} />
-                </div>
-              </div>
-
-              <div className="mt-5 flex items-end justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <ArrowUpRight
-                    size={17}
-                    className="text-emerald-600"
-                  />
-                  <span className="text-sm font-bold text-emerald-700">
-                    {stat.percentage}
-                  </span>
-                </div>
-
-                <p className="max-w-[130px] text-right text-xs leading-4 text-slate-500">
-                  {stat.description}
-                </p>
-              </div>
-
-              <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs font-semibold text-slate-400 transition group-hover:text-emerald-700">
-                <span>View records</span>
-                <ArrowRight size={15} />
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Recent incoming works */}
-      <div className="w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5">
-        {/* HEADER */}
-        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
-              <FileText size={20} />
+          <article className="flex min-h-[210px] flex-col rounded-[22px] bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3"><div><h2 className="text-sm font-bold text-slate-900">Work orders this week</h2><p className="mt-1 text-xs text-slate-500">Created and scheduled work</p></div><span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-semibold text-blue-700">{week.reduce((sum, day) => sum + day.count, 0)} total</span></div>
+            <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">{week.reduce((sum, day) => sum + day.count, 0)}</p>
+            <div className="mt-auto flex h-[74px] items-end justify-between gap-2 pt-4" aria-label="Work orders by weekday">
+              {week.map((day) => <div key={day.key} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5"><div className="flex h-full w-full items-end justify-center"><div className={`w-2.5 rounded-full ${day.key === today ? "bg-blue-600" : "bg-slate-300"}`} style={{ height: `${Math.max(7, (day.count / maxWeekCount) * 48)}px` }} title={`${day.count} work order(s)`} /></div><span className={`text-[9px] font-semibold uppercase ${day.key === today ? "text-blue-700" : "text-slate-400"}`}>{day.label.slice(0, 1)}</span></div>)}
             </div>
+          </article>
 
-            <div className="min-w-0">
-              <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-                Recent Incoming Works
-              </h2>
-              <p className="mt-0.5 text-xs leading-5 text-slate-500">
-                Latest service requests and work assignments.
-              </p>
-            </div>
-          </div>
+          <article className="flex min-h-[210px] flex-col items-center justify-center rounded-[22px] bg-white p-4 text-center shadow-sm">
+            <p className="self-start text-left text-sm font-bold text-slate-900">Local time</p>
+            <div className="relative mt-3 flex h-[134px] w-[134px] items-center justify-center rounded-full p-[7px]" style={{ background: "conic-gradient(#2563eb 0 72%, #e5eaf1 72% 100%)" }}><div className="flex h-full w-full flex-col items-center justify-center rounded-full border border-slate-100 bg-white"><Clock3 size={16} className="mb-1 text-blue-600" /><span className="text-xl font-bold tabular-nums text-slate-900">{now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span><span className="mt-1 text-[10px] text-slate-500">{now.toLocaleDateString("en-IN", { weekday: "long" })}</span></div></div>
+          </article>
 
-          <button
-            type="button"
-            onClick={() => navigate("/manager/WorkAssignment")}
-            className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100 sm:w-auto"
-          >
-            View All
-            <ArrowUpRight size={15} />
+          <article className="flex min-h-[210px] flex-col rounded-[22px] bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between gap-2"><div><h2 className="text-sm font-bold text-slate-900">Workload status</h2><p className="mt-1 text-xs text-slate-500">Current work order pipeline</p></div><Wrench size={19} className="text-blue-600" /></div>
+            <div className="mt-5 grid grid-cols-3 gap-2 text-center">{[{ label: "Incoming", value: counts.incoming, color: "text-amber-600" }, { label: "Active", value: counts.inProgress, color: "text-blue-600" }, { label: "Done", value: counts.completed, color: "text-emerald-600" }].map((item) => <div key={item.label} className="rounded-xl bg-slate-50 px-2 py-3"><p className={`text-xl font-bold ${item.color}`}>{item.value}</p><p className="mt-1 text-[10px] text-slate-500">{item.label}</p></div>)}</div>
+            <div className="mt-auto pt-4"><div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-600" style={{ width: `${completionRate}%` }} /></div><p className="mt-2 text-[10px] text-slate-500">{completionRate}% of work orders completed</p></div>
+          </article>
+
+          <button type="button" onClick={() => navigate("/manager/WorkAssignment")} className="group relative flex min-h-[210px] flex-col justify-between overflow-hidden rounded-[22px] bg-gradient-to-br from-[#138968] to-[#087054] p-5 text-left text-white shadow-sm transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
+            <div className="absolute -right-7 -top-8 h-32 w-32 rounded-full border-[22px] border-white/10" />
+            <div className="relative flex items-start justify-between gap-2"><div><p className="text-sm font-semibold text-emerald-50">On schedule today</p><p className="mt-1 text-xs text-emerald-100/80">Work orders and field visits</p></div><CalendarDays size={19} className="text-emerald-100" /></div>
+            <div className="relative"><p className="text-4xl font-bold">{scheduledToday.length}</p><p className="mt-2 text-xs leading-5 text-emerald-50/90">{scheduledToday.length ? `${scheduledToday.length} scheduled visit${scheduledToday.length === 1 ? "" : "s"} today` : "Nothing scheduled for today"}</p><span className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-white/90">Open assignments <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" /></span></div>
           </button>
         </div>
 
-        {/* MOBILE AND TABLET CARDS */}
-        <div className="mt-5 divide-y divide-slate-100 lg:hidden">
-          {worksLoading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading work orders…</p> : recentWorks.slice(0, 5).map((work) => (
-            <div
-              key={work.id}
-              className="min-w-0 space-y-3 py-4 first:pt-0 last:pb-0"
-            >
-              {/* CUSTOMER AND ID */}
-              <div className="flex min-w-0 items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="break-words text-sm font-semibold text-slate-800">
-                    {work.customer}
-                  </p>
-                  <p className="mt-1 break-words text-xs text-slate-500">
-                    Request #{work.id}
-                  </p>
-                </div>
-
-                <div className="shrink-0">
-                  <PriorityBadge priority={work.priority} />
-                </div>
-              </div>
-
-              {/* DETAILS */}
-              <div className="grid min-w-0 grid-cols-2 gap-3 rounded-lg bg-slate-50 p-3 sm:grid-cols-3">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                    Service Type
-                  </p>
-                  <p className="mt-1 break-words text-xs leading-5 text-slate-700">
-                    {work.service}
-                  </p>
-                </div>
-
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                    Location
-                  </p>
-                  <p className="mt-1 break-words text-xs leading-5 text-slate-700">
-                    {work.location}
-                  </p>
-                </div>
-
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                    Received On
-                  </p>
-                  <p className="mt-1 break-words text-xs leading-5 text-slate-700">
-                    {work.date}
-                  </p>
-                </div>
-              </div>
-
-              {/* STATUS */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-medium text-slate-500">
-                  Status
-                </span>
-                <StatusBadge status={work.status} />
-              </div>
-            </div>
-          ))}
-
-          {!worksLoading && recentWorks.length === 0 && (
-            <div className="py-10 text-center">
-              <FileText
-                size={30}
-                className="mx-auto text-slate-300"
-              />
-              <p className="mt-3 text-sm font-semibold text-slate-700">
-                No incoming works found
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                New service requests will appear here.
-              </p>
-            </div>
-          )}
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {miniStats.map((item) => { const Icon = item.icon; return <button type="button" key={item.title} onClick={() => navigate(item.path)} className="group min-w-0 rounded-[20px] bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><div className="flex items-center gap-2.5"><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${toneClasses[item.tone]}`}><Icon size={18} /></span><span className="truncate text-xs font-bold text-slate-700">{item.title}</span></div><p className="mt-3 text-[28px] font-bold leading-none tracking-tight text-slate-900">{loading ? "—" : item.value}</p><div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5"><span className="truncate text-[10px] text-slate-500">{item.note}</span><ArrowRight size={14} className="shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-blue-600" /></div></button>; })}
         </div>
+      </section>
 
-        {/* DESKTOP TABLE */}
-        <div className="mt-5 hidden w-full overflow-x-auto lg:block">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50">
-                {[
-                  "#",
-                  "Customer",
-                  "Service Type",
-                  "Location",
-                  "Priority",
-                  "Status",
-                  "Received On",
-                ].map((heading) => (
-                  <th
-                    key={heading}
-                    className="whitespace-nowrap px-3 py-3 text-left text-[11px] font-bold text-slate-500"
-                  >
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+      <div className="grid gap-5 xl:grid-cols-[1.65fr_1fr]">
+        <section className="min-w-0 overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 text-sky-700"><Headphones size={19} /></span><div><h2 className="text-sm font-bold text-slate-900">Work activity</h2><p className="mt-0.5 text-xs text-slate-500">Recent work orders and their progress</p></div></div><button type="button" onClick={() => navigate("/manager/WorkAssignment")} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-700">View all <ArrowRight size={14} /></button></header>
+          <div className="grid gap-5 p-5 md:grid-cols-[220px_1fr]">
+            <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-50 p-5 text-center"><div className="relative flex h-36 w-36 items-center justify-center rounded-full p-3" style={{ background: `conic-gradient(#2563eb ${completionRate}%, #e2e8f0 ${completionRate}% 100%)` }}><div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-white"><span className="text-3xl font-bold text-slate-900">{completedCount}</span><span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Completed</span></div></div><p className="mt-4 text-xs font-semibold text-slate-700">{completionRate}% completion rate</p><p className="mt-1 text-[10px] text-slate-500">Across {workOrders.length} work orders</p></div>
+            <div className="min-w-0"><div className="mb-2 flex items-center justify-between gap-2"><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Recent work orders</p><span className="text-[10px] text-slate-400">Latest first</span></div><div className="divide-y divide-slate-100">{recentWorks.map((work) => <div key={work.id} className="flex min-w-0 items-center justify-between gap-3 py-3 first:pt-1"><div className="min-w-0"><p className="truncate text-xs font-semibold text-slate-800">{work.customer || work.reference || "Work order"}</p><p className="mt-1 truncate text-[10px] text-slate-500">{work.reference} · {work.company !== "—" ? `${work.company} · ` : ""}{work.service}</p></div><div className="flex shrink-0 flex-col items-end gap-1.5"><span className={`rounded-full px-2 py-1 text-[9px] font-semibold ${statusTone(statusName(work))}`}>{statusName(work)}</span><span className="text-[9px] text-slate-400">{displayDate(work.createdAt)}</span></div></div>)}{!loading && recentWorks.length === 0 && <p className="py-8 text-center text-xs text-slate-500">No work orders have been returned by the API.</p>}{loading && recentWorks.length === 0 && <p className="py-8 text-center text-xs text-slate-500">Loading work activity…</p>}</div></div>
+          </div>
+        </section>
 
-            <tbody>
-              {worksLoading ? <tr><td colSpan={7} className="px-3 py-10 text-center text-sm text-slate-500">Loading work orders…</td></tr> : recentWorks.slice(0, 5).map((work) => (
-                <tr
-                  key={work.id}
-                  className="border-b border-slate-100 transition hover:bg-slate-50"
-                >
-                  <td className="whitespace-nowrap px-3 py-4 text-xs text-slate-500">
-                    {work.id}
-                  </td>
-
-                  <td className="px-3 py-4 text-xs font-semibold text-slate-800">
-                    {work.customer}
-                  </td>
-
-                  <td className="px-3 py-4 text-xs text-slate-600">
-                    {work.service}
-                  </td>
-
-                  <td className="px-3 py-4 text-xs text-slate-600">
-                    {work.location}
-                  </td>
-
-                  <td className="whitespace-nowrap px-3 py-4">
-                    <PriorityBadge priority={work.priority} />
-                  </td>
-
-                  <td className="whitespace-nowrap px-3 py-4">
-                    <StatusBadge status={work.status} />
-                  </td>
-
-                  <td className="whitespace-nowrap px-3 py-4 text-xs text-slate-500">
-                    {work.date}
-                  </td>
-                </tr>
-              ))}
-
-              {!worksLoading && recentWorks.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-3 py-12 text-center">
-                    <FileText
-                      size={30}
-                      className="mx-auto text-slate-300"
-                    />
-                    <p className="mt-3 text-sm font-semibold text-slate-700">
-                      No incoming works found
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      New service requests will appear here.
-                    </p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <section className="min-w-0 overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
+          <header className="flex items-center gap-3 border-b border-slate-100 px-5 py-4"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700"><CalendarRange size={19} /></span><div><h2 className="text-sm font-bold text-slate-900">Today’s schedule</h2><p className="mt-0.5 text-xs text-slate-500">Service visits and field work</p></div></header>
+          <div className="space-y-3 p-5">{scheduledToday.slice(0, 4).map((work) => <div key={work.id} className="flex items-start gap-3 rounded-xl border border-slate-100 p-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700"><Clock3 size={16} /></span><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-slate-800">{work.customer || work.reference}</p><p className="mt-1 truncate text-[10px] text-slate-500">{work.company !== "—" ? `${work.company} · ` : ""}{work.service}</p></div><span className="shrink-0 text-[10px] font-semibold text-slate-500">{work.scheduledStartTime || "Time unset"}</span></div>)}{scheduledToday.length === 0 && <div className="flex min-h-[190px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-5 text-center"><CalendarDays size={24} className="text-emerald-600" /><p className="mt-3 text-sm font-semibold text-slate-700">No visits scheduled today</p><p className="mt-1 max-w-[230px] text-xs leading-5 text-slate-500">Scheduled service work will appear here.</p></div>}<button type="button" onClick={() => navigate("/manager/WorkAssignment")} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100">Open work assignments <ArrowRight size={14} /></button></div>
+        </section>
       </div>
 
-
-      {/* Statistics popup */}
-      {selectedStat && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-3 backdrop-blur-[2px] sm:p-6"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closePopup();
-            }
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="stats-modal-title"
-            className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
-          >
-            {/* Popup header */}
-            <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-5 sm:px-6">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                  {(() => {
-                    const Icon = selectedStat.icon;
-                    return <Icon size={22} />;
-                  })()}
-                </div>
-
-                <div className="min-w-0">
-                  <h2
-                    id="stats-modal-title"
-                    className="truncate text-lg font-bold text-slate-900 sm:text-xl"
-                  >
-                    {selectedStat.title}
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Showing {Math.min(10, filteredRecords.length)} preview
-                    records · Total: {selectedStat.value}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={closePopup}
-                aria-label="Close popup"
-                className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-800"
-              >
-                <X size={21} />
-              </button>
-            </div>
-
-            {/* Summary cards */}
-            <div className="grid grid-cols-1 gap-3 bg-slate-50 p-4 sm:grid-cols-3 sm:p-5">
-              <SummaryCard label="Total" value={selectedStat.value} />
-
-              <SummaryCard
-                label="Preview records"
-                value={String(Math.min(10, filteredRecords.length))}
-              />
-
-              <SummaryCard
-                label="Category"
-                value={selectedStat.title}
-                highlighted
-              />
-            </div>
-
-            {/* Search */}
-            <div className="border-b border-slate-100 p-4 sm:px-6">
-              <div className="flex max-w-md items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 focus-within:border-emerald-500">
-                <Search size={17} className="shrink-0 text-slate-400" />
-                <input
-                  type="search"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Search these records..."
-                  aria-label="Search preview records"
-                  className="w-full bg-transparent text-sm outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Preview records table */}
-            <div className="min-h-0 flex-1 overflow-auto">
-              <table className="w-full min-w-[700px] text-left">
-                <thead className="sticky top-0 z-10 bg-slate-50">
-                  <tr className="text-[11px] font-bold uppercase text-slate-500">
-                    <th className="px-5 py-3">Record ID</th>
-                    <th className="px-5 py-3">Name</th>
-                    <th className="px-5 py-3">Details</th>
-                    <th className="px-5 py-3">Status</th>
-                    <th className="px-5 py-3">Date</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {filteredRecords.slice(0, 10).map((work) => (
-                    <tr
-                      key={work.id}
-                      className="border-b border-slate-100 text-sm transition hover:bg-slate-50"
-                    >
-                      <td className="whitespace-nowrap px-5 py-4 font-semibold text-emerald-700">
-                        WRK-{String(work.id).padStart(4, "0")}
-                      </td>
-                      <td className="px-5 py-4 font-medium text-slate-800">
-                        {work.customer}
-                      </td>
-                      <td className="px-5 py-4 text-slate-600">
-                        <div>{work.service}</div>
-                        <div className="mt-1 text-xs text-slate-400">
-                          {work.location}
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <StatusBadge status={work.status} />
-                      </td>
-                      <td className="whitespace-nowrap px-5 py-4 text-slate-500">
-                        {work.date}
-                      </td>
-                    </tr>
-                  ))}
-
-                  {filteredRecords.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="px-5 py-12 text-center text-sm text-slate-500"
-                      >
-                        No matching records found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Footer */}
-            <div className="flex flex-col justify-between gap-3 border-t border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:px-6">
-              <p className="text-xs text-slate-500">
-                Showing {Math.min(10, filteredRecords.length)} of{" "}
-                {filteredRecords.length} preview records
-              </p>
-
-              <div className="flex flex-wrap justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={closePopup}
-                  className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  Close
-                </button>
-
-                <button
-                  type="button"
-                  onClick={goToAllocatedPage}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-900"
-                >
-                  {destinationLabels[selectedStat.title]}
-                  <ArrowRight size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <footer className="flex items-center justify-between border-t border-slate-200 pt-4 text-[10px] text-slate-500"><span>Service Operations · Manager workspace</span><span className="inline-flex items-center gap-1"><CircleHelp size={12} /> Data refreshes from the backend</span></footer>
     </div>
-  );
-}
-
-function SummaryCard({
-  label,
-  value,
-  highlighted = false,
-}: {
-  label: string;
-  value: string;
-  highlighted?: boolean;
-}) {
-  return (
-    <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
-      <p className="text-xs text-slate-500">{label}</p>
-      <p
-        className={`mt-1 break-words ${
-          highlighted
-            ? "text-sm font-bold text-emerald-700"
-            : "text-xl font-bold text-slate-900"
-        }`}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function PriorityBadge({ priority }: { priority: WorkPriority }) {
-  const styles: Record<WorkPriority, string> = {
-    High: "bg-red-100 text-red-700",
-    Medium: "bg-amber-100 text-amber-700",
-    Low: "bg-emerald-100 text-emerald-700",
-  };
-
-  return (
-    <span
-      className={`inline-flex rounded-full px-3 py-1 text-[10px] font-bold ${styles[priority]}`}
-    >
-      {priority}
-    </span>
-  );
-}
-
-function StatusBadge({ status }: { status: WorkStatus }) {
-  const styles: Record<WorkStatus, string> = {
-    New: "bg-blue-100 text-blue-700",
-    Pending: "bg-amber-100 text-amber-700",
-    Assigned: "bg-emerald-100 text-emerald-700",
-    "In Progress": "bg-violet-100 text-violet-700",
-    Completed: "bg-emerald-100 text-emerald-700",
-  };
-
-  return (
-    <span
-      className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-[10px] font-bold ${styles[status]}`}
-    >
-      {status}
-    </span>
   );
 }
