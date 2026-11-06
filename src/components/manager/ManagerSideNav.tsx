@@ -6,6 +6,7 @@ import {
   FileCheck2,
   FileText,
   ReceiptText,
+  CalendarDays,
   LogOut,
   Menu,
   Building2,
@@ -80,6 +81,7 @@ export default function ManagerSideNav({
           path: "/manager/Expenses",
           icon: ReceiptText,
         },
+        { name: "Leave Applications", path: "/manager/LeaveApplications", icon: CalendarDays },
       ],
     },
     {

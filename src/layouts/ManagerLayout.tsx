@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import ManagerSideNav from "../components/manager/ManagerSideNav";
 import TopNav from "../components/TopNav";
+import NotificationToast from "../components/common/NotificationToast";
 
 export default function ManagerLayout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -9,6 +10,7 @@ export default function ManagerLayout() {
 
   return (
     <div className="min-h-screen bg-[#f1f4f8]">
+      <NotificationToast />
       <ManagerSideNav
         collapsed={collapsed}
         onToggle={() => setCollapsed((value) => !value)}

@@ -35,6 +35,8 @@ import ClientDirectory from "../views/manager/ClientDirectory";
 import ServiceManagement1 from "../views/manager/ServiceManagement1";
 import Expenses from "../views/shared/Expenses";
 import EmployeeLayout from "../layouts/EmployeeLayout";
+import LeaveApplications from "../views/shared/LeaveApplications";
+import LeaveReviews from "../views/shared/LeaveReviews";
 
 
 export default function AppRoutes() {
@@ -152,6 +154,7 @@ export default function AppRoutes() {
           />
 
           <Route path="Expenses" element={<Expenses review />} />
+          <Route path="LeaveApplications" element={<LeaveReviews />} />
           
 
         </Route>
@@ -224,6 +227,7 @@ export default function AppRoutes() {
           />
 
           <Route path="Expenses" element={<Expenses review />} />
+          <Route path="LeaveApplications" element={<LeaveReviews />} />
 
         </Route>
       </Route>
@@ -231,6 +235,7 @@ export default function AppRoutes() {
       <Route element={<ProtectedRoute allowedRole="employee" />}>
         <Route path="/" element={<EmployeeLayout />}>
           <Route path="expenses" element={<Expenses />} />
+          <Route path="leave-applications" element={<LeaveApplications />} />
         </Route>
       </Route>
 

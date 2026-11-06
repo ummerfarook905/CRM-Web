@@ -9,6 +9,7 @@ import {
   Building2,
   FileCheck2,
   ReceiptText,
+  CalendarDays,
   LogOut,
   Menu,
   X,
@@ -71,6 +72,7 @@ export default function AdminSideNav({
           path: "/admin/Expenses",
           icon: ReceiptText,
         },
+        { name: "Leave Applications", path: "/admin/LeaveApplications", icon: CalendarDays },
         {
           name: "Work Orders & Enquiries",
           path: "/admin/Enquiries",

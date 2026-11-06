@@ -1,5 +1,5 @@
 
-import type { ElementType } from "react";
+import { useState, type ElementType } from "react";
 import {
   Users,
   UserCheck,
@@ -13,9 +13,13 @@ import {
   Timer,
   BriefcaseBusiness,
   MapPin,
+  UserPlus,
 } from "lucide-react";
 import { useAttendanceViewModel } from "../../viewmodels/admin/UseAttendanceViewModel";
 import type { AttendanceStatus } from "../../models/admin/Attendance";
+import { api } from "../../api/axios";
+
+type StaffOption = { id: string; name: string; employeeNo?: string };
 
 const today = () => {
   const date = new Date();
@@ -46,6 +50,54 @@ function getInitials(name: string): string {
 
 export default function Attendance() {
   const vm = useAttendanceViewModel();
+  const [markingOpen, setMarkingOpen] = useState(false);
+  const [staff, setStaff] = useState<StaffOption[]>([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [staffId, setStaffId] = useState("");
+  const [markStatus, setMarkStatus] = useState("PRESENT");
+  const [checkInTime, setCheckInTime] = useState("09:00");
+  const [marking, setMarking] = useState(false);
+  const [markError, setMarkError] = useState("");
+  const [markSuccess, setMarkSuccess] = useState("");
+
+  const openMarkAttendance = async () => {
+    setMarkingOpen(true); setMarkError(""); setStaffLoading(true);
+    try {
+      const response = await api.get("/employees", { params: { page: 1, limit: 100 } });
+      const body = response.data?.data ?? response.data;
+      const rows = Array.isArray(body) ? body : Array.isArray(body?.items) ? body.items : Array.isArray(body?.data) ? body.data : [];
+      const options = rows.map((employee: Record<string, any>) => ({
+        id: String(employee.id ?? ""),
+        name: [employee.user?.firstName, employee.user?.lastName].filter(Boolean).join(" ") || employee.name || employee.user?.email || "Staff member",
+        employeeNo: employee.employeeNo,
+      })).filter((employee: StaffOption) => employee.id);
+      setStaff(options);
+      setStaffId((current) => current || options[0]?.id || "");
+    } catch (cause) {
+      const message = (cause as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
+      setMarkError(Array.isArray(message) ? message.join(", ") : message || "Could not load staff members.");
+    } finally { setStaffLoading(false); }
+  };
+
+  const saveAttendance = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!staffId || marking) return;
+    setMarking(true); setMarkError(""); setMarkSuccess("");
+    try {
+      await api.post("/attendance", {
+        employeeId: staffId,
+        date: vm.selectedDate,
+        status: markStatus,
+        ...(markStatus === "PRESENT" || markStatus === "LATE" || markStatus === "HALF_DAY" ? { checkInTime: `${vm.selectedDate}T${checkInTime}:00` } : {}),
+      });
+      setMarkingOpen(false);
+      setMarkSuccess("Attendance marked successfully.");
+      await vm.refreshAttendance();
+    } catch (cause) {
+      const message = (cause as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
+      setMarkError(Array.isArray(message) ? message.join(", ") : message || "Could not mark attendance.");
+    } finally { setMarking(false); }
+  };
 
   const {
     selectedDate,
@@ -88,7 +140,10 @@ export default function Attendance() {
             Monitor daily attendance, working hours and employee check-ins.
           </p>
         </div>
+        <button type="button" onClick={() => void openMarkAttendance()} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-900"><UserPlus size={16}/>Mark attendance</button>
       </div>
+
+      {markSuccess && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{markSuccess}</p>}
 
       {loading && (
         <p role="status" className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
@@ -706,6 +761,7 @@ export default function Attendance() {
           </div>
         </div>
       )}
+      {markingOpen && <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !marking) setMarkingOpen(false); }}><section role="dialog" aria-modal="true" aria-labelledby="mark-attendance-title" className="w-full max-w-lg rounded-2xl bg-white shadow-2xl"><header className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Workforce management</p><h2 id="mark-attendance-title" className="mt-1 text-xl font-bold text-slate-900">Mark attendance</h2></div><button type="button" aria-label="Close" onClick={() => setMarkingOpen(false)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X size={19}/></button></header><form onSubmit={(event) => void saveAttendance(event)} className="space-y-4 p-5">{markError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{markError}</p>}<label className="block text-sm font-semibold text-slate-700">Staff member<select required value={staffId} onChange={(event) => setStaffId(event.target.value)} disabled={staffLoading || staff.length === 0} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal">{staffLoading ? <option value="">Loading staff…</option> : staff.length === 0 ? <option value="">No staff found</option> : staff.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}{employee.employeeNo ? ` · ${employee.employeeNo}` : ""}</option>)}</select></label><label className="block text-sm font-semibold text-slate-700">Attendance date<input type="date" value={vm.selectedDate} max={today()} readOnly className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-normal"/></label><label className="block text-sm font-semibold text-slate-700">Status<select value={markStatus} onChange={(event) => setMarkStatus(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal"><option value="PRESENT">Present</option><option value="LATE">Late</option><option value="ABSENT">Absent</option><option value="HALF_DAY">Half day</option></select></label>{["PRESENT", "LATE", "HALF_DAY"].includes(markStatus) && <label className="block text-sm font-semibold text-slate-700">Check-in time<input type="time" required value={checkInTime} onChange={(event) => setCheckInTime(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal"/></label>}<div className="flex justify-end gap-2 pt-2"><button type="button" onClick={() => setMarkingOpen(false)} className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700">Cancel</button><button type="submit" disabled={marking || staffLoading || !staffId} className="rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{marking ? "Saving…" : "Save attendance"}</button></div></form></section></div>}
     </div>
   );
 }
