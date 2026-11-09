@@ -34,6 +34,22 @@ export function useAttendanceViewModel() {
     void dispatch(fetchAttendance(selectedDate));
   }, [dispatch, selectedDate]);
 
+  useEffect(() => {
+    const refreshVisibleAttendance = () => {
+      if (document.visibilityState === "visible") {
+        void dispatch(fetchAttendance(selectedDate));
+      }
+    };
+    const interval = window.setInterval(refreshVisibleAttendance, 30000);
+    window.addEventListener("focus", refreshVisibleAttendance);
+    document.addEventListener("visibilitychange", refreshVisibleAttendance);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshVisibleAttendance);
+      document.removeEventListener("visibilitychange", refreshVisibleAttendance);
+    };
+  }, [dispatch, selectedDate]);
+
   const departments = useMemo(
     () =>
       [...new Set(records.map((record) => record.department))]

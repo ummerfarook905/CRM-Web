@@ -165,7 +165,7 @@ export default function EnquiryManagement() {
     event.preventDefault();
     try {
       const details = [form.company && `Company: ${form.company}`, form.service && `Requested service: ${form.service}`, form.location && `Service location: ${form.location}`, `Priority: ${form.priority}`, form.message].filter(Boolean).join("\n");
-      await dispatch(createEnquiryApi({ name: form.customerName.trim(), phone: form.phone.trim(), email: form.email.trim() || null, message: details || null })).unwrap();
+      await dispatch(createEnquiryApi({ customerId: null, name: form.customerName.trim(), phone: form.phone.trim(), email: form.email.trim() || null, message: details || null })).unwrap();
       await dispatch(fetchEnquiries()).unwrap();
       setForm({ customerName: "", company: "", phone: "", email: "", service: "", location: "", message: "", priority: "Medium" });
       setShowForm(false);

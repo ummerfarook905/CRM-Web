@@ -24,6 +24,7 @@ type ModalMode = "add" | "edit" | "view" | null;
 // Password is required for creation but is not part of the employee record.
 type EmployeeFormValues = EmployeeForm & {
   password: string;
+  employeeIdFormat: "SGPLEMP" | "SGPL/NAPS/" | "SGPLTEMP";
   isActive: boolean;
 };
 
@@ -33,6 +34,7 @@ const emptyForm: EmployeeFormValues = {
   email: "",
   phone: "",
   password: "",
+  employeeIdFormat: "SGPLEMP",
   designation: "",
   joiningDate: "",
   isActive: true,
@@ -311,6 +313,7 @@ async function handleSubmit(
         email: normalizedEmail,
         phone: form.phone.trim(),
         password: form.password,
+        employeeIdFormat: form.employeeIdFormat,
         designation: form.designation.trim(),
         ...(form.joiningDate
           ? { joiningDate: form.joiningDate }
@@ -318,6 +321,7 @@ async function handleSubmit(
       };
 
       await dispatch(addEmployee(requestBody)).unwrap();
+      void dispatch(fetchEmployees());
     } else if (modalMode === "edit" && selectedEmployee) {
       await dispatch(
         updateEmployeeApi({

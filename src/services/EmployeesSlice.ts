@@ -101,6 +101,7 @@ export const addEmployee = createAsyncThunk<
       email: payload.email.trim().toLowerCase(),
       phone: payload.phone.trim(),
       password: payload.password,
+      employeeIdFormat: payload.employeeIdFormat,
       designation: payload.designation.trim(),
       ...(payload.joiningDate
         ? { joiningDate: payload.joiningDate }

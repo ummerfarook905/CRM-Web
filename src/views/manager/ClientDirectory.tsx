@@ -13,6 +13,7 @@ import {
 
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useAppDispatch, useAppSelector } from "../../app/Hooks";
 import { createCustomer, fetchCustomers } from "../../services/CustomerSlice";
 
@@ -1281,20 +1282,20 @@ function Modal({
     return () => { document.body.style.overflow = previousOverflow; };
   }, []);
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/10 p-4 backdrop-blur-[2px]">
+  return createPortal((
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/30 p-4 backdrop-blur-md sm:p-6">
 
       <div
         className="absolute inset-0"
         onClick={onClose}
       />
 
-      <div className="relative z-10 w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="relative z-10 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
 
         {children}
 
       </div>
 
     </div>
-  );
+  ), document.body);
 }

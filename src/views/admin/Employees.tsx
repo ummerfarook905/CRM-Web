@@ -283,7 +283,7 @@ export default function Employees() {
                   </p>
 
                   <p className="mt-1 break-all text-xs text-slate-500">
-                    {employee.id}
+                    Employee ID: {employee.employeeNo || employee.id}
                   </p>
 
                   <p className="mt-1 break-all text-xs text-slate-500">
@@ -418,7 +418,7 @@ export default function Employees() {
                           </p>
 
                           <p className="mt-1 break-all text-xs text-slate-500">
-                            {employee.id}
+                            Employee ID: {employee.employeeNo || employee.id}
                           </p>
 
                           <p className="mt-1 break-all text-xs text-slate-500">
@@ -552,7 +552,7 @@ export default function Employees() {
                     </p>
 
                     <p className="mt-1 text-xs text-slate-500">
-                      Employee ID: {selectedEmployee.id}
+                      Employee ID: {selectedEmployee.employeeNo || selectedEmployee.id}
                     </p>
                   </div>
 
@@ -692,7 +692,12 @@ export default function Employees() {
                         required
                         disabled={designationsLoading}
                         value={form.designation}
-                        onChange={(event) => updateForm("designation", event.target.value)}
+                        onChange={(event) => {
+                          const designation = event.target.value;
+                          updateForm("designation", designation);
+                          const normalized = designation.toLowerCase();
+                          updateForm("employeeIdFormat", normalized.includes("naps") ? "SGPL/NAPS/" : normalized.includes("temp") ? "SGPLTEMP" : "SGPLEMP");
+                        }}
                         className={inputClass}
                       >
                         <option value="">{designationsLoading ? "Loading designations…" : "Select a designation"}</option>
@@ -709,6 +714,17 @@ export default function Employees() {
                       </button>
                     </div>
                   </FormField>
+
+                  {modalMode === "add" && (
+                    <FormField label="Employee ID Format" required>
+                      <select required value={form.employeeIdFormat} onChange={(event) => updateForm("employeeIdFormat", event.target.value as typeof form.employeeIdFormat)} className={inputClass}>
+                        <option value="SGPLEMP">SGPLEMP…</option>
+                        <option value="SGPL/NAPS/">SGPL/NAPS/…</option>
+                        <option value="SGPLTEMP">SGPLTEMP…</option>
+                      </select>
+                      <p className="mt-1 text-xs text-slate-500">Selected ID prefix: <span className="font-semibold text-slate-700">{form.employeeIdFormat}</span> — the unique number is assigned when the employee is saved.</p>
+                    </FormField>
+                  )}
 
                   <FormField label="Joining Date" required>
                     <input

@@ -45,7 +45,10 @@ export interface EmployeeForm {
   joiningDate: string;
 }
 
+export type EmployeeIdFormat = "SGPLEMP" | "SGPL/NAPS/" | "SGPLTEMP";
+
 export interface CreateEmployeePayload {
+  employeeIdFormat: EmployeeIdFormat;
   firstName: string;
   lastName: string;
   email: string;

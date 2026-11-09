@@ -95,6 +95,11 @@ export default function AdminSideNav({
           icon: MapPin,
         },
         {
+          name: "Working Calendar",
+          path: "/admin/WorkingCalendar",
+          icon: CalendarDays,
+        },
+        {
           name: "Overtime Management",
           path: "/admin/Overtime",
           icon: Clock,

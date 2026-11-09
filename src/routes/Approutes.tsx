@@ -29,6 +29,7 @@ import ServiceReportReviews from "../views/shared/ServiceReportReviews";
 import Employees from "../views/admin/Employees";
 import Overtime from "../views/admin/Overtime";
 import Attendance from "../views/admin/Attendance";
+import WorkingCalendar from "../views/admin/WorkingCalendar";
 import Overtime1 from "../views/manager/Overtime1";
 import EnquiryManagement1 from "../views/manager/EnquiryManagement1";
 import ClientDirectory from "../views/manager/ClientDirectory";
@@ -136,6 +137,11 @@ export default function AppRoutes() {
           <Route
             path="Attendance"
             element={<Attendance />}
+          />
+
+          <Route
+            path="WorkingCalendar"
+            element={<WorkingCalendar />}
           />
 
           <Route

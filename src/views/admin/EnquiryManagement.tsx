@@ -152,8 +152,6 @@ export default function EnquiryManagement() {
   });
   const services = useAppSelector((state) => state.services.items);
   const customers = useAppSelector((state) => state.customers.customers);
-  const customersLoading = useAppSelector((state) => state.customers.loading);
-  const customersError = useAppSelector((state) => state.customers.error);
 
   useEffect(() => {
     void dispatch(fetchServices());
@@ -276,11 +274,12 @@ const addEnquiry = async (
   try {
     await dispatch(
       addEnquiryApi({
+        customerId: form.customerId || null,
         name: form.customerName.trim(),
         phone: form.phone.trim(),
         ...(form.email.trim() ? { email: form.email.trim() } : {}),
         ...(form.serviceId ? { serviceId: form.serviceId } : {}),
-        ...(form.message.trim() ? { message: form.message.trim() } : {}),
+        ...((form.company.trim() || form.message.trim()) ? { message: [form.company.trim() ? `Company: ${form.company.trim()}` : "", form.message.trim()].filter(Boolean).join("\n") } : {}),
       })
     ).unwrap();
 
@@ -1449,45 +1448,21 @@ const addEnquiry = async (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <label htmlFor="enquiryCustomer" className="mb-1.5 block text-sm font-semibold text-slate-700">
-                  Existing Customer <span className="ml-1 text-red-500">*</span>
+                  Contact Name <span className="ml-1 text-red-500">*</span>
                 </label>
-                <select
-                  id="enquiryCustomer"
-                  value={form.customerId}
-                  onChange={(event) => {
-                    const customer = customers.find((item) => item.id === event.target.value);
-                    setForm((current) => ({
-                      ...current,
-                      customerId: customer?.id ?? "",
-                      customerName: customer?.name ?? "",
-                      company: customer?.company ?? "",
-                      phone: customer?.phone ?? "",
-                      email: customer?.email ?? "",
-                    }));
-                  }}
-                  required
-                  disabled={customersLoading || customers.length === 0}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-                >
-                  <option value="">
-                    {customersLoading ? "Loading customers…" : "Select a customer"}
-                  </option>
-                  {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name} — {customer.phone}{customer.company && customer.company !== "—" ? ` · ${customer.company}` : ""}
-                    </option>
-                  ))}
-                </select>
-                {!customersLoading && customers.length === 0 && (
-                  <p className="mt-1.5 text-xs text-amber-700">
-                    {customersError || "No customers are available. Add a customer before creating an enquiry."}
-                  </p>
-                )}
-                {form.customerId && (
-                  <p className="mt-1.5 text-xs text-slate-500">
-                    {[form.company, form.phone, form.email].filter(Boolean).join(" · ")}
-                  </p>
-                )}
+                <input id="enquiryCustomer" value={form.customerName} onChange={(event) => setForm((current) => ({ ...current, customerName: event.target.value }))} required autoComplete="name" placeholder="Enter contact name" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" />
+              </div>
+              <div>
+                <label htmlFor="enquiryPhone" className="mb-1.5 block text-sm font-semibold text-slate-700">Phone <span className="ml-1 text-red-500">*</span></label>
+                <input id="enquiryPhone" type="tel" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} required autoComplete="tel" placeholder="Enter phone number" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" />
+              </div>
+              <div>
+                <label htmlFor="enquiryEmail" className="mb-1.5 block text-sm font-semibold text-slate-700">Email <span className="text-slate-400">(optional)</span></label>
+                <input id="enquiryEmail" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} autoComplete="email" placeholder="Enter email address" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" />
+              </div>
+              <div>
+                <label htmlFor="enquiryCompany" className="mb-1.5 block text-sm font-semibold text-slate-700">Company <span className="text-slate-400">(optional)</span></label>
+                <input id="enquiryCompany" value={form.company} onChange={(event) => setForm((current) => ({ ...current, company: event.target.value }))} placeholder="Enter company name" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" />
               </div>
 
               <div>

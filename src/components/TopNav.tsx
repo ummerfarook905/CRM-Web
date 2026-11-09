@@ -60,6 +60,14 @@ function notificationTime(value: string): string {
   });
 }
 
+function attendanceTimeLabel(value: unknown): string {
+  if (typeof value !== "string" || !value) {
+    return new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value.slice(0, 5) : date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function TopNav({
   role,
   onMenuClick,
@@ -102,6 +110,8 @@ export default function TopNav({
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
   const [markingNotificationId, setMarkingNotificationId] = useState<string | null>(null);
   const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [attendanceActionError, setAttendanceActionError] = useState("");
+  const [attendanceActionLoading, setAttendanceActionLoading] = useState(false);
 
   const loadUnreadCount = async () => {
     try {
@@ -173,7 +183,7 @@ export default function TopNav({
     void loadUnreadCount();
   }, []);
 
-  // Demo attendance state: resets on page refresh
+  // Attendance state is confirmed by the API before updating the menu.
   const [checkInTime, setCheckInTime] = useState<string | null>(null);
   const [checkOutTime, setCheckOutTime] = useState<string | null>(null);
 
@@ -188,19 +198,41 @@ export default function TopNav({
     setProfileMode(null);
   };
 
-  const handleCheckIn = () => {
-    if (checkInTime) return;
-
-    setCheckInTime(new Date().toLocaleTimeString());
-    setCheckOutTime(null);
-    setManagerMenuOpen(false);
+  const handleCheckIn = async () => {
+    if (checkInTime || attendanceActionLoading) return;
+    setAttendanceActionLoading(true);
+    setAttendanceActionError("");
+    try {
+      const response = await api.post("/attendance/check-in");
+      const data = response.data?.data ?? response.data;
+      setCheckInTime(attendanceTimeLabel(data?.checkInTime ?? data?.checkIn));
+      setCheckOutTime(null);
+      setManagerMenuOpen(false);
+    } catch (error) {
+      const response = (error as { response?: { data?: { message?: string | string[] } } })?.response;
+      const message = response?.data?.message;
+      setAttendanceActionError(Array.isArray(message) ? message.join(", ") : message || "Could not save your check-in. Please try again.");
+    } finally {
+      setAttendanceActionLoading(false);
+    }
   };
 
-  const handleCheckOut = () => {
-    if (!checkInTime || checkOutTime) return;
-
-    setCheckOutTime(new Date().toLocaleTimeString());
-    setManagerMenuOpen(false);
+  const handleCheckOut = async () => {
+    if (!checkInTime || checkOutTime || attendanceActionLoading) return;
+    setAttendanceActionLoading(true);
+    setAttendanceActionError("");
+    try {
+      const response = await api.post("/attendance/check-out");
+      const data = response.data?.data ?? response.data;
+      setCheckOutTime(attendanceTimeLabel(data?.checkOutTime ?? data?.checkOut));
+      setManagerMenuOpen(false);
+    } catch (error) {
+      const response = (error as { response?: { data?: { message?: string | string[] } } })?.response;
+      const message = response?.data?.message;
+      setAttendanceActionError(Array.isArray(message) ? message.join(", ") : message || "Could not save your check-out. Please try again.");
+    } finally {
+      setAttendanceActionLoading(false);
+    }
   };
 
   const saveProfile = (
@@ -484,10 +516,11 @@ export default function TopNav({
 
                   {/* Attendance Actions */}
                   <div className="space-y-2 p-3">
+                    {attendanceActionError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{attendanceActionError}</p>}
                     <button
                       type="button"
-                      disabled={!!checkInTime}
-                      onClick={handleCheckIn}
+                      disabled={!!checkInTime || attendanceActionLoading}
+                      onClick={() => void handleCheckIn()}
                       className="flex w-full items-center gap-3 rounded-lg bg-emerald-50 px-3 py-3 text-left text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white">
@@ -497,7 +530,9 @@ export default function TopNav({
                       <span>
                         <span className="block">Check In</span>
                         <span className="mt-0.5 block text-[11px] font-normal">
-                          {checkInTime
+                          {attendanceActionLoading && !checkInTime
+                            ? "Saving check-in…"
+                            : checkInTime
                             ? "Already checked in"
                             : "Start your shift"}
                         </span>
@@ -506,8 +541,8 @@ export default function TopNav({
 
                     <button
                       type="button"
-                      disabled={!checkInTime || !!checkOutTime}
-                      onClick={handleCheckOut}
+                      disabled={!checkInTime || !!checkOutTime || attendanceActionLoading}
+                      onClick={() => void handleCheckOut()}
                       className="flex w-full items-center gap-3 rounded-lg bg-rose-50 px-3 py-3 text-left text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white">
@@ -517,7 +552,9 @@ export default function TopNav({
                       <span>
                         <span className="block">Check Out</span>
                         <span className="mt-0.5 block text-[11px] font-normal">
-                          {checkOutTime
+                          {attendanceActionLoading && checkInTime && !checkOutTime
+                            ? "Saving check-out…"
+                            : checkOutTime
                             ? "Already checked out"
                             : "End your shift"}
                         </span>

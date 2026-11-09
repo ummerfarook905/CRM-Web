@@ -65,6 +65,22 @@ export function useAdminDashboardViewModel() {
     void dispatch(fetchOvertime({ page: 1, limit: 100 }));
   }, [dispatch]);
 
+  useEffect(() => {
+    const refreshVisibleAttendance = () => {
+      if (document.visibilityState === "visible") {
+        void dispatch(fetchAttendance());
+      }
+    };
+    const interval = window.setInterval(refreshVisibleAttendance, 30000);
+    window.addEventListener("focus", refreshVisibleAttendance);
+    document.addEventListener("visibilitychange", refreshVisibleAttendance);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshVisibleAttendance);
+      document.removeEventListener("visibilitychange", refreshVisibleAttendance);
+    };
+  }, [dispatch]);
+
   // Data from Redux
   const services = servicesState.items;
   const bookings = bookingsState.items;
