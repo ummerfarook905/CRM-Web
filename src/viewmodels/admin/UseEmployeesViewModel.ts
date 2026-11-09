@@ -158,6 +158,11 @@ export function useEmployeesViewModel() {
     lastName: nameParts.slice(1).join(" "),
     email: employee.email,
     phone: employee.phone,
+    employeeIdFormat: employee.employeeNo.startsWith("SGPL/NAPS/")
+      ? "SGPL/NAPS/"
+      : employee.employeeNo.startsWith("SGPLTEMP")
+        ? "SGPLTEMP"
+        : "SGPLEMP",
     designation: employee.designation,
     joiningDate: employee.joiningDate,
     password: "",
