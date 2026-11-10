@@ -28,10 +28,9 @@ import WorkAssignment from "../views/manager/WorkAssignment";
 import WorkMonitoring from "../views/manager/WorkMonitoring";
 import ServiceReportReviews from "../views/shared/ServiceReportReviews";
 import Employees from "../views/admin/Employees";
-import Overtime from "../views/admin/Overtime";
 import Attendance from "../views/admin/Attendance";
 import WorkingCalendar from "../views/admin/WorkingCalendar";
-import Overtime1 from "../views/manager/Overtime1";
+import OvertimeRequests from "../views/shared/OvertimeRequests";
 import EnquiryManagement1 from "../views/manager/EnquiryManagement1";
 import ClientDirectory from "../views/manager/ClientDirectory";
 import ServiceManagement1 from "../views/manager/ServiceManagement1";
@@ -148,7 +147,7 @@ export default function AppRoutes() {
 
           <Route
             path="Overtime"
-            element={<Overtime />}
+            element={<OvertimeRequests />}
           />
 
           <Route
@@ -219,7 +218,7 @@ export default function AppRoutes() {
 
           <Route
             path="Overtime1"
-            element={<Overtime1 />}
+            element={<OvertimeRequests />}
           />
 
           <Route
