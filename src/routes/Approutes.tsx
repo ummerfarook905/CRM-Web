@@ -14,6 +14,7 @@ import ManagerLayout from "../layouts/ManagerLayout";
 
 import AdminDashboard from "../views/admin/AdminDashboard";
 import ManagerDashboard from "../views/manager/ManagerDashboard";
+import ManagerEmployees from "../views/manager/ManagerEmployees";
 
 import CustomerManagement from "../views/admin/CustomerManagement";
 
@@ -38,6 +39,7 @@ import Expenses from "../views/shared/Expenses";
 import EmployeeLayout from "../layouts/EmployeeLayout";
 import LeaveApplications from "../views/shared/LeaveApplications";
 import LeaveReviews from "../views/shared/LeaveReviews";
+import BillingManagement from "../views/shared/BillingManagement";
 
 
 export default function AppRoutes() {
@@ -161,7 +163,8 @@ export default function AppRoutes() {
 
           <Route path="Expenses" element={<Expenses review />} />
           <Route path="LeaveApplications" element={<LeaveReviews />} />
-          
+
+          <Route path="Billing" element={<BillingManagement />} />
 
         </Route>
       </Route>
@@ -200,7 +203,9 @@ export default function AppRoutes() {
             element={<WorkAssignment />}
           />
 
-          <Route path="Employees" element={<Employees />} />
+          <Route path="Employees" element={<ManagerEmployees />} />
+
+          <Route path="Attendance" element={<Attendance />} />
 
           <Route
             path="WorkMonitoring"
@@ -235,6 +240,10 @@ export default function AppRoutes() {
           <Route path="Expenses" element={<Expenses review />} />
           <Route path="LeaveApplications" element={<LeaveReviews />} />
 
+          <Route path="WorkingCalendar" element={<WorkingCalendar />} />
+
+          <Route path="Billing" element={<BillingManagement />} />
+
         </Route>
       </Route>
 
@@ -242,6 +251,8 @@ export default function AppRoutes() {
         <Route path="/" element={<EmployeeLayout />}>
           <Route path="expenses" element={<Expenses />} />
           <Route path="leave-applications" element={<LeaveApplications />} />
+          <Route path="working-calendar" element={<WorkingCalendar />} />
+          <Route path="billing" element={<BillingManagement />} />
         </Route>
       </Route>
 

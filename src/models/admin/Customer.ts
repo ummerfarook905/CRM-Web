@@ -19,6 +19,7 @@ export interface ServiceHistory {
 
 export interface Customer {
   id: string;
+  userId?: string;
   customerCode: string;
   name: string;
   company: string;

@@ -18,6 +18,7 @@ import {
 import { useAttendanceViewModel } from "../../viewmodels/admin/UseAttendanceViewModel";
 import type { AttendanceStatus } from "../../models/admin/Attendance";
 import { api } from "../../api/axios";
+import { useAppSelector } from "../../app/Hooks";
 
 type StaffOption = { id: string; name: string; employeeNo?: string };
 
@@ -50,6 +51,8 @@ function getInitials(name: string): string {
 
 export default function Attendance() {
   const vm = useAttendanceViewModel();
+  const role = useAppSelector((state) => state.auth.user?.role);
+  const canMarkAttendance = role === "admin" || role === "super_admin";
   const [markingOpen, setMarkingOpen] = useState(false);
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [staffLoading, setStaffLoading] = useState(false);
@@ -140,10 +143,10 @@ export default function Attendance() {
             Monitor daily attendance, working hours and employee check-ins.
           </p>
         </div>
-        <button type="button" onClick={() => void openMarkAttendance()} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-900"><UserPlus size={16}/>Mark attendance</button>
+        {canMarkAttendance && <button type="button" onClick={() => void openMarkAttendance()} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-900"><UserPlus size={16}/>Mark attendance</button>}
       </div>
 
-      {markSuccess && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{markSuccess}</p>}
+      {canMarkAttendance && markSuccess && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{markSuccess}</p>}
 
       {loading && (
         <p role="status" className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">

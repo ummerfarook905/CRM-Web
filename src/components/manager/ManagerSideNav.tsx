@@ -82,12 +82,15 @@ export default function ManagerSideNav({
           icon: ReceiptText,
         },
         { name: "Leave Applications", path: "/manager/LeaveApplications", icon: CalendarDays },
+        { name: "Billing Management", path: "/manager/Billing", icon: ReceiptText },
+        { name: "Working Calendar", path: "/manager/WorkingCalendar", icon: CalendarDays },
       ],
     },
     {
       title: "FIELD OPERATIONS MANAGER",
       icon: UsersRound,
       items: [
+        { name: "Attendance", path: "/manager/Attendance", icon: CalendarDays },
         {
           name: "Employee Management",
           path: "/manager/Employees",

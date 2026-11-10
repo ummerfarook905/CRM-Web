@@ -141,6 +141,7 @@ function mapApiCustomer(apiCustomer: ApiCustomer): Customer {
 
   return {
     id: apiCustomer.id,
+    ...(typeof apiCustomer.userId === "string" ? { userId: apiCustomer.userId } : {}),
     customerCode: `CUS-${apiCustomer.id.slice(0, 8).toUpperCase()}`,
     name: name || user?.email || "Unknown Customer",
     company: name || "—",

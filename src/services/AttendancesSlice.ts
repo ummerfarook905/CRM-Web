@@ -49,7 +49,7 @@ function displayTime(value: unknown): string {
   if (typeof value !== "string" || !value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
 }
 
 function duration(minutes: unknown): string {

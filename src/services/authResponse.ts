@@ -14,6 +14,7 @@ interface ApiUser {
   name?: string | null;
   email: string;
   role: string;
+  designation?: string | null;
 }
 
 /**
@@ -77,6 +78,7 @@ const mapApiUser = (apiUser: ApiUser): User => ({
   name: buildDisplayName(apiUser),
   email: apiUser.email,
   role: normalizeRole(apiUser.role),
+  ...(typeof apiUser.designation === "string" ? { designation: apiUser.designation } : {}),
 });
 
 /**

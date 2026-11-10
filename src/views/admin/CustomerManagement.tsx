@@ -8,6 +8,7 @@ import {
   Edit3,
   Eye,
   FileText,
+  KeyRound,
   MapPin,
   Plus,
   Search,
@@ -21,10 +22,14 @@ import type { Customer } from "../../models/admin/Customer";
 import { useCustomerViewModel } from "../../viewmodels/admin/UseCustomerViewModel";
 import { useAppDispatch } from "../../app/Hooks";
 import { createCustomer, type CreateCustomerDto } from "../../services/CustomerSlice";
+import { api } from "../../api/axios";
 
 export default function CustomerManagement() {
   const dispatch = useAppDispatch();
   const [showCreate, setShowCreate] = useState(false);
+  const [resettingCustomerId, setResettingCustomerId] = useState<string | null>(null);
+  const [resetMessage, setResetMessage] = useState("");
+  const [resetError, setResetError] = useState("");
   const {
     customers,
     filteredCustomers,
@@ -49,6 +54,24 @@ export default function CustomerManagement() {
     handleUpdateCustomer,
     handleDeleteCustomer,
   } = useCustomerViewModel();
+
+  const requestPasswordReset = async (customer: Customer) => {
+    if (!window.confirm(`Send a password reset code to ${customer.email}?`)) return;
+    setResettingCustomerId(customer.id);
+    setResetMessage("");
+    setResetError("");
+    try {
+      const response = await api.post(`/customers/${encodeURIComponent(customer.id)}/reset-password`);
+      const message = response.data?.message;
+      setResetMessage(typeof message === "string" ? message : `Password reset requested for ${customer.email}.`);
+    } catch (cause) {
+      const response = (cause as { response?: { data?: { message?: unknown } } })?.response;
+      const message = response?.data?.message;
+      setResetError(Array.isArray(message) ? message.join(", ") : typeof message === "string" ? message : cause instanceof Error ? cause.message : "Unable to request a password reset.");
+    } finally {
+      setResettingCustomerId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -97,6 +120,9 @@ export default function CustomerManagement() {
           {deleteMessage}
         </div>
       )}
+
+      {resetMessage && <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{resetMessage}</div>}
+      {resetError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{resetError}</div>}
 
       {deleting && (
         <p role="status" className="text-xs font-medium text-slate-500">
@@ -260,6 +286,17 @@ export default function CustomerManagement() {
 
                   <button
                     type="button"
+                    onClick={() => void requestPasswordReset(customer)}
+                    disabled={resettingCustomerId === customer.id}
+                    aria-label={`Send password reset to ${customer.name}`}
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-50"
+                  >
+                    <KeyRound size={16} />
+                    {resettingCustomerId === customer.id ? "Sending…" : "Reset password"}
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => handleDeleteCustomer(customer)}
                     aria-label={`Delete ${customer.name}`}
                     className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100"
@@ -377,6 +414,17 @@ export default function CustomerManagement() {
                           className="rounded-lg p-2 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
                         >
                           <Edit3 size={16} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => void requestPasswordReset(customer)}
+                          disabled={resettingCustomerId === customer.id}
+                          title="Send password reset code"
+                          aria-label={`Send password reset to ${customer.name}`}
+                          className="rounded-lg p-2 text-amber-700 transition hover:bg-amber-50 disabled:opacity-50"
+                        >
+                          <KeyRound size={16} />
                         </button>
 
                         <button

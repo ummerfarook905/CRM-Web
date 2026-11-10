@@ -10,12 +10,31 @@ import {
   Headphones,
   UserRoundPlus,
   Wrench,
+  UsersRound,
+  ReceiptText,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../app/Hooks";
 import { fetchWorkOrders, type MonitoredWorkOrder } from "../../services/WorkMonitoringSlice";
 import { useServiceReportPendingCount } from "../../hooks/useServiceReportPendingCount";
+import { api } from "../../api/axios";
+import { getWorkingCalendar } from "../../api/workingCalendar";
+
+type CalendarHoliday = { date: string; name: string; isWorkingDay: boolean };
+const rowsFromResponse = (value: unknown): Record<string, unknown>[] => {
+  const root = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const data = root.data && typeof root.data === "object" ? root.data as Record<string, unknown> : undefined;
+  const rows = [root.items, root.data, root.expenses, root.leaves, data?.items, data?.data, data?.expenses, data?.leaves].find(Array.isArray);
+  return Array.isArray(rows) ? rows.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object")) : [];
+};
+const totalFromResponse = (value: unknown) => {
+  const root = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const data = root.data && typeof root.data === "object" ? root.data as Record<string, unknown> : undefined;
+  const pagination = (root.pagination && typeof root.pagination === "object" ? root.pagination : data?.pagination) as Record<string, unknown> | undefined;
+  const total = Number(pagination?.total ?? pagination?.totalItems ?? pagination?.totalCount);
+  return Number.isFinite(total) && total >= 0 ? total : rowsFromResponse(value).length;
+};
 
 const dateKey = (date: Date) => {
   const year = date.getFullYear();
@@ -51,12 +70,54 @@ export default function ManagerDashboard() {
   const { items: workOrders, loading, error } = useAppSelector((state) => state.workMonitoring);
   const reportReview = useServiceReportPendingCount("manager");
   const [now, setNow] = useState(() => new Date());
+  const [pendingCounts, setPendingCounts] = useState<{ expenses: number | null; leave: number | null }>({ expenses: null, leave: null });
+  const [upcomingHolidays, setUpcomingHolidays] = useState<CalendarHoliday[]>([]);
+  const [managerDataLoading, setManagerDataLoading] = useState(true);
+  const [managerDataError, setManagerDataError] = useState("");
+  const currentYear = now.getFullYear();
+  const currentDateKey = dateKey(now);
 
   useEffect(() => {
     void dispatch(fetchWorkOrders({ page: 1, limit: 100 }));
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(timer);
   }, [dispatch]);
+
+  useEffect(() => {
+    let active = true;
+    const loadManagerData = async () => {
+      setManagerDataLoading(true);
+      setManagerDataError("");
+      const results = await Promise.allSettled([
+        api.get("/expenses", { params: { page: 1, limit: 100, status: "PENDING" } }),
+        api.get("/leave", { params: { page: 1, limit: 100, status: "PENDING" } }),
+        getWorkingCalendar(currentYear),
+      ]);
+      if (!active) return;
+      const errors: string[] = [];
+      const [expenses, leave, calendar] = results;
+      if (expenses.status === "fulfilled") setPendingCounts((current) => ({ ...current, expenses: totalFromResponse(expenses.value.data) }));
+      else errors.push("pending expenses");
+      if (leave.status === "fulfilled") setPendingCounts((current) => ({ ...current, leave: totalFromResponse(leave.value.data) }));
+      else errors.push("pending leave requests");
+      if (calendar.status === "fulfilled") {
+        const root = calendar.value.data && typeof calendar.value.data === "object" ? calendar.value.data as Record<string, unknown> : {};
+        const data = root.data && typeof root.data === "object" ? root.data as Record<string, unknown> : root;
+        const holidays = Array.isArray(data.holidays) ? data.holidays : [];
+        const todayKey = currentDateKey;
+        setUpcomingHolidays(holidays.flatMap((value): CalendarHoliday[] => {
+          if (!value || typeof value !== "object") return [];
+          const holiday = value as Record<string, unknown>;
+          if (typeof holiday.date !== "string" || holiday.date.slice(0, 10) < todayKey) return [];
+          return [{ date: holiday.date.slice(0, 10), name: String(holiday.name ?? "Holiday"), isWorkingDay: Boolean(holiday.isWorkingDay) }];
+        }).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5));
+      } else errors.push("upcoming holidays");
+      setManagerDataError(errors.length ? `Some manager data is unavailable: ${errors.join(", ")}.` : "");
+      setManagerDataLoading(false);
+    };
+    void loadManagerData();
+    return () => { active = false; };
+  }, [currentYear, currentDateKey]);
 
   const today = dateKey(now);
   const scheduledToday = workOrders.filter((work) => work.scheduledDate?.slice(0, 10) === today);
@@ -84,6 +145,7 @@ export default function ManagerDashboard() {
   }, [now, workOrders]);
   const maxWeekCount = Math.max(1, ...week.map((day) => day.count));
   const recentWorks = [...workOrders].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")).slice(0, 4);
+  const assignedEmployeeCount = new Set(workOrders.flatMap((work) => work.assignments.map((assignment) => assignment.employeeId)).filter(Boolean)).size;
 
   const miniStats = [
     { title: "Incoming work", value: counts.incoming, note: "Waiting for assignment", icon: UserRoundPlus, tone: "blue", path: "/manager/WorkAssignment" },
@@ -91,6 +153,9 @@ export default function ManagerDashboard() {
     { title: "In progress", value: counts.inProgress, note: "Active field work", icon: Wrench, tone: "sky", path: "/manager/WorkMonitoring" },
     { title: "Completed work", value: counts.completed, note: "Completed work orders", icon: Activity, tone: "teal", path: "/manager/WorkVerification" },
     { title: "Reports awaiting review", value: reportReview.count ?? "—", note: reportReview.loading ? "Loading submitted reports" : "Submitted service reports", icon: FileCheck2, tone: "blue", path: "/manager/WorkVerification" },
+    { title: "Assigned staff", value: assignedEmployeeCount, note: "Staff assigned across loaded work orders", icon: UsersRound, tone: "green", path: "/manager/Employees" },
+    { title: "Pending expenses", value: pendingCounts.expenses ?? "—", note: managerDataLoading ? "Loading expense requests" : "Awaiting review", icon: ReceiptText, tone: "sky", path: "/manager/Expenses" },
+    { title: "Pending leave", value: pendingCounts.leave ?? "—", note: managerDataLoading ? "Loading leave requests" : "Awaiting review", icon: CalendarDays, tone: "teal", path: "/manager/LeaveApplications" },
   ];
   const toneClasses: Record<string, string> = {
     blue: "bg-blue-100 text-blue-700",
@@ -115,7 +180,7 @@ export default function ManagerDashboard() {
         </div>
       </header>
 
-      {error && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Some manager data is unavailable: {error}</div>}
+      {(error || managerDataError) && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{[error ? `Work orders: ${error}` : "", managerDataError].filter(Boolean).join(" ")}</div>}
 
       <section aria-label="Manager operations overview" className="space-y-3 rounded-[26px] border border-blue-200/70 bg-gradient-to-br from-blue-100 via-blue-300 to-blue-600 p-3 shadow-[0_18px_50px_rgba(37,99,235,0.17)] sm:p-4">
         <div className="grid gap-3 xl:grid-cols-[minmax(178px,1fr)_minmax(220px,1.45fr)_minmax(165px,0.95fr)_minmax(210px,1.35fr)_minmax(180px,1fr)]">
@@ -154,6 +219,11 @@ export default function ManagerDashboard() {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {miniStats.map((item) => { const Icon = item.icon; return <button type="button" key={item.title} onClick={() => navigate(item.path)} className="group min-w-0 rounded-[20px] bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><div className="flex items-center gap-2.5"><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${toneClasses[item.tone]}`}><Icon size={18} /></span><span className="truncate text-xs font-bold text-slate-700">{item.title}</span></div><p className="mt-3 text-[28px] font-bold leading-none tracking-tight text-slate-900">{loading ? "—" : item.value}</p><div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5"><span className="truncate text-[10px] text-slate-500">{item.note}</span><ArrowRight size={14} className="shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-blue-600" /></div></button>; })}
         </div>
+      </section>
+
+      <section className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4"><div><h2 className="text-sm font-bold text-slate-900">Upcoming public holidays</h2><p className="mt-1 text-xs text-slate-500">Company calendar entries for {currentYear}</p></div><button type="button" onClick={() => navigate("/manager/WorkingCalendar")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-300 hover:text-emerald-800">Open working calendar</button></header>
+        {managerDataLoading ? <p role="status" className="p-5 text-sm text-slate-500">Loading upcoming holidays…</p> : upcomingHolidays.length ? <ul className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">{upcomingHolidays.map((holiday) => <li key={holiday.date} className="rounded-xl border border-rose-100 bg-rose-50/60 p-3"><p className="text-xs font-bold text-slate-800">{holiday.name}</p><p className="mt-1 text-[10px] text-slate-600">{new Date(`${holiday.date}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", weekday: "short" })}</p><p className="mt-1 text-[10px] font-semibold text-rose-700">{holiday.isWorkingDay ? "Working day" : "Holiday"}</p></li>)}</ul> : <p className="p-5 text-sm text-slate-500">No upcoming public holidays returned for this year.</p>}
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[1.65fr_1fr]">

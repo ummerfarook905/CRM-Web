@@ -73,6 +73,7 @@ export default function AdminSideNav({
           icon: ReceiptText,
         },
         { name: "Leave Applications", path: "/admin/LeaveApplications", icon: CalendarDays },
+        { name: "Billing Management", path: "/admin/Billing", icon: ReceiptText },
         {
           name: "Work Orders & Enquiries",
           path: "/admin/Enquiries",
