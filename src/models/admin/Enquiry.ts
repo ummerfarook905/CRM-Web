@@ -1,5 +1,5 @@
 export type EnquiryStatus = "New" | "Contacted" | "Assigned" | "Converted";
-export type Priority = "Low" | "Medium" | "High";
+export type Priority = "Low" | "Medium" | "High" | "Urgent";
 
 /** Normalized enquiry shape used by the UI. */
 export interface Enquiry {
@@ -25,13 +25,14 @@ export interface Enquiry {
 }
 
 export interface CreateEnquiryPayload {
-  customerId?: string | null;
-  name: string;
+  contactName: string;
   phone: string;
-  email?: string | null;
-  serviceId?: string | null;
-  serviceLocationId?: string | null;
-  message?: string | null;
+  email: string;
+  customerId?: string | null;
+  company?: string | null;
+  requestedService?: string | null;
+  priority: Priority;
+  customerMessage?: string | null;
 }
 
 export interface ApiEnquiry {
@@ -41,10 +42,12 @@ export interface ApiEnquiry {
   name?: string | null;
   phone?: string | null;
   email?: string | null;
+  companyName?: string | null;
   serviceId?: string | null;
   serviceLocationId?: string | null;
   location?: string | null;
   message?: string | null;
+  priority?: string | null;
   status?: string | null;
   assignedManagerId?: string | null;
   createdAt?: string | null;
@@ -64,6 +67,7 @@ const statusMap: Record<string, EnquiryStatus> = {
 
 export function mapApiEnquiry(item: ApiEnquiry): Enquiry {
   const rawStatus = (item.status ?? "NEW").toUpperCase();
+  const rawPriority = (item.priority ?? "NORMAL").toUpperCase();
   const employees = Array.isArray(item.assignedEmployees)
     ? item.assignedEmployees.map((employee) =>
         typeof employee === "string" ? employee : employee.name ?? employee.id ?? "",
@@ -75,7 +79,7 @@ export function mapApiEnquiry(item: ApiEnquiry): Enquiry {
     reference: item.enquiryNumber ?? "",
     customerId: item.customerId ?? item.customer?.id ?? null,
     customerName: item.customer?.name ?? item.name ?? "",
-    company: item.customer?.company ?? "",
+    company: item.companyName ?? item.customer?.company ?? "",
     phone: item.phone ?? "",
     email: item.email ?? "",
     serviceId: item.serviceId ?? item.service?.id ?? null,
@@ -84,7 +88,7 @@ export function mapApiEnquiry(item: ApiEnquiry): Enquiry {
     location: item.location ?? "",
     message: item.message ?? "",
     receivedDate: item.createdAt ? item.createdAt.slice(0, 10) : "",
-    priority: "Medium",
+    priority: rawPriority === "LOW" ? "Low" : rawPriority === "HIGH" ? "High" : rawPriority === "URGENT" ? "Urgent" : "Medium",
     status: statusMap[rawStatus] ?? "New",
     assignedManager: item.assignedManager?.name ?? "",
     assignedEmployees: employees,

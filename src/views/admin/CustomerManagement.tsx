@@ -21,15 +21,15 @@ import {
 import type { Customer } from "../../models/admin/Customer";
 import { useCustomerViewModel } from "../../viewmodels/admin/UseCustomerViewModel";
 import { useAppDispatch } from "../../app/Hooks";
-import { createCustomer, type CreateCustomerDto } from "../../services/CustomerSlice";
-import { api } from "../../api/axios";
+import { createCustomer, setCustomerPassword, type CreateCustomerDto } from "../../services/CustomerSlice";
 
 export default function CustomerManagement() {
   const dispatch = useAppDispatch();
   const [showCreate, setShowCreate] = useState(false);
-  const [resettingCustomerId, setResettingCustomerId] = useState<string | null>(null);
-  const [resetMessage, setResetMessage] = useState("");
-  const [resetError, setResetError] = useState("");
+  const [passwordTarget, setPasswordTarget] = useState<Customer | null>(null);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const {
     customers,
     filteredCustomers,
@@ -55,21 +55,35 @@ export default function CustomerManagement() {
     handleDeleteCustomer,
   } = useCustomerViewModel();
 
-  const requestPasswordReset = async (customer: Customer) => {
-    if (!window.confirm(`Send a password reset code to ${customer.email}?`)) return;
-    setResettingCustomerId(customer.id);
-    setResetMessage("");
-    setResetError("");
+  const openSetPassword = (customer: Customer) => {
+    if (!customer.hasLoginAccount) return;
+    setPasswordMessage("");
+    setPasswordError("");
+    setPasswordTarget(customer);
+  };
+
+  const savePassword = async (newPassword: string) => {
+    if (!passwordTarget?.hasLoginAccount) return;
+    setPasswordSaving(true);
     try {
-      const response = await api.post(`/customers/${encodeURIComponent(customer.id)}/reset-password`);
-      const message = response.data?.message;
-      setResetMessage(typeof message === "string" ? message : `Password reset requested for ${customer.email}.`);
-    } catch (cause) {
-      const response = (cause as { response?: { data?: { message?: unknown } } })?.response;
-      const message = response?.data?.message;
-      setResetError(Array.isArray(message) ? message.join(", ") : typeof message === "string" ? message : cause instanceof Error ? cause.message : "Unable to request a password reset.");
+      await dispatch(setCustomerPassword({ id: passwordTarget.id, newPassword })).unwrap();
+      setPasswordMessage(`Password updated for ${passwordTarget.name}.`);
+      setPasswordError("");
+      setPasswordTarget(null);
+    } catch (cause: unknown) {
+      const message =
+        cause instanceof Error ? cause.message : "Unable to set the customer password.";
+      const isNoLoginAccount =
+        /no login account|has no login account|directory.?only/i.test(message);
+      if (isNoLoginAccount) {
+        setPasswordMessage(
+          "This customer is directory-only and has no login account. Password changes are not available.",
+        );
+      } else {
+        setPasswordError(message);
+      }
     } finally {
-      setResettingCustomerId(null);
+      setPasswordSaving(false);
     }
   };
 
@@ -121,8 +135,13 @@ export default function CustomerManagement() {
         </div>
       )}
 
-      {resetMessage && <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{resetMessage}</div>}
-      {resetError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{resetError}</div>}
+      {passwordMessage && <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{passwordMessage}</div>}
+
+      {passwordError && (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {passwordError}
+        </div>
+      )}
 
       {deleting && (
         <p role="status" className="text-xs font-medium text-slate-500">
@@ -212,16 +231,17 @@ export default function CustomerManagement() {
 
                   <div className="min-w-0 flex-1">
                     <p className="break-words text-sm font-semibold text-slate-900">
-                      {customer.company}
+                      {customer.name || customer.company || "—"}
                     </p>
 
                     <p className="mt-1 break-words text-xs text-slate-500">
-                      {customer.customerCode} · {customer.name}
+                      {customer.customerCode}{customer.company && customer.company !== customer.name ? ` · ${customer.company}` : ""}
                     </p>
 
                     <div className="mt-2">
                       <CustomerStatus status={customer.status} />
                     </div>
+                    <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${customer.hasLoginAccount ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{customer.hasLoginAccount ? "Login account" : "Directory only"}</span>
                   </div>
                 </div>
 
@@ -284,16 +304,12 @@ export default function CustomerManagement() {
                     Edit
                   </button>
 
-                  <button
+                  {customer.hasLoginAccount && <button
                     type="button"
-                    onClick={() => void requestPasswordReset(customer)}
-                    disabled={resettingCustomerId === customer.id}
-                    aria-label={`Send password reset to ${customer.name}`}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-50"
-                  >
-                    <KeyRound size={16} />
-                    {resettingCustomerId === customer.id ? "Sending…" : "Reset password"}
-                  </button>
+                    onClick={() => openSetPassword(customer)}
+                    aria-label={`Set password for ${customer.name}`}
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 transition hover:bg-amber-100"
+                  ><KeyRound size={16} />Set password</button>}
 
                   <button
                     type="button"
@@ -349,12 +365,13 @@ export default function CustomerManagement() {
 
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-slate-900">
-                            {customer.company}
+                            {customer.name || customer.company || "—"}
                           </p>
 
                           <p className="mt-0.5 whitespace-nowrap text-[11px] text-slate-500">
-                            {customer.customerCode} · {customer.name}
+                            {customer.customerCode}{customer.company && customer.company !== customer.name ? ` · ${customer.company}` : ""}
                           </p>
+                          <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${customer.hasLoginAccount ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{customer.hasLoginAccount ? "Login account" : "Directory only"}</span>
                         </div>
                       </div>
                     </td>
@@ -416,16 +433,15 @@ export default function CustomerManagement() {
                           <Edit3 size={16} />
                         </button>
 
-                        <button
+                        {customer.hasLoginAccount && <button
                           type="button"
-                          onClick={() => void requestPasswordReset(customer)}
-                          disabled={resettingCustomerId === customer.id}
-                          title="Send password reset code"
-                          aria-label={`Send password reset to ${customer.name}`}
-                          className="rounded-lg p-2 text-amber-700 transition hover:bg-amber-50 disabled:opacity-50"
+                          onClick={() => openSetPassword(customer)}
+                          title="Set customer password"
+                          aria-label={`Set password for ${customer.name}`}
+                          className="rounded-lg p-2 text-amber-700 transition hover:bg-amber-50"
                         >
                           <KeyRound size={16} />
-                        </button>
+                        </button>}
 
                         <button
                           type="button"
@@ -488,8 +504,37 @@ export default function CustomerManagement() {
           }}
         />
       )}
+      {passwordTarget && <CustomerPasswordModal
+        key={passwordTarget.id}
+        customer={passwordTarget}
+        isSaving={passwordSaving}
+        onClose={() => { if (!passwordSaving) setPasswordTarget(null); }}
+        onSave={savePassword}
+      />}
     </div>
   );
+}
+
+function CustomerPasswordModal({ customer, isSaving, onClose, onSave }: {
+  customer: Customer;
+  isSaving: boolean;
+  onClose: () => void;
+  onSave: (password: string) => Promise<void>;
+}) {
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [error, setError] = useState("");
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); setError("");
+    if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (password !== confirmation) { setError("Passwords do not match."); return; }
+    try { await onSave(password); setPassword(""); setConfirmation(""); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to set the customer password."); }
+  };
+  return <Modal onClose={onClose}>
+    <div className="flex items-center justify-between border-b border-slate-200 p-5"><div><p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Customer account</p><h2 className="mt-1 text-lg font-bold text-slate-900">Set password</h2><p className="mt-1 text-sm text-slate-500">{customer.name} · {customer.email}</p></div><button type="button" onClick={onClose} disabled={isSaving} aria-label="Close set password" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 disabled:opacity-50"><X size={18}/></button></div>
+    <form onSubmit={(event) => void submit(event)} className="space-y-4 p-5"><InputField label="New password" type="password" required value={password} onChange={setPassword} placeholder="At least 8 characters"/><InputField label="Confirm new password" type="password" required value={confirmation} onChange={setConfirmation} placeholder="Enter the password again"/>{error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}<div className="flex justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" onClick={onClose} disabled={isSaving} className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600">Cancel</button><button type="submit" disabled={isSaving} className="rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{isSaving ? "Saving…" : "Set password"}</button></div></form>
+  </Modal>;
 }
 
 function CustomerCreateModal({
@@ -688,11 +733,11 @@ function CustomerDetailsModal({
               </p>
 
               <h2 className="break-words text-xl font-bold text-slate-900">
-                {customer.company}
+                {customer.name || customer.company || "—"}
               </h2>
 
               <p className="text-xs text-slate-500">
-                {customer.name}
+                {customer.customerCode}{customer.company && customer.company !== customer.name ? ` · ${customer.company}` : ""}
               </p>
             </div>
           </div>
@@ -722,6 +767,8 @@ function CustomerDetailsModal({
               icon={User}
             />
 
+            <InfoItem label="Organization" value={customer.organizationName || "—"} icon={FileText} />
+            <InfoItem label="Customer account" value={customer.hasLoginAccount ? "Login enabled" : "Directory only"} icon={Users} />
             <InfoItem
               label="Phone"
               value={customer.phone}
@@ -926,7 +973,7 @@ function CustomerDetailsModal({
 interface CustomerFormModalProps {
   customer: Customer;
   onClose: () => void;
-  onSave: (customer: Customer) => void | Promise<void>;
+  onSave: (customer: Customer, newPassword?: string) => void | Promise<void>;
   isSaving: boolean;
 }
 
@@ -940,33 +987,58 @@ function CustomerFormModal({
 
   const [firstName, setFirstName] = useState(nameParts[0] ?? "");
   const [lastName, setLastName] = useState(nameParts.slice(1).join(" "));
+  const [email, setEmail] = useState(customer.email ?? "");
   const [phone, setPhone] = useState(customer.phone ?? "");
+  const [organizationName, setOrganizationName] = useState(customer.organizationName || (customer.company === "—" ? "" : customer.company));
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const isBusy = isSaving || saving;
+
+  const closeWhenIdle = () => {
+    if (!isBusy) onClose();
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isBusy) return;
     setError("");
 
     if (!firstName.trim()) {
       setError("First name is required.");
       return;
     }
+    if ((newPassword || confirmPassword) && newPassword.length < 8) {
+      setError("New password must be at least 8 characters.");
+      return;
+    }
+    if ((newPassword || confirmPassword) && newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
 
     const updatedCustomer: Customer = {
       ...customer,
       name: [firstName.trim(), lastName.trim()].filter(Boolean).join(" "),
+      email: email.trim().toLowerCase(),
       phone: phone.trim(),
+      company: organizationName.trim() || "—",
+      organizationName: organizationName.trim(),
     };
 
     try {
-      await onSave(updatedCustomer);
-    } catch {
-      setError("Unable to update customer. Please try again.");
+      setSaving(true);
+      await onSave(updatedCustomer, newPassword || undefined);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to update customer. Please try again.");
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={closeWhenIdle}>
       {/* HEADER */}
       <div className="flex items-center justify-between border-b border-slate-200 p-5">
         <div>
@@ -981,7 +1053,8 @@ function CustomerFormModal({
 
         <button
           type="button"
-          onClick={onClose}
+          onClick={closeWhenIdle}
+          disabled={isBusy}
           aria-label="Close edit customer form"
           className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
         >
@@ -1005,8 +1078,9 @@ function CustomerFormModal({
             value={lastName}
             onChange={setLastName}
             placeholder="Enter company name"
-            required
           />
+
+          <InputField label="Email" type="email" value={email} onChange={setEmail} placeholder="customer@example.com" required />
 
           <InputField
             label="Phone"
@@ -1015,7 +1089,32 @@ function CustomerFormModal({
             placeholder="+91 XXXXX XXXXX"
             required
           />
+
+          <InputField label="Organization" value={organizationName} onChange={setOrganizationName} placeholder="Company name" />
+          {customer.hasLoginAccount && (
+            <>
+              <InputField
+                label="New password (optional)"
+                type="password"
+                value={newPassword}
+                onChange={setNewPassword}
+                placeholder="Leave blank to keep current password"
+              />
+              <InputField
+                label="Confirm new password"
+                type="password"
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                placeholder="Re-enter new password"
+              />
+            </>
+          )}
         </div>
+        {customer.hasLoginAccount && (
+          <p className="text-xs text-slate-500">
+            Password must be at least 8 characters. Leave both password fields blank to keep the current password.
+          </p>
+        )}
 
         {error && (
           <p role="alert" className="text-sm text-red-600">
@@ -1027,7 +1126,8 @@ function CustomerFormModal({
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
           <button
             type="button"
-            onClick={onClose}
+            onClick={closeWhenIdle}
+            disabled={isBusy}
             className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
           >
             Cancel
@@ -1035,10 +1135,10 @@ function CustomerFormModal({
 
           <button
             type="submit"
-            disabled={isSaving}
+            disabled={isBusy}
             className="rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSaving ? "Updating..." : "Update Customer"}
+            {isBusy ? "Updating..." : "Update Customer"}
           </button>
 
         </div>

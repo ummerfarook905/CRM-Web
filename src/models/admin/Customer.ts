@@ -20,9 +20,11 @@ export interface ServiceHistory {
 export interface Customer {
   id: string;
   userId?: string;
+  hasLoginAccount: boolean;
   customerCode: string;
   name: string;
   company: string;
+  organizationName?: string;
   email: string;
   phone: string;
   city: string;

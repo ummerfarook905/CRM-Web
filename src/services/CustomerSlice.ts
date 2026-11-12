@@ -17,7 +17,9 @@ interface CustomerState {
 export interface UpdateCustomerDto {
   firstName?: string;
   lastName?: string;
+  email?: string;
   phone?: string;
+  organizationName?: string;
 }
 
 interface UpdateCustomerPayload {
@@ -116,6 +118,12 @@ interface ApiCustomer {
   userId?: string;
   isActive?: boolean;
   notes?: string | null;
+  hasLoginAccount?: boolean;
+  contactName?: string | null;
+  organizationName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  companyName?: string | null;
   user?: {
     firstName?: string | null;
     lastName?: string | null;
@@ -139,14 +147,17 @@ function mapApiCustomer(apiCustomer: ApiCustomer): Customer {
 
   const addresses = apiCustomer.addresses ?? [];
 
+  const contactName = name || apiCustomer.contactName || user?.email || apiCustomer.email || "Unknown Customer";
   return {
     id: apiCustomer.id,
     ...(typeof apiCustomer.userId === "string" ? { userId: apiCustomer.userId } : {}),
+    hasLoginAccount: apiCustomer.hasLoginAccount ?? Boolean(apiCustomer.userId),
     customerCode: `CUS-${apiCustomer.id.slice(0, 8).toUpperCase()}`,
-    name: name || user?.email || "Unknown Customer",
-    company: name || "—",
-    email: user?.email ?? "",
-    phone: user?.phone ?? "",
+    name: contactName,
+    company: apiCustomer.organizationName ?? apiCustomer.companyName ?? "—",
+    organizationName: apiCustomer.organizationName ?? apiCustomer.companyName ?? "",
+    email: user?.email ?? apiCustomer.email ?? "",
+    phone: user?.phone ?? apiCustomer.phone ?? "",
     city: addresses[0]?.city ?? "—",
     status: apiCustomer.isActive === false ? "Inactive" : "Active",
 
@@ -174,13 +185,19 @@ function extractCustomers(response: unknown): Customer[] {
     data?: unknown;
   };
 
-  if (!Array.isArray(body?.data)) {
+  const data = body?.data as { data?: unknown; items?: unknown } | unknown;
+  const nested = data && typeof data === "object" && !Array.isArray(data)
+    ? data as { data?: unknown; items?: unknown }
+    : undefined;
+  const rows = Array.isArray(data) ? data : Array.isArray(nested?.data) ? nested.data : nested?.items;
+
+  if (!Array.isArray(rows)) {
     throw new Error(
       "Invalid customers API response: expected data array."
     );
   }
 
-  return (body.data as ApiCustomer[]).map(mapApiCustomer);
+  return (rows as ApiCustomer[]).map(mapApiCustomer);
 }
 
 
@@ -210,7 +227,7 @@ export const fetchCustomers = createAsyncThunk<
   { rejectValue: string }
 >("customers/fetchCustomers", async (_, { rejectWithValue }) => {
   try {
-    const response = await api.get("/customers");
+    const response = await api.get("/customers", { params: { page: 1, limit: 100 } });
     return extractCustomers(response.data);
   } catch (error: unknown) {
     return rejectWithValue(getErrorMessage(error));
@@ -289,6 +306,19 @@ export const updateCustomer = createAsyncThunk<
     }
   }
 );
+
+export const setCustomerPassword = createAsyncThunk<
+  string,
+  { id: string; newPassword: string },
+  { rejectValue: string }
+>("customers/setPassword", async ({ id, newPassword }, { rejectWithValue }) => {
+  try {
+    await api.patch(`/customers/${encodeURIComponent(id)}/password`, { newPassword });
+    return id;
+  } catch (error: unknown) {
+    return rejectWithValue(getErrorMessage(error));
+  }
+});
 
 export const deleteCustomer = createAsyncThunk<
   DeleteCustomerResult,

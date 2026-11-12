@@ -19,6 +19,7 @@ import {
   ChevronDown,
   UsersRound,
   UserRoundPlus,
+  Package,
 } from "lucide-react";
 
 import { useState } from "react";
@@ -70,6 +71,11 @@ export default function ManagerSideNav({
           name: "Client Directory",
           path: "/manager/Client Directory",
           icon: Building2,
+        },
+        {
+          name: "Products",
+          path: "/manager/Products",
+          icon: Package,
         },
         {
           name: "Service Requests & Bookings",

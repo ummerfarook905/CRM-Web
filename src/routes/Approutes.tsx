@@ -39,6 +39,7 @@ import EmployeeLayout from "../layouts/EmployeeLayout";
 import LeaveApplications from "../views/shared/LeaveApplications";
 import LeaveReviews from "../views/shared/LeaveReviews";
 import BillingManagement from "../views/shared/BillingManagement";
+import ProductManagement from "../views/shared/ProductManagement";
 
 
 export default function AppRoutes() {
@@ -129,6 +130,7 @@ export default function AppRoutes() {
             path="Services"
             element={<ServiceManagement />}
           />
+          <Route path="Products" element={<ProductManagement />} />
 
           <Route
             path="Employees"
@@ -235,6 +237,7 @@ export default function AppRoutes() {
             path="ServiceManagement"
             element={<ServiceManagement1 />}
           />
+          <Route path="Products" element={<ProductManagement />} />
 
           <Route path="Expenses" element={<Expenses review />} />
           <Route path="LeaveApplications" element={<LeaveReviews />} />

@@ -9,6 +9,7 @@ import {
 import {
   fetchCustomers,
   updateCustomer,
+  setCustomerPassword,
   deleteCustomer,
   clearCustomerError,
 } from "../../services/CustomerSlice";
@@ -96,7 +97,7 @@ export function useCustomerViewModel() {
   };
 
   
-const handleUpdateCustomer = async (customer: Customer) => {
+const handleUpdateCustomer = async (customer: Customer, newPassword?: string) => {
   if (!editingCustomer) return;
 
   const nameParts = customer.name.trim().split(/\s+/);
@@ -109,7 +110,9 @@ const handleUpdateCustomer = async (customer: Customer) => {
       changes: {
         firstName,
         lastName,
+        email: customer.email.trim().toLowerCase(),
         phone: customer.phone.trim(),
+        organizationName: customer.company.trim(),
       },
     })
   );
@@ -121,8 +124,24 @@ const handleUpdateCustomer = async (customer: Customer) => {
         : current
     );
 
+    if (newPassword) {
+      const passwordResult = await dispatch(setCustomerPassword({
+        id: editingCustomer.id,
+        newPassword,
+      }));
+      if (!setCustomerPassword.fulfilled.match(passwordResult)) {
+        const passwordError = typeof passwordResult.payload === "string"
+          ? passwordResult.payload
+          : "Unable to update the customer password.";
+        throw new Error(`Customer details were saved, but the password was not updated: ${passwordError}`);
+      }
+    }
+
     closeForm();
+    return;
   }
+
+  throw new Error(typeof result.payload === "string" ? result.payload : "Unable to update customer.");
 };
 
 

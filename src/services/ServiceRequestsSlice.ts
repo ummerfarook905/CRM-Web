@@ -26,9 +26,10 @@ export interface ConvertEnquiryPayload {
   serviceLocationId: string;
   preferredDate: string;
   preferredTime: string;
-  priority: "LOW" | "NORMAL" | "HIGH";
+  priority: "LOW" | "NORMAL" | "HIGH" | "URGENT";
   managerId?: string;
   employeeIds?: string[];
+  products?: Array<{ productId: string; quantity: number }>;
   remarks?: string;
   instructions?: string;
 }

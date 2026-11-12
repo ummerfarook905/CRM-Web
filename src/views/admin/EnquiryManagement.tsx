@@ -30,7 +30,12 @@ import { createPortal } from "react-dom";
 import { api } from "../../api/axios";
 import { useAppDispatch, useAppSelector } from "../../app/Hooks";
 import { fetchServices } from "../../services/ServicesSlice";
-import { createCustomerAddress, fetchCustomers } from "../../services/CustomerSlice";
+import {
+  createCustomer,
+  createCustomerAddress,
+  fetchCustomers,
+  type CreateCustomerDto,
+} from "../../services/CustomerSlice";
 
 import { useEnquiryManagementViewModel } from "../../viewmodels/admin/UseEnquiryManagementModel";
 import { useAssignableEmployees } from "../../viewmodels/shared/UseAssignableEmployees";
@@ -48,6 +53,9 @@ import {
 import {
   convertEnquiryToBookingApi,
 } from "../../services/ServiceRequestsSlice";
+import BookingProductSelector, {
+  type SelectedBookingProduct,
+} from "../../components/products/BookingProductSelector";
 
 
 /* -------------------------------------------------------------------------- */
@@ -69,6 +77,7 @@ const priorityStyles: Record<Priority, string> = {
   Low: "bg-slate-100 text-slate-600",
   Medium: "bg-amber-50 text-amber-700",
   High: "bg-red-50 text-red-700",
+  Urgent: "bg-red-900/20 text-red-700 border border-red-300",
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -209,6 +218,8 @@ export default function EnquiryManagement() {
   const [showForm, setShowForm] = useState(false);
   const [enquiryFormError, setEnquiryFormError] = useState("");
   const [isSavingEnquiry, setIsSavingEnquiry] = useState(false);
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+  const [showCreateCustomer, setShowCreateCustomer] = useState(false);
   const [enquirySaveNotice, setEnquirySaveNotice] = useState("");
   const [showService, setShowService] = useState(false);
 
@@ -217,6 +228,7 @@ export default function EnquiryManagement() {
   const [serviceNotes, setServiceNotes] = useState("");
   const [isConverting, setIsConverting] = useState(false);
   const [servicePriority, setServicePriority] = useState<Priority>("Medium");
+  const [selectedBookingProducts, setSelectedBookingProducts] = useState<SelectedBookingProduct[]>([]);
   const [assignedManagerId, setAssignedManagerId] = useState("");
   const selectedManager = managers.find((manager) => manager.id === assignedManagerId);
   const employeeDesignatedManagers = staff.filter((employee) =>
@@ -236,6 +248,14 @@ export default function EnquiryManagement() {
     message: "",
     priority: "Medium" as Priority,
   });
+  const matchingCustomers = form.customerName.trim()
+    ? customers
+      .filter((customer) =>
+        customer.status === "Active"
+        && customer.name.toLowerCase().includes(form.customerName.trim().toLowerCase()),
+      )
+      .slice(0, 6)
+    : [];
 
     const updateEnquiry = async (
       id: string,
@@ -270,16 +290,19 @@ const addEnquiry = async (
   setEnquiryFormError("");
   setEnquirySaveNotice("");
   dispatch(clearEnquiryError());
+  const linkedExistingCustomer = Boolean(form.customerId);
 
   try {
     await dispatch(
       addEnquiryApi({
-        customerId: form.customerId || null,
-        name: form.customerName.trim(),
+        contactName: form.customerName.trim(),
         phone: form.phone.trim(),
-        ...(form.email.trim() ? { email: form.email.trim() } : {}),
-        ...(form.serviceId ? { serviceId: form.serviceId } : {}),
-        ...((form.company.trim() || form.message.trim()) ? { message: [form.company.trim() ? `Company: ${form.company.trim()}` : "", form.message.trim()].filter(Boolean).join("\n") } : {}),
+        email: form.email.trim().toLowerCase(),
+        customerId: form.customerId || undefined,
+        company: form.company.trim() || null,
+        requestedService: form.serviceId || form.service.trim(),
+        priority: form.priority,
+        customerMessage: form.message.trim() || null,
       })
     ).unwrap();
 
@@ -296,7 +319,14 @@ const addEnquiry = async (
     });
 
     setShowForm(false);
-    setEnquirySaveNotice("Enquiry saved successfully.");
+    setEnquirySaveNotice(linkedExistingCustomer
+      ? "Enquiry saved and linked to the selected customer."
+      : "Enquiry saved and the customer was added to the Client Directory.");
+    try {
+      await dispatch(fetchCustomers()).unwrap();
+    } catch {
+      setEnquirySaveNotice("Enquiry saved. The customer directory did not refresh; reload Client Directory to view the customer.");
+    }
     try {
       await dispatch(fetchEnquiries()).unwrap();
     } catch {
@@ -331,6 +361,7 @@ const addEnquiry = async (
     setPreferredTime("10:30");
     setServiceNotes("");
     setServicePriority(enquiry.priority || "Medium");
+    setSelectedBookingProducts([]);
     setAssignedManagerId(managers.find((manager) => manager.name === enquiry.assignedManager)?.id ?? "");
     setAssignedEmployees(
       Array.isArray(enquiry.assignedEmployees) ? enquiry.assignedEmployees : [],
@@ -423,9 +454,10 @@ const addEnquiry = async (
         serviceLocationId,
         preferredDate: serviceDate,
         preferredTime,
-        priority: ({ Low: "LOW", Medium: "NORMAL", High: "HIGH" } as const)[servicePriority],
+        priority: ({ Low: "LOW", Medium: "NORMAL", High: "HIGH", Urgent: "URGENT" } as const)[servicePriority],
         ...(managerId ? { managerId } : {}),
         ...(employeeIds.length ? { employeeIds: employeeIds as string[] } : {}),
+        ...(selectedBookingProducts.length ? { products: selectedBookingProducts } : {}),
         ...(serviceNotes.trim() ? { instructions: serviceNotes.trim() } : {}),
       };
 
@@ -452,6 +484,7 @@ const addEnquiry = async (
       setPreferredTime("10:30");
       setServiceNotes("");
       setServicePriority("Medium");
+      setSelectedBookingProducts([]);
       setAssignedManagerId("");
       setAssignedEmployees([]);
       setAssignmentError("");
@@ -1314,6 +1347,11 @@ const addEnquiry = async (
 
             {/* Service notes */}
 
+            <BookingProductSelector
+              value={selectedBookingProducts}
+              onChange={setSelectedBookingProducts}
+            />
+
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-slate-700">
                 Service Notes
@@ -1447,18 +1485,95 @@ const addEnquiry = async (
             )}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <label htmlFor="enquiryCustomer" className="mb-1.5 block text-sm font-semibold text-slate-700">
-                  Contact Name <span className="ml-1 text-red-500">*</span>
-                </label>
-                <input id="enquiryCustomer" value={form.customerName} onChange={(event) => setForm((current) => ({ ...current, customerName: event.target.value }))} required autoComplete="name" placeholder="Enter contact name" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" />
+                <div className="mb-1.5 flex items-center justify-between gap-3">
+                  <label htmlFor="enquiryCustomer" className="text-sm font-semibold text-slate-700">
+                    Contact Name <span className="ml-1 text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm((current) => ({
+                        ...current,
+                        customerId: "",
+                        company: "",
+                        phone: "",
+                        email: "",
+                      }));
+                      setShowCreateCustomer(true);
+                      setShowCustomerSuggestions(false);
+                    }}
+                    className="text-sm font-semibold text-emerald-800 hover:text-emerald-900"
+                  >
+                    + Add New Customer
+                  </button>
+                </div>
+                <input
+                  id="enquiryCustomer"
+                  value={form.customerName}
+                  onChange={(event) => {
+                    const customerName = event.target.value;
+                    setForm((current) => ({
+                      ...current,
+                      ...(current.customerId ? { company: "", phone: "", email: "" } : {}),
+                      customerId: "",
+                      customerName,
+                    }));
+                    setShowCustomerSuggestions(true);
+                  }}
+                  required
+                  autoComplete="name"
+                  placeholder="Enter contact name"
+                  aria-autocomplete="list"
+                  aria-controls="enquiry-customer-options"
+                  aria-expanded={showCustomerSuggestions && matchingCustomers.length > 0}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                />
+                {showCustomerSuggestions && form.customerName.trim() && (
+                  <div
+                    id="enquiry-customer-options"
+                    role="listbox"
+                    aria-label="Matching customers"
+                    className="mt-1 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+                  >
+                    {matchingCustomers.length > 0 ? matchingCustomers.map((customer) => (
+                      <button
+                        key={customer.id}
+                        type="button"
+                        role="option"
+                        aria-selected={form.customerId === customer.id}
+                        onClick={() => {
+                          setForm((current) => ({
+                            ...current,
+                            customerId: customer.id,
+                            customerName: customer.name,
+                            company: customer.company === "—" ? "" : customer.company,
+                            phone: customer.phone,
+                            email: customer.email,
+                          }));
+                          setShowCustomerSuggestions(false);
+                        }}
+                        className="block w-full px-3 py-2 text-left hover:bg-emerald-50 focus:bg-emerald-50 focus:outline-none"
+                      >
+                        <span className="block text-sm font-medium text-slate-800">{customer.name}</span>
+                        <span className="block text-xs text-slate-500">
+                          {[customer.company !== "—" ? customer.company : "", customer.email, customer.phone]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      </button>
+                    )) : (
+                      <p className="px-3 py-2 text-sm text-slate-500">No matching customers found.</p>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <label htmlFor="enquiryPhone" className="mb-1.5 block text-sm font-semibold text-slate-700">Phone <span className="ml-1 text-red-500">*</span></label>
                 <input id="enquiryPhone" type="tel" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} required autoComplete="tel" placeholder="Enter phone number" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" />
               </div>
               <div>
-                <label htmlFor="enquiryEmail" className="mb-1.5 block text-sm font-semibold text-slate-700">Email <span className="text-slate-400">(optional)</span></label>
-                <input id="enquiryEmail" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} autoComplete="email" placeholder="Enter email address" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" />
+                <label htmlFor="enquiryEmail" className="mb-1.5 block text-sm font-semibold text-slate-700">Email <span className="ml-1 text-red-500">*</span></label>
+                <input id="enquiryEmail" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} required autoComplete="email" placeholder="Enter email address" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" />
               </div>
               <div>
                 <label htmlFor="enquiryCompany" className="mb-1.5 block text-sm font-semibold text-slate-700">Company <span className="text-slate-400">(optional)</span></label>
@@ -1521,6 +1636,7 @@ const addEnquiry = async (
                   <option value="Low">Low</option>
                   <option value="Medium">Medium</option>
                   <option value="High">High</option>
+                  <option value="Urgent">Urgent</option>
                 </select>
               </div>
             </div>
@@ -1562,6 +1678,25 @@ const addEnquiry = async (
             </div>
           </form>
         </Modal>
+      )}
+      {showCreateCustomer && (
+        <CustomerCreateModal
+          initialName={form.customerName}
+          onClose={() => setShowCreateCustomer(false)}
+          onCreate={async (payload) => {
+            const customer = await dispatch(createCustomer(payload)).unwrap();
+            setForm((current) => ({
+              ...current,
+              customerId: customer.id,
+              customerName: customer.name,
+              company: customer.company === "—" ? "" : customer.company,
+              phone: customer.phone,
+              email: customer.email,
+            }));
+            setShowCustomerSuggestions(false);
+            setShowCreateCustomer(false);
+          }}
+        />
       )}
     </div>
   );
@@ -1638,6 +1773,97 @@ function Modal({
       </div>
     </div>,
     document.body,
+  );
+}
+
+function CustomerCreateModal({
+  initialName,
+  onClose,
+  onCreate,
+}: {
+  initialName: string;
+  onClose: () => void;
+  onCreate: (payload: CreateCustomerDto) => Promise<void>;
+}) {
+  const nameParts = initialName.trim().split(/\s+/).filter(Boolean);
+  const [firstName, setFirstName] = useState(nameParts[0] ?? "");
+  const [lastName, setLastName] = useState(nameParts.slice(1).join(" "));
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const close = () => {
+    if (!saving) onClose();
+  };
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+    if (password.length < 8) {
+      setError("Temporary password must be at least 8 characters.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onCreate({ firstName, lastName, email, phone, password });
+    } catch (cause) {
+      setError(typeof cause === "string"
+        ? cause
+        : cause instanceof Error
+          ? cause.message
+          : "Unable to create customer.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Add Customer" onClose={close}>
+      <form onSubmit={(event) => void submit(event)} className="space-y-4">
+        <p className="text-sm text-slate-600">
+          Create a customer record, then it will be selected for this enquiry.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="First name" value={firstName} onChange={setFirstName} required />
+          <Field label="Last name" value={lastName} onChange={setLastName} required />
+          <Field label="Email" type="email" value={email} onChange={setEmail} required />
+          <Field label="Phone" type="tel" value={phone} onChange={setPhone} required />
+          <Field
+            label="Temporary password"
+            type="password"
+            value={password}
+            onChange={setPassword}
+            placeholder="At least 8 characters"
+            required
+          />
+        </div>
+        {error && (
+          <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+          <button
+            type="button"
+            onClick={close}
+            disabled={saving}
+            className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-50"
+          >
+            {saving ? "Creating…" : "Create Customer"}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 

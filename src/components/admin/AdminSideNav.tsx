@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Users,
   ChartNoAxesColumn,
+  Package,
 } from "lucide-react";
 
 import { useState } from "react";
@@ -115,6 +116,11 @@ export default function AdminSideNav({
           name: "Client Directory",
           path: "/admin/customers",
           icon: Building2,
+        },
+        {
+          name: "Products",
+          path: "/admin/Products",
+          icon: Package,
         },
       ],
     },

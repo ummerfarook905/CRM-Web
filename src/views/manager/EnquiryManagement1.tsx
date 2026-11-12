@@ -29,16 +29,20 @@ import {
 import { useAssignableEmployees } from "../../viewmodels/shared/UseAssignableEmployees";
 import { useAppDispatch, useAppSelector } from "../../app/Hooks";
 import { addEnquiry as createEnquiryApi, fetchEnquiries, updateEnquiryApi } from "../../services/EnquiriesSlice";
+import { fetchCustomers } from "../../services/CustomerSlice";
 import { convertEnquiryToBookingApi } from "../../services/ServiceRequestsSlice";
 import type { Enquiry as ApiEnquiryModel } from "../../models/admin/Enquiry";
 import { fetchWorkOrders } from "../../services/WorkMonitoringSlice";
+import BookingProductSelector, {
+  type SelectedBookingProduct,
+} from "../../components/products/BookingProductSelector";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
 type EnquiryStatus = "New" | "Contacted" | "Assigned" | "Converted";
-type Priority = "Low" | "Medium" | "High";
+type Priority = "Low" | "Medium" | "High" | "Urgent";
 
 interface Enquiry {
   id: string;
@@ -80,6 +84,7 @@ const priorityStyles: Record<Priority, string> = {
   Low: "bg-slate-100 text-slate-600",
   Medium: "bg-amber-50 text-amber-700",
   High: "bg-red-50 text-red-700",
+  Urgent: "bg-red-900/20 text-red-700 border border-red-300",
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -107,9 +112,11 @@ export default function EnquiryManagement() {
 
   const [servicePriority, setServicePriority] =
     useState<Priority>("Medium");
+  const [selectedBookingProducts, setSelectedBookingProducts] = useState<SelectedBookingProduct[]>([]);
 
   const [assignedEmployees, setAssignedEmployees] = useState<string[]>([]);
   const [assignmentError, setAssignmentError] = useState("");
+  const [enquirySaveNotice, setEnquirySaveNotice] = useState("");
 
   const [form, setForm] = useState({
     customerName: "",
@@ -163,12 +170,28 @@ export default function EnquiryManagement() {
 
   const addEnquiry = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setAssignmentError("");
+    setEnquirySaveNotice("");
     try {
-      const details = [form.company && `Company: ${form.company}`, form.service && `Requested service: ${form.service}`, form.location && `Service location: ${form.location}`, `Priority: ${form.priority}`, form.message].filter(Boolean).join("\n");
-      await dispatch(createEnquiryApi({ customerId: null, name: form.customerName.trim(), phone: form.phone.trim(), email: form.email.trim() || null, message: details || null })).unwrap();
-      await dispatch(fetchEnquiries()).unwrap();
+      const details = [form.location && `Service location: ${form.location}`, form.message].filter(Boolean).join("\n");
+      await dispatch(createEnquiryApi({
+        contactName: form.customerName.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim().toLowerCase(),
+        company: form.company.trim() || null,
+        requestedService: form.service.trim() || null,
+        priority: form.priority,
+        customerMessage: details || null,
+      })).unwrap();
       setForm({ customerName: "", company: "", phone: "", email: "", service: "", location: "", message: "", priority: "Medium" });
       setShowForm(false);
+      const refreshResults = await Promise.allSettled([
+        dispatch(fetchEnquiries()).unwrap(),
+        dispatch(fetchCustomers()).unwrap(),
+      ]);
+      setEnquirySaveNotice(refreshResults.some((result) => result.status === "rejected")
+        ? "Enquiry and customer saved, but a list could not refresh. Refresh it to view the latest data."
+        : "Enquiry saved and linked to the customer account.");
     } catch (error) {
       setAssignmentError(typeof error === "string" ? error : "Failed to create enquiry.");
     }
@@ -188,6 +211,7 @@ export default function EnquiryManagement() {
 
     // Default to the enquiry priority, but allow changing it in the modal.
     setServicePriority(enquiry.priority || "Medium");
+    setSelectedBookingProducts([]);
 
     setAssignedEmployees(enquiry.assignedEmployees || []);
     setAssignmentError("");
@@ -222,6 +246,7 @@ export default function EnquiryManagement() {
         preferredTime: "09:00",
         priority: servicePriority === "High" ? "HIGH" : servicePriority === "Low" ? "LOW" : "NORMAL",
         employeeIds,
+        ...(selectedBookingProducts.length ? { products: selectedBookingProducts } : {}),
         ...(serviceNotes.trim() ? { instructions: serviceNotes.trim() } : {}),
       })).unwrap();
       await Promise.all([dispatch(fetchEnquiries()).unwrap(), dispatch(fetchWorkOrders({ page: 1, limit: 100 })).unwrap()]);
@@ -230,6 +255,7 @@ export default function EnquiryManagement() {
       setServiceDate(today());
       setServiceNotes("");
       setServicePriority("Medium");
+      setSelectedBookingProducts([]);
       setAssignedEmployees([]);
       setAssignmentError("");
 
@@ -270,6 +296,7 @@ export default function EnquiryManagement() {
   return (
     <div className="space-y-6">
       {(enquiryError || assignmentError) && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{assignmentError || enquiryError}</p>}
+      {enquirySaveNotice && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{enquirySaveNotice}</p>}
       {enquiryLoading && <p role="status" className="text-sm text-slate-500">Loading enquiries…</p>}
       {/* Header */}
 
@@ -887,6 +914,11 @@ export default function EnquiryManagement() {
 
             {/* Service notes */}
 
+            <BookingProductSelector
+              value={selectedBookingProducts}
+              onChange={setSelectedBookingProducts}
+            />
+
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-slate-700">
                 Service Notes
@@ -1070,6 +1102,7 @@ export default function EnquiryManagement() {
                   <option value="Low">Low</option>
                   <option value="Medium">Medium</option>
                   <option value="High">High</option>
+                  <option value="Urgent">Urgent</option>
                 </select>
               </div>
             </div>
