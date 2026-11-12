@@ -14,7 +14,7 @@ import type {
   User,
 } from "../../models/auth/User";
 
-const AUTH_STORAGE_KEY = "crm.auth.session";
+export const AUTH_STORAGE_KEY = "crm.auth.session";
 
 interface PersistedSession {
   user: User;
@@ -22,10 +22,8 @@ interface PersistedSession {
   refreshToken: string;
 }
 
-const loadPersistedSession = (): PersistedSession | null => {
+export const parsePersistedSession = (raw: string | null): PersistedSession | null => {
   try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<PersistedSession>;
@@ -48,6 +46,14 @@ const loadPersistedSession = (): PersistedSession | null => {
     }
 
     return null;
+  } catch {
+    return null;
+  }
+};
+
+const loadPersistedSession = (): PersistedSession | null => {
+  try {
+    return parsePersistedSession(localStorage.getItem(AUTH_STORAGE_KEY));
   } catch {
     return null;
   }
@@ -155,6 +161,15 @@ const authSlice = createSlice({
       persistSession(null);
     },
 
+    sessionChanged: (state, action: { payload: PersistedSession | null }) => {
+      state.user = action.payload?.user ?? null;
+      state.token = action.payload?.token ?? null;
+      state.refreshToken = action.payload?.refreshToken ?? null;
+      state.isAuthenticated = action.payload !== null;
+      state.loading = false;
+      state.error = null;
+    },
+
     clearAuthError: (state) => {
       state.error = null;
     },
@@ -196,7 +211,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearAuthError, sessionRefreshed, sessionExpired } =
+export const { logout, clearAuthError, sessionRefreshed, sessionExpired, sessionChanged } =
   authSlice.actions;
 
 export default authSlice.reducer;

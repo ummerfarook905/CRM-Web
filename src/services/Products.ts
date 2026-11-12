@@ -36,6 +36,21 @@ function apiErrorMessage(error: unknown, fallback: string): string {
   const root = asRecord(error);
   const response = asRecord(root?.response);
   const data = asRecord(response?.data);
+  const config = asRecord(root?.config);
+  const requestUrl = typeof config?.url === "string" ? config.url : "";
+  const responseMessage = typeof data?.message === "string"
+    ? data.message
+    : typeof data?.error === "string"
+      ? data.error
+      : "";
+  if (
+    response?.status === 404
+    && requestUrl.includes("/products")
+    && /cannot\s+(get|post|patch|delete)\s+\/api\/v\d+\/products/i.test(responseMessage)
+  ) {
+    return "The configured backend does not have the products API route registered. Expected GET /api/v1/products. Register/deploy the backend products routes, then retry.";
+  }
+
   const parts: string[] = [];
 
   const collect = (value: unknown) => {

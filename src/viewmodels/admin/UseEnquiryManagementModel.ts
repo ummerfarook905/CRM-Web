@@ -5,7 +5,7 @@ import type { Enquiry, EnquiryStatus } from "../../models/admin/Enquiry";
 
 export function useEnquiryManagementViewModel() {
   const dispatch = useAppDispatch();
-  const { items: enquiries, loading, error } = useAppSelector((state) => state.enquiries);
+  const { items: enquiries, total, loading, error } = useAppSelector((state) => state.enquiries);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | EnquiryStatus>("All");
 
@@ -39,7 +39,7 @@ export function useEnquiryManagementViewModel() {
     setSearch,
     statusFilter,
     setStatusFilter,
-    totalEnquiries: enquiries.length,
+    totalEnquiries: total,
     newEnquiries: enquiries.filter((item) => item.status === "New").length,
     assignedEnquiries: enquiries.filter((item) => item.status === "Assigned").length,
     convertedEnquiries: enquiries.filter((item) => item.status === "Converted").length,

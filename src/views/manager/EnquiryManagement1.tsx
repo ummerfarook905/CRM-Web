@@ -185,13 +185,12 @@ export default function EnquiryManagement() {
       })).unwrap();
       setForm({ customerName: "", company: "", phone: "", email: "", service: "", location: "", message: "", priority: "Medium" });
       setShowForm(false);
-      const refreshResults = await Promise.allSettled([
-        dispatch(fetchEnquiries()).unwrap(),
-        dispatch(fetchCustomers()).unwrap(),
-      ]);
-      setEnquirySaveNotice(refreshResults.some((result) => result.status === "rejected")
-        ? "Enquiry and customer saved, but a list could not refresh. Refresh it to view the latest data."
-        : "Enquiry saved and linked to the customer account.");
+      try {
+        await dispatch(fetchCustomers()).unwrap();
+        setEnquirySaveNotice("Enquiry saved and linked to the customer account.");
+      } catch {
+        setEnquirySaveNotice("Enquiry saved, but the customer list could not refresh.");
+      }
     } catch (error) {
       setAssignmentError(typeof error === "string" ? error : "Failed to create enquiry.");
     }

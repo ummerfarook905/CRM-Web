@@ -65,6 +65,7 @@ export function useServiceManagementViewModel() {
   const dispatch = useAppDispatch();
 
   const services = useAppSelector((state) => state.services.items);
+  const totalServices = useAppSelector((state) => state.services.total);
   const servicesLoading = useAppSelector((state) => state.services.loading);
   const servicesError = useAppSelector((state) => state.services.error);
 
@@ -535,6 +536,7 @@ const addCategory = async (
 
   return {
     services: services ?? [],
+    totalServices,
     bookings: bookings ?? [],
     categories: categories ?? [],
     servicesLoading,

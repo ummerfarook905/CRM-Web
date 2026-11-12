@@ -86,7 +86,7 @@ export default function ServiceManagement() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           title="Total Services"
-          value={vm.services.length}
+          value={vm.totalServices}
           icon={<Wrench size={20} />}
           accent="border-blue-600"
           iconStyle="bg-blue-50 text-blue-700"

@@ -9,15 +9,63 @@ import type {
 
 interface ServicesState {
   items: Service[];
+  total: number;
   loading: boolean;
   error: string | null;
 }
 
 const initialState: ServicesState = {
   items: [],
+  total: 0,
   loading: false,
   error: null,
 };
+
+interface ServiceListResponse {
+  items: Service[];
+  total: number;
+}
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+
+function extractServices(value: unknown): ServiceListResponse | null {
+  const root = asRecord(value);
+  const data = asRecord(root.data);
+  const nestedData = asRecord(data.data);
+  const rawItems = [
+    Array.isArray(value) ? value : undefined,
+    root.items,
+    root.services,
+    Array.isArray(root.data) ? root.data : undefined,
+    data.items,
+    data.services,
+    Array.isArray(data.data) ? data.data : undefined,
+    nestedData.items,
+    nestedData.services,
+  ].find(Array.isArray) as ApiService[] | undefined;
+
+  if (!rawItems) return null;
+
+  const pagination = asRecord(root.pagination ?? data.pagination ?? nestedData.pagination);
+  const rawTotal = pagination.total
+    ?? pagination.totalItems
+    ?? pagination.totalCount
+    ?? nestedData.total
+    ?? data.total
+    ?? root.total;
+  const parsedTotal = Number(rawTotal);
+  const items = rawItems.map(mapApiService);
+
+  return {
+    items,
+    total: Number.isFinite(parsedTotal) && parsedTotal >= 0
+      ? Math.max(parsedTotal, items.length)
+      : items.length,
+  };
+}
 
 const errorText = (value: unknown, fallback: string): string => {
   if (typeof value === "string") return value;
@@ -101,20 +149,19 @@ const mapApiService = (service: ApiService): Service => {
 };
 
 export const fetchServices = createAsyncThunk<
-  Service[],
+  ServiceListResponse,
   void,
   { rejectValue: string }
 >("services/fetchAll", async (_, { rejectWithValue }) => {
   try {
     const response = await api.get("/services");
-    const result = response.data?.data ?? response.data;
-    const items = Array.isArray(result) ? result : result.services;
+    const result = extractServices(response.data);
 
-    if (!Array.isArray(items)) {
+    if (!result) {
       return rejectWithValue("The services API did not return a list.");
     }
 
-    return items.map(mapApiService);
+    return result;
   } catch (error: any) {
     return rejectWithValue(
       errorText(error.response?.data?.message, "Failed to fetch services.")
@@ -217,14 +264,17 @@ const servicesSlice = createSlice({
       })
       .addCase(fetchServices.fulfilled, (state, action) => {
         state.loading = false;
-        state.items = action.payload;
+        state.items = action.payload.items;
+        state.total = action.payload.total;
       })
       .addCase(fetchServices.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload ?? "Failed to fetch services.";
       })
       .addCase(createService.fulfilled, (state, action) => {
-        state.items.unshift(action.payload);
+        const alreadyExists = state.items.some((item) => item.id === action.payload.id);
+        if (!alreadyExists) state.items.unshift(action.payload);
+        state.total = Math.max(state.total + (alreadyExists ? 0 : 1), state.items.length);
         state.error = null;
       })
       .addCase(createService.rejected, (state, action) => {
@@ -247,6 +297,7 @@ const servicesSlice = createSlice({
         state.items = state.items.filter(
           (service) => service.id !== action.payload
         );
+        state.total = Math.max(0, state.total - 1);
 
         state.error = null;
       })

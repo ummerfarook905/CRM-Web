@@ -66,18 +66,19 @@ export function useAdminDashboardViewModel() {
   }, [dispatch]);
 
   useEffect(() => {
-    const refreshVisibleAttendance = () => {
+    const refreshVisibleDashboardData = () => {
       if (document.visibilityState === "visible") {
+        void dispatch(fetchEnquiries());
         void dispatch(fetchAttendance());
       }
     };
-    const interval = window.setInterval(refreshVisibleAttendance, 30000);
-    window.addEventListener("focus", refreshVisibleAttendance);
-    document.addEventListener("visibilitychange", refreshVisibleAttendance);
+    const interval = window.setInterval(refreshVisibleDashboardData, 30000);
+    window.addEventListener("focus", refreshVisibleDashboardData);
+    document.addEventListener("visibilitychange", refreshVisibleDashboardData);
     return () => {
       window.clearInterval(interval);
-      window.removeEventListener("focus", refreshVisibleAttendance);
-      document.removeEventListener("visibilitychange", refreshVisibleAttendance);
+      window.removeEventListener("focus", refreshVisibleDashboardData);
+      document.removeEventListener("visibilitychange", refreshVisibleDashboardData);
     };
   }, [dispatch]);
 
@@ -168,14 +169,14 @@ export function useAdminDashboardViewModel() {
     return {
       totalCustomers: customers.length,
       activeCustomers,
-      totalServices: services.length,
+      totalServices: servicesState.total,
       activeServices,
       totalBookings: bookings.length,
       pendingBookings,
       scheduledBookings,
       inProgressBookings,
       completedBookings,
-      totalEnquiries: enquiries.length,
+      totalEnquiries: enquiriesState.total,
       pendingEnquiries,
       totalEmployees: employees.length,
       pendingOvertime,
@@ -187,8 +188,10 @@ export function useAdminDashboardViewModel() {
     };
   }, [
     services,
+    servicesState.total,
     bookings,
     enquiries,
+    enquiriesState.total,
     customers,
     employees,
     attendance,

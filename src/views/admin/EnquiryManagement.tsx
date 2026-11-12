@@ -12,6 +12,7 @@ import {
   Phone,
   Plus,
   Search,
+  Trash2,
   UserRoundCheck,
   Users,
   Wrench,
@@ -42,6 +43,7 @@ import { useAssignableEmployees } from "../../viewmodels/shared/UseAssignableEmp
 
 import {
   addEnquiry as addEnquiryApi,
+  deleteEnquiryApi,
   updateEnquiryApi,
   clearEnquiryError,
   fetchEnquiries,
@@ -221,6 +223,7 @@ export default function EnquiryManagement() {
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
   const [enquirySaveNotice, setEnquirySaveNotice] = useState("");
+  const [deletingEnquiryId, setDeletingEnquiryId] = useState<string | null>(null);
   const [showService, setShowService] = useState(false);
 
   const [serviceDate, setServiceDate] = useState(today());
@@ -245,6 +248,7 @@ export default function EnquiryManagement() {
     email: "",
     service: "",
     serviceId: "",
+    location: "",
     message: "",
     priority: "Medium" as Priority,
   });
@@ -275,6 +279,23 @@ export default function EnquiryManagement() {
         return false;
       }
     };
+
+  const deleteEnquiry = async (enquiry: Enquiry) => {
+    const reference = enquiry.reference ? ` ${enquiry.reference}` : "";
+    if (!window.confirm(`Delete enquiry${reference}? This action cannot be undone.`)) return;
+
+    setDeletingEnquiryId(enquiry.id);
+    setEnquirySaveNotice("");
+    try {
+      await dispatch(deleteEnquiryApi(enquiry.id)).unwrap();
+      if (selected?.id === enquiry.id) setSelected(null);
+      setEnquirySaveNotice("Enquiry deleted successfully.");
+    } catch (error) {
+      setEnquirySaveNotice(typeof error === "string" ? error : "Failed to delete enquiry.");
+    } finally {
+      setDeletingEnquiryId(null);
+    }
+  };
 
 
   /* Receive a new enquiry */
@@ -314,6 +335,7 @@ const addEnquiry = async (
       email: "",
       service: "",
       serviceId: "",
+      location: "",
       message: "",
       priority: "Medium",
     });
@@ -326,11 +348,6 @@ const addEnquiry = async (
       await dispatch(fetchCustomers()).unwrap();
     } catch {
       setEnquirySaveNotice("Enquiry saved. The customer directory did not refresh; reload Client Directory to view the customer.");
-    }
-    try {
-      await dispatch(fetchEnquiries()).unwrap();
-    } catch {
-      setEnquirySaveNotice("Enquiry saved, but the list could not refresh. Reload the page to see the latest enquiries.");
     }
   } catch (error) {
     setEnquiryFormError(typeof error === "string" ? error : "Could not save the enquiry. Check the required fields and try again.");
@@ -760,6 +777,17 @@ const addEnquiry = async (
                     <Mail size={15} />
                   </IconButton>
 
+                  <button
+                    type="button"
+                    title={deletingEnquiryId === enquiry.id ? "Deleting enquiry" : "Delete enquiry"}
+                    aria-label={deletingEnquiryId === enquiry.id ? "Deleting enquiry" : "Delete enquiry"}
+                    disabled={deletingEnquiryId === enquiry.id}
+                    onClick={() => void deleteEnquiry(enquiry)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-wait disabled:opacity-50"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+
                   {enquiry.status !== "Converted" && (
                     <button
                       type="button"
@@ -876,6 +904,17 @@ const addEnquiry = async (
                       >
                         <Mail size={15} />
                       </IconButton>
+
+                      <button
+                        type="button"
+                        title={deletingEnquiryId === enquiry.id ? "Deleting enquiry" : "Delete enquiry"}
+                        aria-label={deletingEnquiryId === enquiry.id ? "Deleting enquiry" : "Delete enquiry"}
+                        disabled={deletingEnquiryId === enquiry.id}
+                        onClick={() => void deleteEnquiry(enquiry)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-wait disabled:opacity-50"
+                      >
+                        <Trash2 size={15} />
+                      </button>
 
                       {enquiry.status !== "Converted" && (
                         <button

@@ -185,7 +185,6 @@ export default function ServiceManagement() {
     try {
       if (editingService) await dispatch(updateService({ id: editingService.id, ...payload })).unwrap();
       else await dispatch(createService(payload)).unwrap();
-      await dispatch(fetchServices()).unwrap();
       setServiceModal(false);
       setNotice(editingService ? "Service updated successfully." : "Service added successfully.");
     } catch (error) { setNotice(typeof error === "string" ? error : "Failed to save service."); }
@@ -322,7 +321,7 @@ export default function ServiceManagement() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           title="Total Services"
-          value={services.length}
+          value={serviceState.total}
           icon={Wrench}
           accent="border-blue-600"
           iconStyle="bg-blue-50 text-blue-700"

@@ -27,7 +27,10 @@ export const refreshApi = axios.create({
 
 interface RetriableRequestConfig {
   _authRetry?: boolean;
-  headers?: { set: (name: string, value: string) => void };
+  headers?: {
+    set: (name: string, value: string) => void;
+    get?: (name: string) => unknown;
+  };
 }
 
 interface RefreshResponse {
@@ -149,7 +152,7 @@ api.interceptors.request.use(
   (config) => {
     const { accessToken } = getAuthTokens();
 
-    if (accessToken) {
+    if (accessToken && !config.headers.has("Authorization")) {
       config.headers.set(
         "Authorization",
         `Bearer ${accessToken}`
@@ -170,6 +173,15 @@ api.interceptors.response.use(
 
     const request = error.config as (typeof error.config & RetriableRequestConfig) | undefined;
     if (!request || request._authRetry) return Promise.reject(error);
+
+    const requestAuthorization = request.headers?.get?.("Authorization");
+    const { accessToken: currentAccessToken } = getAuthTokens();
+    if (
+      typeof requestAuthorization === "string"
+      && requestAuthorization !== (currentAccessToken ? `Bearer ${currentAccessToken}` : "")
+    ) {
+      return Promise.reject(error);
+    }
 
     request._authRetry = true;
     refreshInFlight ??= refreshAccessToken().finally(() => {
