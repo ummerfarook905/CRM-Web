@@ -41,6 +41,40 @@ interface NotificationItem {
   createdAt: string;
 }
 
+function notificationRows(value: unknown): NotificationItem[] | null {
+  const root = value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  const data = root.data && typeof root.data === "object" && !Array.isArray(root.data)
+    ? root.data as Record<string, unknown>
+    : {};
+  const candidates = [
+    Array.isArray(value) ? value : undefined,
+    root.notifications,
+    root.items,
+    root.data,
+    data.notifications,
+    data.items,
+    data.data,
+  ];
+  const rows = candidates.find(Array.isArray);
+  return rows ? rows as NotificationItem[] : null;
+}
+
+function notificationUnreadCount(value: unknown): number | null {
+  const root = value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  const data = root.data && typeof root.data === "object" && !Array.isArray(root.data)
+    ? root.data as Record<string, unknown>
+    : {};
+  const rawCount = typeof value === "number"
+    ? value
+    : root.unreadCount ?? root.count ?? data.unreadCount ?? data.count ?? root.data;
+  const count = Number(rawCount);
+  return Number.isFinite(count) && count >= 0 ? count : null;
+}
+
 function apiErrorMessage(error: unknown): string {
   if (typeof error === "object" && error !== null && "response" in error) {
     const response = (error as { response?: { data?: { message?: unknown } } }).response;
@@ -113,13 +147,19 @@ export default function TopNav({
   const [attendanceActionError, setAttendanceActionError] = useState("");
   const [attendanceActionLoading, setAttendanceActionLoading] = useState(false);
 
+  useEffect(() => {
+    const openAttendanceControls = () => {
+      if (role === "manager") setManagerMenuOpen(true);
+    };
+    window.addEventListener("crm:open-manager-attendance", openAttendanceControls);
+    return () => window.removeEventListener("crm:open-manager-attendance", openAttendanceControls);
+  }, [role]);
+
   const loadUnreadCount = async () => {
     try {
       const response = await api.get("/notifications/unread-count");
-      const count = response.data?.data;
-      if (typeof count === "number" && Number.isFinite(count)) {
-        setUnreadCount(Math.max(0, count));
-      }
+      const count = notificationUnreadCount(response.data);
+      if (count !== null) setUnreadCount(count);
     } catch {
       // The list request will show an error when the panel is opened.
     }
@@ -129,16 +169,17 @@ export default function TopNav({
     setNotificationsLoading(true);
     setNotificationsError(null);
     try {
-      const [listResult, countResult] = await Promise.all([
-        api.get("/notifications", { params: { page: 1, limit: 20 } }),
-        api.get("/notifications/unread-count"),
-      ]);
-      const rows = listResult.data?.data;
-      if (!Array.isArray(rows)) throw new Error("Unexpected notifications response from the server.");
-      setNotifications(rows as NotificationItem[]);
-      const count = countResult.data?.data;
-      if (typeof count === "number" && Number.isFinite(count)) {
-        setUnreadCount(Math.max(0, count));
+      const listResult = await api.get("/notifications", { params: { page: 1, limit: 20 } });
+      const rows = notificationRows(listResult.data);
+      if (!rows) throw new Error("Unexpected notifications response from the server.");
+      setNotifications(rows);
+
+      try {
+        const countResult = await api.get("/notifications/unread-count");
+        const count = notificationUnreadCount(countResult.data);
+        setUnreadCount(count ?? rows.filter((item) => !item.isRead).length);
+      } catch {
+        setUnreadCount(rows.filter((item) => !item.isRead).length);
       }
     } catch (error) {
       setNotificationsError(apiErrorMessage(error));
@@ -456,12 +497,25 @@ export default function TopNav({
                 <div className="absolute right-0 top-full z-50 mt-3 w-72 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
                   {/* Dropdown Header */}
                   <div className="border-b border-slate-100 bg-slate-50 p-4">
-                    <p className="truncate text-sm font-bold text-slate-900">
-                      {name}
-                    </p>
-                    <p className="mt-1 break-all text-xs text-slate-500">
-                      {email}
-                    </p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-slate-900">
+                          {name}
+                        </p>
+                        <p className="mt-1 break-all text-xs text-slate-500">
+                          {email}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        title="Close attendance controls"
+                        aria-label="Close attendance controls"
+                        onClick={() => setManagerMenuOpen(false)}
+                        className="shrink-0 rounded-md p-1.5 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
 
                     <div className="mt-3 flex items-center gap-2">
                       <span

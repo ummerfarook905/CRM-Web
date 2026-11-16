@@ -40,7 +40,7 @@ function apiMessage(error: unknown, fallback: string): string {
 
 const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
 
-export default function LeaveApplications() {
+export default function LeaveApplications({ audience = "employee" }: { audience?: "employee" | "manager" }) {
   const [applications, setApplications] = useState<LeaveApplication[]>([]);
   const [leaveType, setLeaveType] = useState<string>(leaveTypes[0].value);
   const [startDate, setStartDate] = useState("");
@@ -97,7 +97,7 @@ export default function LeaveApplications() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">Employee self service</p>
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">{audience === "manager" ? "Manager self service" : "Employee self service"}</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">Leave applications</h1>
         <p className="mt-2 text-sm text-slate-600">Request time off and track the status of your applications.</p>
       </div>
@@ -108,7 +108,7 @@ export default function LeaveApplications() {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <div className="mb-5 flex items-center gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><CalendarDays size={21} /></span>
-          <div><h2 className="font-bold text-slate-900">New leave request</h2><p className="text-sm text-slate-500">Your request will be sent to your manager for review.</p></div>
+          <div><h2 className="font-bold text-slate-900">New leave request</h2><p className="text-sm text-slate-500">{audience === "manager" ? "Your request will be sent to an administrator for review." : "Your request will be sent to your manager for review."}</p></div>
         </div>
         <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
           <label className="space-y-1.5 text-sm font-medium text-slate-700">Start date<input className={inputClass} type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required /></label>

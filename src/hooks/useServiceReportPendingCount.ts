@@ -23,10 +23,23 @@ function findCount(value: unknown, path: string[] = []): number | null {
 function totalFromList(value: unknown): number {
   const root = record(value);
   const data = record(root.data);
-  const pagination = record(root.pagination ?? data.pagination);
-  if (Number.isFinite(Number(pagination.total))) return Number(pagination.total);
-  const items = Array.isArray(root.data) ? root.data : Array.isArray(data.items) ? data.items : Array.isArray(root.items) ? root.items : [];
-  return items.length;
+  const nested = record(data.data);
+  const pagination = record(root.pagination ?? data.pagination ?? nested.pagination);
+  const rawTotal = pagination.total ?? pagination.totalItems ?? pagination.totalCount ?? nested.total ?? data.total ?? root.total;
+  const total = rawTotal == null ? Number.NaN : Number(rawTotal);
+  if (Number.isFinite(total) && total >= 0) return total;
+  const items = [
+    Array.isArray(value) ? value : undefined,
+    Array.isArray(root.data) ? root.data : undefined,
+    Array.isArray(root.items) ? root.items : undefined,
+    Array.isArray(root.reports) ? root.reports : undefined,
+    Array.isArray(data.data) ? data.data : undefined,
+    Array.isArray(data.items) ? data.items : undefined,
+    Array.isArray(data.reports) ? data.reports : undefined,
+    Array.isArray(nested.items) ? nested.items : undefined,
+    Array.isArray(nested.reports) ? nested.reports : undefined,
+  ].find(Array.isArray);
+  return items?.length ?? 0;
 }
 
 export function useServiceReportPendingCount(role: DashboardRole) {

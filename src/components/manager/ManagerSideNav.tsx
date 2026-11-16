@@ -20,6 +20,7 @@ import {
   UsersRound,
   UserRoundPlus,
   Package,
+  ArrowRightLeft,
 } from "lucide-react";
 
 import { useState } from "react";
@@ -66,6 +67,11 @@ export default function ManagerSideNav({
           name: "Work Orders & Enquiries",
           path: "/manager/Enquiries1",
           icon: ClipboardList,
+        },
+        {
+          name: "Work Transfers",
+          path: "/manager/WorkTransfers",
+          icon: ArrowRightLeft,
         },
         {
           name: "Client Directory",

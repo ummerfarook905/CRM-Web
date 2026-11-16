@@ -2,6 +2,7 @@ import {
   Activity,
   ArrowRight,
   CalendarDays,
+  CalendarPlus,
   CalendarRange,
   CircleHelp,
   Clock3,
@@ -25,14 +26,16 @@ type CalendarHoliday = { date: string; name: string; isWorkingDay: boolean };
 const rowsFromResponse = (value: unknown): Record<string, unknown>[] => {
   const root = value && typeof value === "object" ? value as Record<string, unknown> : {};
   const data = root.data && typeof root.data === "object" ? root.data as Record<string, unknown> : undefined;
-  const rows = [root.items, root.data, root.expenses, root.leaves, data?.items, data?.data, data?.expenses, data?.leaves].find(Array.isArray);
+  const nested = data?.data && typeof data.data === "object" ? data.data as Record<string, unknown> : undefined;
+  const rows = [root.items, root.data, root.expenses, root.leaves, data?.items, data?.data, data?.expenses, data?.leaves, nested?.items, nested?.expenses, nested?.leaves].find(Array.isArray);
   return Array.isArray(rows) ? rows.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object")) : [];
 };
 const totalFromResponse = (value: unknown) => {
   const root = value && typeof value === "object" ? value as Record<string, unknown> : {};
   const data = root.data && typeof root.data === "object" ? root.data as Record<string, unknown> : undefined;
-  const pagination = (root.pagination && typeof root.pagination === "object" ? root.pagination : data?.pagination) as Record<string, unknown> | undefined;
-  const total = Number(pagination?.total ?? pagination?.totalItems ?? pagination?.totalCount);
+  const nested = data?.data && typeof data.data === "object" ? data.data as Record<string, unknown> : undefined;
+  const pagination = (root.pagination && typeof root.pagination === "object" ? root.pagination : data?.pagination ?? nested?.pagination) as Record<string, unknown> | undefined;
+  const total = Number(pagination?.total ?? pagination?.totalItems ?? pagination?.totalCount ?? nested?.total ?? data?.total ?? root.total);
   return Number.isFinite(total) && total >= 0 ? total : rowsFromResponse(value).length;
 };
 
@@ -69,6 +72,7 @@ export default function ManagerDashboard() {
   const dispatch = useAppDispatch();
   const { items: workOrders, loading, error } = useAppSelector((state) => state.workMonitoring);
   const reportReview = useServiceReportPendingCount("manager");
+  const refreshReportReview = reportReview.refresh;
   const [now, setNow] = useState(() => new Date());
   const [pendingCounts, setPendingCounts] = useState<{ expenses: number | null; leave: number | null }>({ expenses: null, leave: null });
   const [upcomingHolidays, setUpcomingHolidays] = useState<CalendarHoliday[]>([]);
@@ -78,13 +82,13 @@ export default function ManagerDashboard() {
   const currentDateKey = dateKey(now);
 
   useEffect(() => {
-    void dispatch(fetchWorkOrders({ page: 1, limit: 100 }));
-    const timer = window.setInterval(() => setNow(new Date()), 60_000);
-    return () => window.clearInterval(timer);
-  }, [dispatch]);
-
-  useEffect(() => {
     let active = true;
+    const refreshVisibleDashboard = () => {
+      if (document.visibilityState !== "visible") return;
+      void dispatch(fetchWorkOrders({ page: 1, limit: 100 }));
+      void refreshReportReview();
+      void loadManagerData();
+    };
     const loadManagerData = async () => {
       setManagerDataLoading(true);
       setManagerDataError("");
@@ -103,21 +107,40 @@ export default function ManagerDashboard() {
       if (calendar.status === "fulfilled") {
         const root = calendar.value.data && typeof calendar.value.data === "object" ? calendar.value.data as Record<string, unknown> : {};
         const data = root.data && typeof root.data === "object" ? root.data as Record<string, unknown> : root;
-        const holidays = Array.isArray(data.holidays) ? data.holidays : [];
+        const calendarEntries = Array.isArray(data.exceptions)
+          ? data.exceptions
+          : Array.isArray(data.holidays)
+            ? data.holidays
+            : [];
         const todayKey = currentDateKey;
-        setUpcomingHolidays(holidays.flatMap((value): CalendarHoliday[] => {
+        setUpcomingHolidays(calendarEntries.flatMap((value): CalendarHoliday[] => {
           if (!value || typeof value !== "object") return [];
           const holiday = value as Record<string, unknown>;
-          if (typeof holiday.date !== "string" || holiday.date.slice(0, 10) < todayKey) return [];
-          return [{ date: holiday.date.slice(0, 10), name: String(holiday.name ?? "Holiday"), isWorkingDay: Boolean(holiday.isWorkingDay) }];
+          const type = String(holiday.type ?? "").toUpperCase();
+          const date = typeof holiday.date === "string" ? holiday.date.slice(0, 10) : "";
+          if (!date || date < todayKey || (type ? type !== "HOLIDAY" : Boolean(holiday.isWorkingDay))) return [];
+          return [{ date, name: String(holiday.title ?? holiday.name ?? "Holiday"), isWorkingDay: Boolean(holiday.isWorkingDay) }];
         }).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5));
       } else errors.push("upcoming holidays");
+      if (!active) return;
       setManagerDataError(errors.length ? `Some manager data is unavailable: ${errors.join(", ")}.` : "");
       setManagerDataLoading(false);
     };
-    void loadManagerData();
-    return () => { active = false; };
-  }, [currentYear, currentDateKey]);
+    const syncClock = () => setNow(new Date());
+    refreshVisibleDashboard();
+    const timer = window.setInterval(() => {
+      syncClock();
+      refreshVisibleDashboard();
+    }, 60_000);
+    window.addEventListener("focus", refreshVisibleDashboard);
+    document.addEventListener("visibilitychange", refreshVisibleDashboard);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshVisibleDashboard);
+      document.removeEventListener("visibilitychange", refreshVisibleDashboard);
+    };
+  }, [dispatch, currentYear, currentDateKey, refreshReportReview]);
 
   const today = dateKey(now);
   const scheduledToday = workOrders.filter((work) => work.scheduledDate?.slice(0, 10) === today);
@@ -178,9 +201,19 @@ export default function ManagerDashboard() {
           <span className={`h-2 w-2 rounded-full ${loading ? "animate-pulse bg-amber-400" : "bg-emerald-500"}`} />
           {loading ? "Syncing backend data" : "Backend data connected"}
         </div>
+        <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          <button type="button" onClick={() => window.dispatchEvent(new Event("crm:open-manager-attendance"))} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2">
+            <Clock3 size={16} />
+            Mark attendance
+          </button>
+          <button type="button" onClick={() => navigate("/manager/ApplyLeave")} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2">
+            <CalendarPlus size={16} />
+            Apply for leave
+          </button>
+        </div>
       </header>
 
-      {(error || managerDataError) && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{[error ? `Work orders: ${error}` : "", managerDataError].filter(Boolean).join(" ")}</div>}
+      {(error || reportReview.error || managerDataError) && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{[error ? `Work orders: ${error}` : "", reportReview.error ? `Service reports: ${reportReview.error}` : "", managerDataError].filter(Boolean).join(" ")}</div>}
 
       <section aria-label="Manager operations overview" className="space-y-3 rounded-[26px] border border-blue-200/70 bg-gradient-to-br from-blue-100 via-blue-300 to-blue-600 p-3 shadow-[0_18px_50px_rgba(37,99,235,0.17)] sm:p-4">
         <div className="grid gap-3 xl:grid-cols-[minmax(178px,1fr)_minmax(220px,1.45fr)_minmax(165px,0.95fr)_minmax(210px,1.35fr)_minmax(180px,1fr)]">

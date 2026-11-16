@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Users,
   ChartNoAxesColumn,
+  ArrowRightLeft,
   Package,
 } from "lucide-react";
 
@@ -67,6 +68,11 @@ export default function AdminSideNav({
           name: "Service Requests & Bookings",
           path: "/admin/Services",
           icon: PanelsTopLeft,
+        },
+        {
+          name: "Work Transfers",
+          path: "/admin/WorkTransfers",
+          icon: ArrowRightLeft,
         },
         {
           name: "Expense Claims",

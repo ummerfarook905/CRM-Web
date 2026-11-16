@@ -211,19 +211,31 @@ export const fetchWorkOrders = createAsyncThunk<
     const response = await api.get("/work-orders", { params });
     const root = record(response.data);
     const body = record(root.data);
+    const nested = record(body.data);
     const rows = Array.isArray(root.data)
       ? root.data
+      : Array.isArray(body.data)
+        ? body.data
       : Array.isArray(body.items)
         ? body.items
         : Array.isArray(body.workOrders)
           ? body.workOrders
+          : Array.isArray(nested.items)
+            ? nested.items
+            : Array.isArray(nested.workOrders)
+              ? nested.workOrders
           : Array.isArray(root.items)
             ? root.items
+            : Array.isArray(root.workOrders)
+              ? root.workOrders
             : [];
-    const pageInfo = record(root.pagination ?? body.pagination);
+    const pageInfo = record(root.pagination ?? body.pagination ?? nested.pagination);
     const page = Number(pageInfo.page) || query.page || 1;
     const limit = Number(pageInfo.limit) || query.limit || 20;
-    const total = Number(pageInfo.total) || rows.length;
+    const parsedTotal = Number(pageInfo.total ?? pageInfo.totalItems ?? pageInfo.totalCount);
+    const total = Number.isFinite(parsedTotal) && parsedTotal >= 0
+      ? Math.max(parsedTotal, rows.length)
+      : rows.length;
     return {
       items: rows.map(mapWorkOrder),
       pagination: {

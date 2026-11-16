@@ -40,6 +40,7 @@ import LeaveApplications from "../views/shared/LeaveApplications";
 import LeaveReviews from "../views/shared/LeaveReviews";
 import BillingManagement from "../views/shared/BillingManagement";
 import ProductManagement from "../views/shared/ProductManagement";
+import WorkTransfers from "../views/shared/WorkTransfers";
 
 
 export default function AppRoutes() {
@@ -164,6 +165,7 @@ export default function AppRoutes() {
 
           <Route path="Expenses" element={<Expenses review />} />
           <Route path="LeaveApplications" element={<LeaveReviews />} />
+          <Route path="WorkTransfers" element={<WorkTransfers />} />
 
           <Route path="Billing" element={<BillingManagement />} />
 
@@ -241,6 +243,8 @@ export default function AppRoutes() {
 
           <Route path="Expenses" element={<Expenses review />} />
           <Route path="LeaveApplications" element={<LeaveReviews />} />
+          <Route path="WorkTransfers" element={<WorkTransfers />} />
+          <Route path="ApplyLeave" element={<LeaveApplications audience="manager" />} />
 
           <Route path="WorkingCalendar" element={<WorkingCalendar />} />
 
