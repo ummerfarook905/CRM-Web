@@ -16,6 +16,17 @@ export const api = axios.create({
   },
 });
 
+export function resolveApiAssetUrl(value: string): string {
+  if (!value) return "";
+  const browserOrigin = typeof window === "undefined" ? "http://localhost" : window.location.origin;
+  try {
+    const apiOrigin = new URL(api.defaults.baseURL ?? browserOrigin, browserOrigin).origin;
+    return new URL(value, apiOrigin).toString();
+  } catch {
+    return value;
+  }
+}
+
 // Separate Axios instance for refreshing tokens.
 // It does not use the authenticated request interceptor.
 export const refreshApi = axios.create({

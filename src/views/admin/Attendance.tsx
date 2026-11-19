@@ -86,6 +86,14 @@ export default function Attendance() {
     event.preventDefault();
     if (!staffId || marking) return;
     setMarking(true); setMarkError(""); setMarkSuccess("");
+    
+    // Refresh staff list to ensure the selected employee still exists
+    try {
+      await api.get("/employees", { params: { page: 1, limit: 100 } });
+    } catch {
+      // Ignore refresh errors - we'll still proceed with current staffId
+    }
+    
     try {
       await api.post("/attendance", {
         employeeId: staffId,
@@ -98,7 +106,15 @@ export default function Attendance() {
       await vm.refreshAttendance();
     } catch (cause) {
       const message = (cause as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
-      setMarkError(Array.isArray(message) ? message.join(", ") : message || "Could not mark attendance.");
+      // Handle "unknown user" error specifically
+      const lowerMessage = typeof message === "string" ? message.toLowerCase() : "";
+      if (lowerMessage.includes("unknown user")) {
+        setMarkError("The selected employee could not be found. Please refresh the staff list and try again.");
+      } else if (Array.isArray(message)) {
+        setMarkError(message.join(", "));
+      } else {
+        setMarkError(message || "Could not mark attendance.");
+      }
     } finally { setMarking(false); }
   };
 

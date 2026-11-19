@@ -297,18 +297,34 @@ export const fetchWorkOrderPhotos = createAsyncThunk<
 >("workMonitoring/fetchPhotos", async (id, { rejectWithValue }) => {
   try {
     const response = await api.get("/work-photos", { params: { workOrderId: id } });
-    const data = unwrap(response.data);
+    const root = record(response.data);
+    const data = record(root.data);
+    const nested = record(data.data);
+    const rows = [
+      Array.isArray(response.data) ? response.data : undefined,
+      Array.isArray(root.data) ? root.data : undefined,
+      root.items,
+      root.photos,
+      root.workPhotos,
+      data.items,
+      data.photos,
+      data.workPhotos,
+      Array.isArray(data.data) ? data.data : undefined,
+      nested.items,
+      nested.photos,
+      nested.workPhotos,
+    ].find(Array.isArray);
     return {
       workOrderId: id,
-      items: Array.isArray(data) ? data.map((entry) => {
+      items: Array.isArray(rows) ? rows.map((entry) => {
         const item = record(entry);
         return {
-          id: valueText(item.id),
-          imageUrl: valueText(item.imageUrl),
+          id: valueText(item.id ?? item.photoId),
+          imageUrl: valueText(item.imageUrl ?? item.url ?? item.photoUrl ?? item.fileUrl ?? item.path),
           caption: valueText(item.caption),
           createdAt: valueText(item.createdAt),
         };
-      }) : [],
+      }).filter((item) => item.imageUrl) : [],
     };
   } catch (error) {
     return rejectWithValue(errorMessage(error));
