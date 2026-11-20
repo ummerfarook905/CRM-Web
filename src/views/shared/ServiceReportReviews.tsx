@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, FileCheck2, RefreshCw, RotateCcw, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Check, ChevronLeft, ChevronRight, Download, FileCheck2, RefreshCw, RotateCcw, X } from "lucide-react";
 import { api } from "../../api/axios";
 import { useAppSelector } from "../../app/Hooks";
 import { submitServiceReportDecision, type ServiceReportDecision } from "../../services/ServiceReportReviewApi";
@@ -27,6 +28,14 @@ interface ServiceReport {
   raw: UnknownRecord;
 }
 interface Pager { page: number; limit: number; total: number; totalPages: number }
+type ReportTab = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
+
+const reportTabStatus: Record<ReportTab, string | undefined> = {
+  ALL: undefined,
+  PENDING: undefined,
+  APPROVED: "APPROVED",
+  REJECTED: "CORRECTION_REQUIRED",
+};
 
 const asRecord = (value: unknown): UnknownRecord => value && typeof value === "object" ? value as UnknownRecord : {};
 const text = (value: unknown, fallback = "—"): string => typeof value === "string" || typeof value === "number" ? String(value) : fallback;
@@ -50,6 +59,17 @@ function rowsOf(value: unknown): unknown[] {
     if (Array.isArray(candidate)) return candidate;
   }
   return [];
+}
+function pageInfo(value: unknown, fallbackPage: number, fallbackLimit: number) {
+  const root = asRecord(value);
+  const body = unwrap(value);
+  const nested = asRecord(body.data);
+  const info = asRecord(root.pagination ?? body.pagination ?? nested.pagination);
+  const parsedTotal = Number(info.total ?? info.totalItems ?? info.totalCount ?? nested.total ?? body.total ?? root.total);
+  const total = Number.isFinite(parsedTotal) && parsedTotal >= 0 ? parsedTotal : 0;
+  const limit = Number(info.limit ?? fallbackLimit) || fallbackLimit;
+  const totalPages = Number(info.totalPages ?? Math.max(1, Math.ceil(total / limit))) || 1;
+  return { page: Number(info.page ?? fallbackPage) || fallbackPage, limit, total, totalPages };
 }
 function mapReport(value: unknown): ServiceReport {
   const raw = asRecord(value);
@@ -136,13 +156,16 @@ export default function ServiceReportReviews() {
   const canReview = ["admin", "super_admin", "manager"].includes(role);
   const [items, setItems] = useState<ServiceReport[]>([]);
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState("SUBMITTED");
+  const [statusFilter, setStatusFilter] = useState<ReportTab>("PENDING");
   const [pagination, setPagination] = useState<Pager>({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<ServiceReport | null>(null);
+  const dialogOpen = selected !== null;
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
   const [note, setNote] = useState("");
   const [acting, setActing] = useState(false);
   const [notice, setNotice] = useState("");
@@ -156,29 +179,50 @@ export default function ServiceReportReviews() {
     completionRemarks: "",
   });
 
+  useEffect(() => {
+    if (!dialogOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [dialogOpen]);
+
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const response = await api.get("/service-reports", { params: { page, limit: 20, status: statusFilter } });
-      assertSuccess(response.data);
-      const root = asRecord(response.data);
-      const body = unwrap(response.data);
-      const rows = rowsOf(response.data);
-      const nested = asRecord(body.data);
-      const pageData = asRecord(root.pagination ?? body.pagination ?? nested.pagination);
-      const parsedTotal = Number(pageData.total ?? pageData.totalItems ?? pageData.totalCount ?? nested.total ?? body.total ?? root.total);
-      const total = Number.isFinite(parsedTotal) && parsedTotal >= 0 ? Math.max(parsedTotal, rows.length) : rows.length;
-      const limit = Number(pageData.limit ?? 20);
-      const pages = Number(pageData.totalPages ?? Math.max(1, Math.ceil(total / limit)));
-      setItems(rows.map(mapReport));
-      setPagination({ page: Number(pageData.page ?? page) || page, limit, total, totalPages: pages || 1 });
+      const requestPage = async (status: string | undefined, requestedPage: number) => {
+        const response = await api.get("/service-reports", { params: { page: requestedPage, limit: 20, ...(status ? { status } : {}) } });
+        assertSuccess(response.data);
+        return { rows: rowsOf(response.data), pagination: pageInfo(response.data, requestedPage, 20) };
+      };
+
+      if (statusFilter === "PENDING") {
+        const fetchAllForStatus = async (status: "SUBMITTED" | "UNDER_REVIEW") => {
+          const first = await requestPage(status, 1);
+          const allRows = [...first.rows];
+          for (let requestedPage = 2; requestedPage <= first.pagination.totalPages; requestedPage += 1) {
+            allRows.push(...(await requestPage(status, requestedPage)).rows);
+          }
+          return allRows;
+        };
+        const pendingRows = (await Promise.all([fetchAllForStatus("SUBMITTED"), fetchAllForStatus("UNDER_REVIEW")]))
+          .flat()
+          .map(mapReport)
+          .sort((left, right) => Date.parse(right.submittedAt) - Date.parse(left.submittedAt));
+        const total = pendingRows.length;
+        setItems(pendingRows.slice((page - 1) * 20, page * 20));
+        setPagination({ page, limit: 20, total, totalPages: Math.max(1, Math.ceil(total / 20)) });
+      } else {
+        const result = await requestPage(reportTabStatus[statusFilter], page);
+        setItems(result.rows.map(mapReport));
+        setPagination({ ...result.pagination, total: Math.max(result.pagination.total, result.rows.length) });
+      }
     } catch (cause) { setError(errorMessage(cause, "Could not load submitted service reports.")); }
     finally { setLoading(false); }
   }, [page, statusFilter]);
   useEffect(() => { void load(); }, [load]);
 
   const openDetail = async (item: ServiceReport) => {
-    setSelected(item); setNote(""); setEditing(false); setDetailLoading(true); setDetailError("");
+    setSelected(item); setNote(""); setEditing(false); setDetailLoading(true); setDetailError(""); setDownloadError("");
     try {
       const response = await api.get(`/service-reports/${encodeURIComponent(item.id)}`);
       assertSuccess(response.data);
@@ -195,6 +239,28 @@ export default function ServiceReportReviews() {
       });
     } catch (cause) { setDetailError(errorMessage(cause, "Could not load report details.")); }
     finally { setDetailLoading(false); }
+  };
+
+  const downloadReport = async () => {
+    if (!selected || downloading) return;
+    setDownloading(true);
+    setDownloadError("");
+    let url: string | undefined;
+    try {
+      const response = await api.get(`/service-reports/${encodeURIComponent(selected.id)}/pdf`, { responseType: "blob" });
+      url = URL.createObjectURL(response.data);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${selected.reportNumber || "service-report"}.pdf`.replace(/[\\/:*?"<>|]/g, "-");
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    } catch {
+      setDownloadError("Could not download the service report. Please try again.");
+    } finally {
+      if (url) URL.revokeObjectURL(url);
+      setDownloading(false);
+    }
   };
 
   const saveReviewEdits = async () => {
@@ -274,20 +340,20 @@ export default function ServiceReportReviews() {
     {notice && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
     {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}<button onClick={() => void load()} className="font-semibold underline">Retry</button></div>}
     {!canReview && <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">You can view reports but do not have permission to approve or request corrections.</p>}
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5"><div><h2 className="text-lg font-bold text-slate-900">Review queue</h2><p className="mt-1 text-sm text-slate-500">{pagination.total} report{pagination.total === 1 ? "" : "s"} in this queue</p></div><label className="flex items-center gap-2 text-sm font-medium text-slate-600">Status<select className={`${inputClass} w-auto`} value={statusFilter} onChange={(event) => { setPage(1); setStatusFilter(event.target.value); }}><option value="SUBMITTED">Submitted</option><option value="UNDER_REVIEW">Under review</option><option value="APPROVED">Approved</option><option value="CORRECTION_REQUIRED">Correction requested</option></select></label></div>
-      {loading ? <p role="status" className="p-10 text-center text-sm text-slate-500">Loading reports…</p> : items.length === 0 ? <div className="p-12 text-center"><FileCheck2 size={32} className="mx-auto text-slate-300"/><h3 className="mt-3 font-semibold text-slate-800">No reports awaiting review</h3><p className="mt-1 text-sm text-slate-500">Reports submitted by technicians will appear here.</p></div> : <><div className="overflow-x-auto"><table className="w-full min-w-[1050px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Report / work order</th><th className="px-4 py-3">Customer / service</th><th className="px-4 py-3">Location</th><th className="px-4 py-3">Technician</th><th className="px-4 py-3">Submitted</th><th className="px-4 py-3">Status</th><th className="px-4 py-3"/></tr></thead><tbody className="divide-y divide-slate-100">{items.map((item) => { const work = item.workOrder; return <tr key={item.id} className="hover:bg-slate-50/70"><td className="px-4 py-4"><p className="font-bold text-slate-900">{item.reportNumber}</p><p className="mt-1 text-xs text-slate-500">{text(work.workOrderNumber ?? work.reference ?? work.id)}</p></td><td className="px-4 py-4"><p className="font-semibold text-slate-800">{nameOf(customerFor(work))}</p><p className="text-xs text-slate-500">{text(serviceFor(work).name ?? work.serviceName)}</p></td><td className="px-4 py-4 text-slate-700">{locationFor(work)}</td><td className="px-4 py-4 text-slate-700">{nameOf(item.employee)}</td><td className="px-4 py-4 text-slate-600">{dateTime(item.submittedAt)}</td><td className="px-4 py-4">{statusPill(item.status)}</td><td className="px-4 py-4"><button onClick={() => void openDetail(item)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400">Review</button></td></tr>; })}</tbody></table></div><footer className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm text-slate-500"><span>Page {pagination.page} of {pagination.totalPages}</span><div className="flex gap-2"><button aria-label="Previous page" disabled={page <= 1 || loading} onClick={() => setPage((current) => current - 1)} className="rounded-lg border border-slate-200 p-2 disabled:opacity-40"><ChevronLeft size={16}/></button><button aria-label="Next page" disabled={page >= pagination.totalPages || loading} onClick={() => setPage((current) => current + 1)} className="rounded-lg border border-slate-200 p-2 disabled:opacity-40"><ChevronRight size={16}/></button></div></footer></>}
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-100 p-4 sm:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold text-slate-900">Service reports</h2><p className="mt-1 text-sm text-slate-500">{pagination.total} report{pagination.total === 1 ? "" : "s"} in this view</p></div></div><div role="tablist" aria-label="Filter service reports" className="mt-4 flex gap-2 overflow-x-auto pb-1">{([ ["ALL", "All reports"], ["PENDING", "Pending"], ["APPROVED", "Approved"], ["REJECTED", "Rejected"] ] as const).map(([tab, title]) => <button key={tab} type="button" role="tab" aria-selected={statusFilter === tab} onClick={() => { setPage(1); setStatusFilter(tab); }} className={`shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition ${statusFilter === tab ? "bg-emerald-800 text-white shadow-sm" : "border border-slate-200 bg-white text-slate-600 hover:border-emerald-400 hover:text-emerald-800"}`}>{title}</button>)}</div></div>
+      {loading ? <p role="status" className="p-10 text-center text-sm text-slate-500">Loading reports…</p> : items.length === 0 ? <div className="p-12 text-center"><FileCheck2 size={32} className="mx-auto text-slate-300"/><h3 className="mt-3 font-semibold text-slate-800">No {statusFilter === "ALL" ? "service" : statusFilter.toLowerCase()} reports found</h3><p className="mt-1 text-sm text-slate-500">Reports matching this tab will appear here.</p></div> : <><div className="overflow-x-auto"><table className="w-full min-w-[1050px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Report / work order</th><th className="px-4 py-3">Customer / service</th><th className="px-4 py-3">Location</th><th className="px-4 py-3">Technician</th><th className="px-4 py-3">Submitted</th><th className="px-4 py-3">Status</th><th className="px-4 py-3"/></tr></thead><tbody className="divide-y divide-slate-100">{items.map((item) => { const work = item.workOrder; return <tr key={item.id} className="hover:bg-slate-50/70"><td className="px-4 py-4"><p className="font-bold text-slate-900">{item.reportNumber}</p><p className="mt-1 text-xs text-slate-500">{text(work.workOrderNumber ?? work.reference ?? work.id)}</p></td><td className="px-4 py-4"><p className="font-semibold text-slate-800">{nameOf(customerFor(work))}</p><p className="text-xs text-slate-500">{text(serviceFor(work).name ?? work.serviceName)}</p></td><td className="px-4 py-4 text-slate-700">{locationFor(work)}</td><td className="px-4 py-4 text-slate-700">{nameOf(item.employee)}</td><td className="px-4 py-4 text-slate-600">{dateTime(item.submittedAt)}</td><td className="px-4 py-4">{statusPill(item.status)}</td><td className="px-4 py-4"><button onClick={() => void openDetail(item)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400">Review</button></td></tr>; })}</tbody></table></div><footer className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm text-slate-500"><span>Page {pagination.page} of {pagination.totalPages}</span><div className="flex gap-2"><button aria-label="Previous page" disabled={page <= 1 || loading} onClick={() => setPage((current) => current - 1)} className="rounded-lg border border-slate-200 p-2 disabled:opacity-40"><ChevronLeft size={16}/></button><button aria-label="Next page" disabled={page >= pagination.totalPages || loading} onClick={() => setPage((current) => current + 1)} className="rounded-lg border border-slate-200 p-2 disabled:opacity-40"><ChevronRight size={16}/></button></div></footer></>}
     </section>
-      {selected && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/50 p-3 sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget && !acting) setSelected(null); }}><section role="dialog" aria-modal="true" aria-labelledby="report-review-title" className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl"><header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur"><div><p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Submitted service report</p><h2 id="report-review-title" className="mt-1 text-xl font-bold text-slate-900">{selected.reportNumber}</h2></div><button aria-label="Close report" onClick={() => setSelected(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X size={20}/></button></header>
+      {selected && createPortal(<div className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-slate-950/50 p-3 backdrop-blur-sm sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget && !acting) setSelected(null); }}><section role="dialog" aria-modal="true" aria-labelledby="report-review-title" className="my-auto max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-3rem)]"><header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur"><div><p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Submitted service report</p><h2 id="report-review-title" className="mt-1 text-xl font-bold text-slate-900">{selected.reportNumber}</h2></div><div className="flex items-center gap-2"><button type="button" disabled={downloading || detailLoading} onClick={() => void downloadReport()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400 disabled:opacity-50"><Download size={15}/>{downloading ? "Preparing…" : "Download PDF"}</button><button aria-label="Close report" onClick={() => setSelected(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X size={20}/></button></div></header>
       {detailLoading ? <p role="status" className="p-10 text-center text-sm text-slate-500">Loading report details…</p> : <div className="space-y-6 p-5"><div className="grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-3"><Info label="Status" value={label(selected.status)}/><Info label="Submitted" value={dateTime(selected.submittedAt)}/><Info label="Technician" value={nameOf(selected.employee)}/><Info label="Assigned manager" value={nameOf(selected.workOrder.manager ?? selected.workOrder.assignedManager)}/><Info label="Employee ID" value={text(selected.employee.employeeNo ?? selected.employee.id)}/><Info label="Employee contact" value={text(asRecord(selected.employee.user).email ?? selected.employee.email)}/><Info label="Work order" value={text(selected.workOrder.workOrderNumber ?? selected.workOrder.reference ?? selected.workOrder.id)}/><Info label="Work order status" value={label(selected.workOrder.status)}/><Info label="Scheduled" value={dateTime(text(selected.workOrder.scheduledDate ?? selected.workOrder.scheduledAt, ""))}/><Info label="Customer" value={nameOf(customerFor(selected.workOrder))}/><Info label="Customer contact" value={text(asRecord(customerFor(selected.workOrder).user).phone ?? customerFor(selected.workOrder).phone)}/><Info label="Service" value={text(serviceFor(selected.workOrder).name ?? selected.workOrder.serviceName)}/><Info label="Location" value={locationFor(selected.workOrder)}/></div>
         <section className="rounded-xl border border-slate-200 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-sm font-bold text-slate-900">Work completion location</h3>{selected.latitude !== null && selected.longitude !== null ? <><p className="mt-1 text-xs text-slate-600">Latitude {selected.latitude} · Longitude {selected.longitude}</p><p className="mt-1 text-xs text-slate-500">{locationFor(selected.workOrder)}</p></> : <p className="mt-1 text-sm text-slate-500">GPS location was not included with this report.</p>}</div>{selected.latitude !== null && selected.longitude !== null && <a href={`https://www.google.com/maps?q=${selected.latitude},${selected.longitude}`} target="_blank" rel="noreferrer" className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50">Open in Maps</a>}</div>{selected.latitude !== null && selected.longitude !== null && <iframe title="Service completion map" src={`https://maps.google.com/maps?q=${selected.latitude},${selected.longitude}&z=15&output=embed`} loading="lazy" referrerPolicy="no-referrer-when-downgrade" className="mt-4 h-56 w-full rounded-lg border-0"/>}</section>
         <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-bold text-slate-900">Report details</h3>{canReview && activeReview(selected.status) && !editing && <button type="button" onClick={() => setEditing(true)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400">Edit report</button>}</div>
         <div className="grid gap-4 md:grid-cols-2">{([ ["Work summary", "workSummary"], ["Work performed", "workPerformed"], ["Issues found", "issuesFound"], ["Materials used", "materialsUsed"], ["Recommendations", "recommendations"], ["Completion remarks", "completionRemarks"] ] as const).map(([title, key]) => <article key={key} className="rounded-xl border border-slate-200 p-4"><h3 className="text-sm font-bold text-slate-900">{title}</h3>{editing ? <textarea className={`${inputClass} mt-2`} rows={4} value={editDraft[key]} onChange={(event) => setEditDraft((current) => ({ ...current, [key]: event.target.value }))}/> : <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{selected[key] || "No details provided."}</p>}</article>)}</div>
         <section><h3 className="mb-3 text-sm font-bold text-slate-900">Attached photos <span className="ml-1 text-xs font-medium text-slate-400">({selected.photos.length})</span></h3><ReportPhotoGallery photos={selected.photos}/></section>
-        {detailError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{detailError}</p>}
+        {downloadError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{downloadError}</p>}{detailError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{detailError}</p>}
         {canReview && activeReview(selected.status) && <div className="space-y-3 border-t border-slate-200 pt-4">{editing && <div className="flex justify-end gap-2"><button type="button" disabled={acting} onClick={() => { setEditing(false); setEditDraft({ workSummary: selected.workSummary, workPerformed: selected.workPerformed, issuesFound: selected.issuesFound, materialsUsed: selected.materialsUsed, recommendations: selected.recommendations, completionRemarks: selected.completionRemarks }); }} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700">Cancel edits</button><button type="button" disabled={acting} onClick={() => void saveReviewEdits()} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{acting ? "Saving…" : "Save edits"}</button></div>}<label className="block text-sm font-semibold text-slate-700">Reviewer note <span className="font-normal text-slate-400">(optional for approval, required for correction)</span><textarea className={`${inputClass} mt-1.5`} rows={3} maxLength={1000} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Add feedback for the technician"/></label><div className="flex flex-wrap justify-end gap-2"><button disabled={acting || editing} onClick={() => void decide("request-correction")} className="inline-flex items-center gap-2 rounded-lg border border-amber-300 px-4 py-2.5 text-sm font-semibold text-amber-800 hover:bg-amber-50 disabled:opacity-50"><RotateCcw size={15}/>Reject / request corrections</button><button disabled={acting || editing} onClick={() => void decide("approve")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-50"><Check size={16}/>{acting ? "Saving…" : "Approve report"}</button></div></div>}
         {canReview && !activeReview(selected.status) && <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">This report has already been reviewed. No further decision can be submitted.</p>}
       </div>}
-    </section></div>}
+    </section></div>, document.body)}
   </div>;
 }
 
