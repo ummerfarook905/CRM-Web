@@ -21,7 +21,13 @@ export function resolveApiAssetUrl(value: string): string {
   const browserOrigin = typeof window === "undefined" ? "http://localhost" : window.location.origin;
   try {
     const apiOrigin = new URL(api.defaults.baseURL ?? browserOrigin, browserOrigin).origin;
-    return new URL(value, apiOrigin).toString();
+    const assetUrl = new URL(value, apiOrigin);
+    // Locally uploaded files should use the CRM origin so the /uploads dev
+    // proxy can serve them without browser CORS or mixed-host issues.
+    if (assetUrl.pathname.startsWith("/uploads/") && assetUrl.origin !== browserOrigin) {
+      return new URL(`${assetUrl.pathname}${assetUrl.search}${assetUrl.hash}`, browserOrigin).toString();
+    }
+    return assetUrl.toString();
   } catch {
     return value;
   }

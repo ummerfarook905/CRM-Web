@@ -156,6 +156,12 @@ export const mapWorkOrder = (value: unknown): MonitoredWorkOrder => {
   const location = record(item.serviceLocation);
   const booking = record(item.booking);
   const counts = record(item._count);
+  const serviceReport = mapReport(item.serviceReport);
+  const rawStatus = valueText(item.status, "ASSIGNED").replaceAll("_", " ");
+  const reportApproved = serviceReport?.status.toUpperCase() === "APPROVED";
+  const displayStatus = rawStatus.toUpperCase() === "COMPLETED" && !reportApproved
+    ? "AWAITING REPORT"
+    : rawStatus;
   const address = [location.address, location.city, location.state]
     .map((part) => valueText(part))
     .filter(Boolean)
@@ -176,12 +182,12 @@ export const mapWorkOrder = (value: unknown): MonitoredWorkOrder => {
     scheduledStartTime: valueText(item.scheduledStartTime ?? booking.preferredTime),
     scheduledEndTime: valueText(item.scheduledEndTime),
     instructions: valueText(item.instructions),
-    status: valueText(item.status, "ASSIGNED").replaceAll("_", " "),
-    completedAt: valueText(item.completedAt),
+    status: displayStatus,
+    completedAt: reportApproved ? valueText(item.completedAt) : "",
     createdAt: valueText(item.createdAt),
     updatedAt: valueText(item.updatedAt),
     assignments: Array.isArray(item.assignments) ? item.assignments.map(mapAssignment) : [],
-    serviceReport: mapReport(item.serviceReport),
+    serviceReport,
     photoCount: Number(counts.photos) || 0,
     statusLogCount: Number(counts.statusLogs) || 0,
   };

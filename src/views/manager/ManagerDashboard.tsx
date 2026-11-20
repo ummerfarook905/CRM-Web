@@ -144,11 +144,11 @@ export default function ManagerDashboard() {
 
   const today = dateKey(now);
   const scheduledToday = workOrders.filter((work) => work.scheduledDate?.slice(0, 10) === today);
-  const completedCount = workOrders.filter((work) => work.status.toUpperCase() === "COMPLETED").length;
+  const completedCount = workOrders.filter((work) => work.status.toUpperCase() === "APPROVED").length;
   const completionRate = workOrders.length ? Math.round((completedCount / workOrders.length) * 100) : 0;
   const counts = useMemo(() => ({
     incoming: workOrders.filter((work) => ["REQUESTED", "PENDING", "NEW"].includes(work.status.toUpperCase())).length,
-    assigned: workOrders.filter((work) => work.assignments.length > 0 && !["IN_PROGRESS", "COMPLETED"].includes(work.status.toUpperCase())).length,
+    assigned: workOrders.filter((work) => work.assignments.length > 0 && !["IN_PROGRESS", "COMPLETED", "APPROVED", "AWAITING REPORT", "UNDER REVIEW", "CORRECTION REQUIRED"].includes(work.status.toUpperCase())).length,
     inProgress: workOrders.filter((work) => work.status.toUpperCase() === "IN_PROGRESS").length,
     completed: completedCount,
   }), [workOrders, completedCount]);

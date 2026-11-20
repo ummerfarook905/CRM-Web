@@ -21,12 +21,21 @@ export function normalizeReportPhotos(value: unknown): ReportPhoto[] {
       return photo ? [{ id: `${photo}-${index}`, imageUrl: photo, thumbnailUrl: "", caption: "" }] : [];
     }
     const item = record(photo);
-    const imageUrl = text(item.imageUrl ?? item.url ?? item.photoUrl ?? item.fileUrl ?? item.path ?? item.thumbnailUrl);
-    if (!imageUrl) return [];
+    const sourceUrl = text(item.imageUrl ?? item.url ?? item.photoUrl ?? item.fileUrl ?? item.path ?? item.thumbnailUrl);
+    if (!sourceUrl) return [];
+    const id = text(item.id ?? item.photoId) || `${sourceUrl}-${index}`;
+    const legacyPath = (() => {
+      try { return new URL(sourceUrl, window.location.origin).pathname.startsWith("/uploads/work-photos/"); }
+      catch { return sourceUrl.startsWith("/uploads/work-photos/"); }
+    })();
+    const imageUrl = legacyPath && item.id
+      ? `/api/v1/work-photos/${encodeURIComponent(id)}/image`
+      : sourceUrl;
+    const rawThumbnail = text(item.thumbnailUrl ?? item.thumbnailImageUrl ?? item.thumbnail);
     return [{
-      id: text(item.id ?? item.photoId) || `${imageUrl}-${index}`,
+      id,
       imageUrl,
-      thumbnailUrl: text(item.thumbnailUrl ?? item.thumbnailImageUrl ?? item.thumbnail),
+      thumbnailUrl: legacyPath ? imageUrl : rawThumbnail,
       caption: text(item.caption ?? item.description),
     }];
   });

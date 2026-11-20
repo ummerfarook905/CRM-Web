@@ -146,6 +146,15 @@ export default function ServiceReportReviews() {
   const [note, setNote] = useState("");
   const [acting, setActing] = useState(false);
   const [notice, setNotice] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState({
+    workSummary: "",
+    workPerformed: "",
+    issuesFound: "",
+    materialsUsed: "",
+    recommendations: "",
+    completionRemarks: "",
+  });
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -169,15 +178,50 @@ export default function ServiceReportReviews() {
   useEffect(() => { void load(); }, [load]);
 
   const openDetail = async (item: ServiceReport) => {
-    setSelected(item); setNote(""); setDetailLoading(true); setDetailError("");
+    setSelected(item); setNote(""); setEditing(false); setDetailLoading(true); setDetailError("");
     try {
       const response = await api.get(`/service-reports/${encodeURIComponent(item.id)}`);
       assertSuccess(response.data);
       const root = unwrap(response.data);
       const report = mapReport(root.serviceReport ?? root.report ?? root);
       setSelected(report);
+      setEditDraft({
+        workSummary: report.workSummary,
+        workPerformed: report.workPerformed,
+        issuesFound: report.issuesFound,
+        materialsUsed: report.materialsUsed,
+        recommendations: report.recommendations,
+        completionRemarks: report.completionRemarks,
+      });
     } catch (cause) { setDetailError(errorMessage(cause, "Could not load report details.")); }
     finally { setDetailLoading(false); }
+  };
+
+  const saveReviewEdits = async () => {
+    if (!selected || !canReview || !activeReview(selected.status) || acting) return;
+    setActing(true); setDetailError("");
+    try {
+      const response = await api.patch(`/service-reports/${encodeURIComponent(selected.id)}/review`, editDraft);
+      assertSuccess(response.data);
+      const root = unwrap(response.data);
+      const updated = mapReport(root.serviceReport ?? root.report ?? root);
+      setSelected(updated);
+      setEditDraft({
+        workSummary: updated.workSummary,
+        workPerformed: updated.workPerformed,
+        issuesFound: updated.issuesFound,
+        materialsUsed: updated.materialsUsed,
+        recommendations: updated.recommendations,
+        completionRemarks: updated.completionRemarks,
+      });
+      setEditing(false);
+      setNotice("Report edits saved. You can now approve it or request corrections.");
+      await load();
+    } catch (cause) {
+      setDetailError(errorMessage(cause, "Could not save report edits."));
+    } finally {
+      setActing(false);
+    }
   };
 
   const decide = async (decision: ServiceReportDecision) => {
@@ -236,10 +280,11 @@ export default function ServiceReportReviews() {
       {selected && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/50 p-3 sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget && !acting) setSelected(null); }}><section role="dialog" aria-modal="true" aria-labelledby="report-review-title" className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl"><header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur"><div><p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Submitted service report</p><h2 id="report-review-title" className="mt-1 text-xl font-bold text-slate-900">{selected.reportNumber}</h2></div><button aria-label="Close report" onClick={() => setSelected(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X size={20}/></button></header>
       {detailLoading ? <p role="status" className="p-10 text-center text-sm text-slate-500">Loading report details…</p> : <div className="space-y-6 p-5"><div className="grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-3"><Info label="Status" value={label(selected.status)}/><Info label="Submitted" value={dateTime(selected.submittedAt)}/><Info label="Technician" value={nameOf(selected.employee)}/><Info label="Assigned manager" value={nameOf(selected.workOrder.manager ?? selected.workOrder.assignedManager)}/><Info label="Employee ID" value={text(selected.employee.employeeNo ?? selected.employee.id)}/><Info label="Employee contact" value={text(asRecord(selected.employee.user).email ?? selected.employee.email)}/><Info label="Work order" value={text(selected.workOrder.workOrderNumber ?? selected.workOrder.reference ?? selected.workOrder.id)}/><Info label="Work order status" value={label(selected.workOrder.status)}/><Info label="Scheduled" value={dateTime(text(selected.workOrder.scheduledDate ?? selected.workOrder.scheduledAt, ""))}/><Info label="Customer" value={nameOf(customerFor(selected.workOrder))}/><Info label="Customer contact" value={text(asRecord(customerFor(selected.workOrder).user).phone ?? customerFor(selected.workOrder).phone)}/><Info label="Service" value={text(serviceFor(selected.workOrder).name ?? selected.workOrder.serviceName)}/><Info label="Location" value={locationFor(selected.workOrder)}/></div>
         <section className="rounded-xl border border-slate-200 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-sm font-bold text-slate-900">Work completion location</h3>{selected.latitude !== null && selected.longitude !== null ? <><p className="mt-1 text-xs text-slate-600">Latitude {selected.latitude} · Longitude {selected.longitude}</p><p className="mt-1 text-xs text-slate-500">{locationFor(selected.workOrder)}</p></> : <p className="mt-1 text-sm text-slate-500">GPS location was not included with this report.</p>}</div>{selected.latitude !== null && selected.longitude !== null && <a href={`https://www.google.com/maps?q=${selected.latitude},${selected.longitude}`} target="_blank" rel="noreferrer" className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50">Open in Maps</a>}</div>{selected.latitude !== null && selected.longitude !== null && <iframe title="Service completion map" src={`https://maps.google.com/maps?q=${selected.latitude},${selected.longitude}&z=15&output=embed`} loading="lazy" referrerPolicy="no-referrer-when-downgrade" className="mt-4 h-56 w-full rounded-lg border-0"/>}</section>
-        <div className="grid gap-4 md:grid-cols-2">{[["Work summary", selected.workSummary], ["Work performed", selected.workPerformed], ["Issues found", selected.issuesFound], ["Materials used", selected.materialsUsed], ["Recommendations", selected.recommendations], ["Completion remarks", selected.completionRemarks]].map(([title, value]) => <article key={title} className="rounded-xl border border-slate-200 p-4"><h3 className="text-sm font-bold text-slate-900">{title}</h3><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{value || "No details provided."}</p></article>)}</div>
+        <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-bold text-slate-900">Report details</h3>{canReview && activeReview(selected.status) && !editing && <button type="button" onClick={() => setEditing(true)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400">Edit report</button>}</div>
+        <div className="grid gap-4 md:grid-cols-2">{([ ["Work summary", "workSummary"], ["Work performed", "workPerformed"], ["Issues found", "issuesFound"], ["Materials used", "materialsUsed"], ["Recommendations", "recommendations"], ["Completion remarks", "completionRemarks"] ] as const).map(([title, key]) => <article key={key} className="rounded-xl border border-slate-200 p-4"><h3 className="text-sm font-bold text-slate-900">{title}</h3>{editing ? <textarea className={`${inputClass} mt-2`} rows={4} value={editDraft[key]} onChange={(event) => setEditDraft((current) => ({ ...current, [key]: event.target.value }))}/> : <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{selected[key] || "No details provided."}</p>}</article>)}</div>
         <section><h3 className="mb-3 text-sm font-bold text-slate-900">Attached photos <span className="ml-1 text-xs font-medium text-slate-400">({selected.photos.length})</span></h3><ReportPhotoGallery photos={selected.photos}/></section>
         {detailError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{detailError}</p>}
-        {canReview && activeReview(selected.status) && <div className="space-y-3 border-t border-slate-200 pt-4"><label className="block text-sm font-semibold text-slate-700">Reviewer note <span className="font-normal text-slate-400">(optional for approval, required for correction)</span><textarea className={`${inputClass} mt-1.5`} rows={3} maxLength={1000} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Add feedback for the technician"/></label><div className="flex flex-wrap justify-end gap-2"><button disabled={acting} onClick={() => void decide("request-correction")} className="inline-flex items-center gap-2 rounded-lg border border-amber-300 px-4 py-2.5 text-sm font-semibold text-amber-800 hover:bg-amber-50 disabled:opacity-50"><RotateCcw size={15}/>Request correction</button><button disabled={acting} onClick={() => void decide("approve")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-50"><Check size={16}/>{acting ? "Saving…" : "Approve report"}</button></div></div>}
+        {canReview && activeReview(selected.status) && <div className="space-y-3 border-t border-slate-200 pt-4">{editing && <div className="flex justify-end gap-2"><button type="button" disabled={acting} onClick={() => { setEditing(false); setEditDraft({ workSummary: selected.workSummary, workPerformed: selected.workPerformed, issuesFound: selected.issuesFound, materialsUsed: selected.materialsUsed, recommendations: selected.recommendations, completionRemarks: selected.completionRemarks }); }} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700">Cancel edits</button><button type="button" disabled={acting} onClick={() => void saveReviewEdits()} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{acting ? "Saving…" : "Save edits"}</button></div>}<label className="block text-sm font-semibold text-slate-700">Reviewer note <span className="font-normal text-slate-400">(optional for approval, required for correction)</span><textarea className={`${inputClass} mt-1.5`} rows={3} maxLength={1000} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Add feedback for the technician"/></label><div className="flex flex-wrap justify-end gap-2"><button disabled={acting || editing} onClick={() => void decide("request-correction")} className="inline-flex items-center gap-2 rounded-lg border border-amber-300 px-4 py-2.5 text-sm font-semibold text-amber-800 hover:bg-amber-50 disabled:opacity-50"><RotateCcw size={15}/>Reject / request corrections</button><button disabled={acting || editing} onClick={() => void decide("approve")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-50"><Check size={16}/>{acting ? "Saving…" : "Approve report"}</button></div></div>}
         {canReview && !activeReview(selected.status) && <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">This report has already been reviewed. No further decision can be submitted.</p>}
       </div>}
     </section></div>}

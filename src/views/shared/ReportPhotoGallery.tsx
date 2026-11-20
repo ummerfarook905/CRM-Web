@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { api } from "../../api/axios";
 import { ChevronLeft, ChevronRight, ImageOff, X } from "lucide-react";
 import { reportPhotoUrl, type ReportPhoto } from "./reportPhotos";
 
@@ -16,6 +17,39 @@ function PhotoImage({
   const [source, setSource] = useState(thumbnail ? thumbnailSource : fullSource);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const fallbackAttempted = useRef(false);
+
+  useEffect(() => {
+    setSource(thumbnail ? thumbnailSource : fullSource);
+    setLoading(true);
+    setFailed(false);
+    fallbackAttempted.current = false;
+  }, [fullSource, thumbnailSource, thumbnail]);
+
+  useEffect(() => () => {
+    if (source.startsWith("blob:")) URL.revokeObjectURL(source);
+  }, [source]);
+
+  const loadWithAuth = async () => {
+    if (fallbackAttempted.current) {
+      setLoading(false);
+      setFailed(true);
+      return;
+    }
+    fallbackAttempted.current = true;
+    try {
+      const response = await api.get(fullSource, { responseType: "blob" });
+      if (!String(response.headers["content-type"] ?? "").startsWith("image/")) {
+        throw new Error("Photo endpoint did not return an image");
+      }
+      setSource(URL.createObjectURL(response.data));
+      setLoading(false);
+      setFailed(false);
+    } catch {
+      setLoading(false);
+      setFailed(true);
+    }
+  };
 
   const handleError = () => {
     if (thumbnail && source !== fullSource) {
@@ -23,8 +57,7 @@ function PhotoImage({
       setLoading(true);
       return;
     }
-    setLoading(false);
-    setFailed(true);
+    void loadWithAuth();
   };
 
   return (
