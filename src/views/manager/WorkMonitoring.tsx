@@ -21,6 +21,7 @@ const reportCanApprove = (status: string) => ["SUBMITTED", "UNDER REVIEW", "UNDE
 function FieldPhoto({ imageUrl, caption }: { imageUrl: string; caption: string }) {
   const [src, setSrc] = useState(() => resolveApiAssetUrl(imageUrl));
   const [loadError, setLoadError] = useState("");
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const fallbackAttempted = useRef(false);
 
   const loadWithAuth = async () => {
@@ -59,7 +60,19 @@ function FieldPhoto({ imageUrl, caption }: { imageUrl: string; caption: string }
     if (src.startsWith("blob:")) URL.revokeObjectURL(src);
   }, [src]);
 
-  return <>{loadError ? <div className="flex h-32 items-center justify-center bg-slate-100 px-3 text-center text-xs text-slate-500">{loadError}</div> : <img src={src} onError={handleImageError} alt={caption || "Work order field photo"} className="h-32 w-full object-cover"/>}</>;
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setLightboxOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [lightboxOpen]);
+
+  return <>
+    {loadError ? <div className="flex h-32 items-center justify-center bg-slate-100 px-3 text-center text-xs text-slate-500">{loadError}</div> : <button type="button" onClick={() => setLightboxOpen(true)} aria-label={`View full-size photo${caption ? `: ${caption}` : ""}`} className="block w-full cursor-zoom-in"><img src={src} onError={handleImageError} alt={caption || "Work order field photo"} className="h-32 w-full object-cover"/></button>}
+    {lightboxOpen && createPortal(<div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/85 p-4" role="dialog" aria-modal="true" aria-label={caption || "Field photo"} onMouseDown={(event) => { if (event.target === event.currentTarget) setLightboxOpen(false); }}><button type="button" autoFocus onClick={() => setLightboxOpen(false)} aria-label="Close photo" className="absolute right-4 top-4 rounded-full bg-white/15 p-2 text-white hover:bg-white/25"><X size={22}/></button><img src={src} alt={caption || "Work order field photo"} className="max-h-[90vh] max-w-[95vw] object-contain"/></div>, document.body)}
+  </>;
 }
 
 export default function WorkMonitoring() {
