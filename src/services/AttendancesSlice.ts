@@ -72,8 +72,10 @@ function mapStatus(value: unknown): AttendanceStatus {
 
 function mapApiAttendance(item: ApiAttendanceRecord): AttendanceRecord {
   const employee = item.employee;
-  const user = employee?.user;
+  const manager = item.manager;
+  const user = employee?.user ?? manager?.user;
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
+  const staffName = fullName || item.employeeName || item.name || "Unknown Staff";
   const latitude = item.checkInLatitude ?? item.checkOutLatitude;
   const longitude = item.checkInLongitude ?? item.checkOutLongitude;
   const location = latitude != null && longitude != null
@@ -82,10 +84,10 @@ function mapApiAttendance(item: ApiAttendanceRecord): AttendanceRecord {
 
   return {
     id: String(item.id),
-    employeeId: employee?.employeeNo ?? item.employeeNo ?? item.employeeId ?? "—",
-    name: fullName || item.name || "Unknown Employee",
+    employeeId: employee?.employeeNo ?? manager?.id ?? item.employeeNo ?? item.employeeId ?? item.managerId ?? "—",
+    name: staffName,
     department: item.department ?? employee?.department?.name ?? "—",
-    designation: item.designation ?? employee?.designation ?? "—",
+    designation: item.designation ?? employee?.designation ?? manager?.title ?? (manager ? "Manager" : "—"),
     date: item.date ? item.date.slice(0, 10) : "",
     checkIn: displayTime(item.checkInTime ?? item.checkIn),
     checkOut: displayTime(item.checkOutTime ?? item.checkOut),

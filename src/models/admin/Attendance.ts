@@ -30,6 +30,13 @@ export interface ApiAttendanceRecord {
     department?: { name?: string | null } | null;
     user?: { firstName?: string | null; lastName?: string | null } | null;
   } | null;
+  manager?: {
+    id?: string | null;
+    title?: string | null;
+    user?: { firstName?: string | null; lastName?: string | null } | null;
+  } | null;
+  employeeName?: string | null;
+  managerId?: string | null;
   employeeNo?: string | null;
   employeeId?: string | null;
   name?: string | null;

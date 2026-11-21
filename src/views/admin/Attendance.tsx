@@ -219,7 +219,7 @@ export default function Attendance() {
       {/* SUMMARY CARDS */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
-          title="Total Employees"
+          title="Total Staff"
           value={dateRecords.length}
           description="Records for selected date"
           icon={Users}
@@ -314,7 +314,7 @@ export default function Attendance() {
         <div className="flex min-w-0 flex-col gap-4 border-b border-slate-200 p-3 sm:p-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
             <h2 className="text-base font-bold text-slate-900">
-              Employee Attendance Records
+              Staff Attendance Records
             </h2>
 
             <p className="mt-1 text-xs text-slate-500">
@@ -525,7 +525,7 @@ export default function Attendance() {
               <thead>
                 <tr className="bg-slate-50">
                   {[
-                    "Employee",
+                    "Staff Member",
                     "Department",
                     "Check In",
                     "Check Out",

@@ -88,18 +88,20 @@ function displayName(value: unknown): string {
   const name = [user.firstName ?? employee.firstName, user.lastName ?? employee.lastName]
     .filter((part) => typeof part === "string" && part.trim())
     .join(" ");
-  return text(employee.name ?? employee.fullName, name || text(user.email ?? employee.email, "Staff member"));
+  return text(employee.name ?? employee.fullName ?? employee.staffName ?? employee.employeeName, name || text(user.email ?? employee.email, "Staff member"));
 }
 
 export function mapAttendance(value: unknown): ManagerAttendanceRecord {
   const raw = record(value);
   const employee = record(raw.employee);
+  const manager = record(raw.manager);
+  const staff = Object.keys(employee).length ? employee : Object.keys(manager).length ? manager : raw;
   const date = text(raw.date ?? raw.attendanceDate);
   const status = text(raw.status, "UNKNOWN").toUpperCase().replaceAll(" ", "_");
   return {
     id: text(raw.id ?? raw.attendanceId),
-    employeeId: text(raw.employeeId ?? employee.id ?? employee.employeeNo),
-    staffName: displayName(employee.name || employee.user ? employee : raw),
+    employeeId: text(raw.employeeId ?? employee.employeeNo ?? manager.id ?? employee.id ?? raw.managerId),
+    staffName: text(raw.staffName ?? raw.employeeName, displayName(staff)),
     date: date.slice(0, 10),
     checkIn: text(raw.checkInTime ?? raw.checkIn ?? raw.startTime),
     checkOut: text(raw.checkOutTime ?? raw.checkOut ?? raw.endTime),
@@ -114,7 +116,9 @@ export function mapAttendance(value: unknown): ManagerAttendanceRecord {
 export function mapOvertimeRequest(value: unknown): OvertimeDashboardRequest {
   const raw = record(value);
   const employee = record(raw.employee);
-  const user = record(employee.user);
+  const manager = record(raw.manager);
+  const staff = Object.keys(employee).length ? employee : Object.keys(manager).length ? manager : raw;
+  const user = record(staff.user);
   const rawStatus = text(raw.status, "PENDING").toUpperCase();
   const status: OvertimeStatus = rawStatus === "APPROVED" || rawStatus === "REJECTED" ? rawStatus : "PENDING";
   const date = text(raw.date ?? raw.overtimeDate ?? raw.createdAt);
@@ -122,8 +126,8 @@ export function mapOvertimeRequest(value: unknown): OvertimeDashboardRequest {
   const canReviewValue = raw.canReview ?? raw.canDecide ?? raw.isReviewable;
   return {
     id: text(raw.id),
-    employeeId: text(raw.employeeId ?? employee.id),
-    employeeName: text(raw.employeeName ?? employee.name, displayName(employee)),
+    employeeId: text(raw.employeeId ?? employee.id ?? manager.id),
+    employeeName: text(raw.employeeName ?? raw.staffName ?? employee.name ?? manager.name, displayName(staff)),
     userId: text(raw.userId ?? raw.employeeUserId ?? user.id),
     date: date.slice(0, 10),
     startTime: text(raw.startTime ?? raw.checkInTime),
