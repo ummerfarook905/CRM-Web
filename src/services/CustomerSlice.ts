@@ -99,6 +99,7 @@ interface ApiAddress {
   address?: string | null;
   street?: string | null;
   city?: string | null;
+  district?: string | null;
   state?: string | null;
   pincode?: string | null;
   type?: string | null;
@@ -114,27 +115,47 @@ export interface CreateCustomerAddressPayload {
 }
 
 interface ApiCustomer {
-  id: string;
+  id?: string | number;
+  customerId?: string | number;
   userId?: string;
   isActive?: boolean;
+  status?: string;
   notes?: string | null;
   hasLoginAccount?: boolean;
   contactName?: string | null;
+  customerName?: string | null;
+  name?: string | null;
+  fullName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
   organizationName?: string | null;
   email?: string | null;
   phone?: string | null;
   companyName?: string | null;
+  company?: string | { name?: string | null } | null;
+  customer?: ApiCustomer | null;
+  profile?: { firstName?: string | null; lastName?: string | null; name?: string | null; email?: string | null; phone?: string | null } | null;
   user?: {
     firstName?: string | null;
     lastName?: string | null;
+    name?: string | null;
     email?: string | null;
     phone?: string | null;
   } | null;
   addresses?: ApiAddress[] | null;
 }
 
-function mapApiCustomer(apiCustomer: ApiCustomer): Customer {
-  const user = apiCustomer.user;
+function mapApiCustomer(rawCustomer: ApiCustomer): Customer {
+  const apiCustomer = rawCustomer.customer ?? rawCustomer;
+  const user = apiCustomer.user ?? apiCustomer.profile;
+  const text = (...values: unknown[]): string => {
+    const value = values.find((candidate) =>
+      typeof candidate === "string"
+      && candidate.trim().length > 0
+      && !["—", "–", "-", "n/a", "null", "undefined"].includes(candidate.trim().toLowerCase())
+    );
+    return typeof value === "string" ? value.trim() : "";
+  };
   const name = [
     user?.firstName,
     user?.lastName,
@@ -147,19 +168,31 @@ function mapApiCustomer(apiCustomer: ApiCustomer): Customer {
 
   const addresses = apiCustomer.addresses ?? [];
 
-  const contactName = name || apiCustomer.contactName || user?.email || apiCustomer.email || "Unknown Customer";
+  const contactName = name || text(
+    apiCustomer.fullName,
+    apiCustomer.customerName,
+    apiCustomer.name,
+    apiCustomer.contactName,
+    user?.name,
+    user?.email,
+    apiCustomer.email,
+  ) || "Unknown Customer";
+  const company = typeof apiCustomer.company === "string"
+    ? apiCustomer.company
+    : apiCustomer.company?.name;
+  const id = String(apiCustomer.id ?? apiCustomer.customerId ?? "");
   return {
-    id: apiCustomer.id,
+    id,
     ...(typeof apiCustomer.userId === "string" ? { userId: apiCustomer.userId } : {}),
     hasLoginAccount: apiCustomer.hasLoginAccount ?? Boolean(apiCustomer.userId),
-    customerCode: `CUS-${apiCustomer.id.slice(0, 8).toUpperCase()}`,
+    customerCode: `CUS-${id.slice(0, 8).toUpperCase() || "UNKNOWN"}`,
     name: contactName,
-    company: apiCustomer.organizationName ?? apiCustomer.companyName ?? "—",
-    organizationName: apiCustomer.organizationName ?? apiCustomer.companyName ?? "",
-    email: user?.email ?? apiCustomer.email ?? "",
-    phone: user?.phone ?? apiCustomer.phone ?? "",
-    city: addresses[0]?.city ?? "—",
-    status: apiCustomer.isActive === false ? "Inactive" : "Active",
+    company: text(apiCustomer.organizationName, apiCustomer.companyName, company) || contactName,
+    organizationName: text(apiCustomer.organizationName, apiCustomer.companyName, company),
+    email: text(user?.email, apiCustomer.email) || "—",
+    phone: text(user?.phone, apiCustomer.phone) || "—",
+    city: text(addresses[0]?.city, addresses[0]?.district) || "—",
+    status: apiCustomer.isActive === false || apiCustomer.status?.toLowerCase() === "inactive" ? "Inactive" : "Active",
 
     serviceLocations: addresses.map((address) => ({
       id: address.id ?? "",
@@ -180,16 +213,15 @@ function mapApiCustomer(apiCustomer: ApiCustomer): Customer {
 // Supports either a direct array or a { data: [...] } response.
 
 function extractCustomers(response: unknown): Customer[] {
-  const body = response as {
-    success?: boolean;
-    data?: unknown;
-  };
-
-  const data = body?.data as { data?: unknown; items?: unknown } | unknown;
-  const nested = data && typeof data === "object" && !Array.isArray(data)
-    ? data as { data?: unknown; items?: unknown }
-    : undefined;
-  const rows = Array.isArray(data) ? data : Array.isArray(nested?.data) ? nested.data : nested?.items;
+  let value: unknown = response;
+  for (let depth = 0; depth < 5 && value && typeof value === "object" && !Array.isArray(value); depth += 1) {
+    const envelope = value as { data?: unknown; customers?: unknown; items?: unknown };
+    if (Array.isArray(envelope.data)) { value = envelope.data; break; }
+    if (Array.isArray(envelope.customers)) { value = envelope.customers; break; }
+    if (Array.isArray(envelope.items)) { value = envelope.items; break; }
+    value = envelope.data;
+  }
+  const rows = Array.isArray(value) ? value : undefined;
 
   if (!Array.isArray(rows)) {
     throw new Error(

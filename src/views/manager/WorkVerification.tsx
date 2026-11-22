@@ -14,7 +14,9 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api, resolveApiAssetUrl } from "../../api/axios";
+import { submitServiceReportDecision } from "../../services/ServiceReportReviewApi";
 
 type VerificationStatus =
   | "Awaiting Review"
@@ -22,7 +24,7 @@ type VerificationStatus =
   | "Correction Requested";
 
 interface VerificationWork {
-  id: number;
+  id: string;
   reference: string;
   customer: string;
   company: string;
@@ -36,7 +38,7 @@ interface VerificationWork {
   correctionNote: string;
 }
 
-const initialWorks: VerificationWork[] = [
+const initialWorks: VerificationWork[] = []; /* Legacy local demo fixtures are intentionally not rendered.
   {
     id: 1,
     reference: "WO-2026-104",
@@ -107,12 +109,66 @@ const initialWorks: VerificationWork[] = [
     verificationStatus: "Approved",
     correctionNote: "",
   },
-];
+]; */
 
 const verificationStyles: Record<VerificationStatus, string> = {
   "Awaiting Review": "bg-amber-50 text-amber-700",
   Approved: "bg-emerald-50 text-emerald-700",
   "Correction Requested": "bg-red-50 text-red-700",
+};
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" ? value as Record<string, unknown> : {};
+const asText = (value: unknown): string => typeof value === "string" ? value : "";
+const nestedName = (value: unknown): string => {
+  const item = asRecord(value);
+  const user = asRecord(item.user);
+  return [user.firstName, user.lastName].filter((part): part is string => typeof part === "string" && part.length > 0).join(" ")
+    || asText(item.contactName) || asText(item.name) || "Unknown";
+};
+const extractReports = (response: unknown): VerificationWork[] => {
+  let value: unknown = response;
+  for (let depth = 0; depth < 5 && value && typeof value === "object" && !Array.isArray(value); depth += 1) {
+    const envelope = asRecord(value);
+    if (Array.isArray(envelope.data)) { value = envelope.data; break; }
+    if (Array.isArray(envelope.items)) { value = envelope.items; break; }
+    value = envelope.data;
+  }
+  if (!Array.isArray(value)) throw new Error("Service report API returned an invalid response.");
+  return value.flatMap((raw): VerificationWork[] => {
+    const report = asRecord(raw);
+    const status = asText(report.status).toUpperCase();
+    if (!["SUBMITTED", "UNDER_REVIEW", "APPROVED", "CORRECTION_REQUIRED"].includes(status)) return [];
+    const order = asRecord(report.workOrder);
+    const customer = asRecord(order.customer);
+    const employee = asRecord(report.employee);
+    const service = asRecord(order.service);
+    const location = asRecord(order.serviceLocation);
+    const photos = Array.isArray(report.photos) ? report.photos : [];
+    const verificationStatus: VerificationStatus = status === "APPROVED"
+      ? "Approved"
+      : status === "CORRECTION_REQUIRED" ? "Correction Requested" : "Awaiting Review";
+    const fullLocation = [location.locationName, location.city, location.address]
+      .filter((part): part is string => typeof part === "string" && part.length > 0).join(", ");
+    return [{
+      id: asText(report.id),
+      reference: asText(report.reportNumber) || asText(order.workOrderNumber) || "Service report",
+      customer: nestedName(customer),
+      company: asText(customer.organizationName) || nestedName(customer),
+      service: asText(service.name) || "Service",
+      location: fullLocation || "Location not provided",
+      employees: [nestedName(employee)],
+      completionDate: asText(order.completedAt ?? report.submittedAt ?? report.updatedAt).slice(0, 10),
+      photos: photos.flatMap((photo) => {
+        const imageUrl = asText(asRecord(photo).imageUrl);
+        return imageUrl ? [resolveApiAssetUrl(imageUrl)] : [];
+      }),
+      remarks: [report.completionRemarks, report.workSummary, report.workPerformed]
+        .filter((part): part is string => typeof part === "string" && part.trim().length > 0).join("\n\n"),
+      verificationStatus,
+      correctionNote: "",
+    }];
+  });
 };
 
 export default function WorkVerification() {
@@ -131,6 +187,24 @@ export default function WorkVerification() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(
     null
   );
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [savingDecision, setSavingDecision] = useState(false);
+
+  const loadReports = async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      const response = await api.get("/service-reports", { params: { page: 1, limit: 100 } });
+      setWorks(extractReports(response.data));
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not load service reports.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void loadReports(); }, []);
 
   const counts = [
     {
@@ -201,7 +275,7 @@ export default function WorkVerification() {
   };
 
   const updateVerification = (
-    id: number,
+    id: string,
     verificationStatus: VerificationStatus,
     note = ""
   ) => {
@@ -218,17 +292,25 @@ export default function WorkVerification() {
     );
   };
 
-  const approveWork = () => {
+  const approveWork = async () => {
     if (!selectedWork) return;
-
     const reference = selectedWork.reference;
-
-    updateVerification(selectedWork.id, "Approved");
-    setSelectedWork(null);
-    setNotice(`${reference} has been approved successfully.`);
+    setSavingDecision(true);
+    try {
+      await submitServiceReportDecision(selectedWork.id, "approve");
+      updateVerification(selectedWork.id, "Approved");
+      setSelectedWork(null);
+      setNotice(`${reference} has been approved successfully.`);
+      window.dispatchEvent(new CustomEvent("crm:service-reports-reviewed"));
+      await loadReports();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not approve the report.");
+    } finally {
+      setSavingDecision(false);
+    }
   };
 
-  const requestCorrection = () => {
+  const requestCorrection = async () => {
     if (!selectedWork) return;
 
     if (!correctionNote.trim()) {
@@ -240,14 +322,19 @@ export default function WorkVerification() {
 
     const reference = selectedWork.reference;
 
-    updateVerification(
-      selectedWork.id,
-      "Correction Requested",
-      correctionNote.trim()
-    );
-
-    setSelectedWork(null);
-    setNotice(`Corrections requested for ${reference}.`);
+    setSavingDecision(true);
+    try {
+      await submitServiceReportDecision(selectedWork.id, "request-correction", correctionNote.trim());
+      updateVerification(selectedWork.id, "Correction Requested", correctionNote.trim());
+      setSelectedWork(null);
+      setNotice(`Corrections requested for ${reference}.`);
+      window.dispatchEvent(new CustomEvent("crm:service-reports-reviewed"));
+      await loadReports();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not request corrections.");
+    } finally {
+      setSavingDecision(false);
+    }
   };
 
   return (
@@ -259,12 +346,12 @@ export default function WorkVerification() {
         </p>
 
         <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">
-          Work Verification
+          Service Report Review
         </h1>
 
         <p className="mt-2 text-sm text-slate-500">
-          Review completed jobs, verify photo evidence and employee
-          remarks, and approve work or request corrections.
+          Review submitted service reports, inspect field photos and employee
+          remarks, then approve the work or request corrections.
         </p>
       </div>
 
@@ -280,6 +367,9 @@ export default function WorkVerification() {
           </button>
         </div>
       )}
+
+      {loadError && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{loadError} <button type="button" className="ml-2 font-semibold underline" onClick={() => void loadReports()}>Retry</button></div>}
+      {loading && <div role="status" className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">Loading service reports…</div>}
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -321,7 +411,7 @@ export default function WorkVerification() {
   {/* Header and Filters */}
   <div className="min-w-0 border-b border-slate-100 p-3 sm:p-5">
     <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-      Completed Work Submissions
+      Submitted Service Reports
     </h2>
 
     <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
@@ -812,7 +902,8 @@ export default function WorkVerification() {
 
                 {selectedWork.verificationStatus !== "Approved" && (
                   <button
-                    onClick={requestCorrection}
+                    onClick={() => void requestCorrection()}
+                    disabled={savingDecision}
                     className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50"
                   >
                     <XCircle size={15} />
@@ -822,7 +913,8 @@ export default function WorkVerification() {
 
                 {selectedWork.verificationStatus !== "Approved" && (
                   <button
-                    onClick={approveWork}
+                    onClick={() => void approveWork()}
+                    disabled={savingDecision}
                     className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-900"
                   >
                     <ShieldCheck size={15} />

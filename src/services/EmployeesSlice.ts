@@ -67,7 +67,7 @@ export const fetchEmployees = createAsyncThunk<
   { rejectValue: string }
 >("employees/fetchAll", async (_, { rejectWithValue }) => {
   try {
-    const response = await api.get("/employees");
+    const response = await api.get("/employees", { params: { page: 1, limit: 100 } });
     const result = response.data?.data ?? response.data;
 
     // Supports a direct array, { items: [...] }, or

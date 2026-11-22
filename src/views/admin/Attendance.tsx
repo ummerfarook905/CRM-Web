@@ -446,6 +446,14 @@ export default function Attendance() {
                     {record.checkIn}
                   </p>
                 </div>
+                <div className="min-w-0 col-span-2">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                    Check-in Location
+                  </p>
+                  <p className="mt-1 break-words text-sm text-slate-600">
+                    {record.location}
+                  </p>
+                </div>
 
                 <div className="min-w-0">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
@@ -529,6 +537,7 @@ export default function Attendance() {
                     "Department",
                     "Check In",
                     "Check Out",
+                    "Check-in Location",
                     "Working Hours",
                     "Overtime",
                     "Status",
@@ -584,6 +593,12 @@ export default function Attendance() {
                       {record.checkOut}
                     </td>
 
+                    <td className="max-w-48 px-4 py-4 text-xs text-slate-600">
+                      <span className="block truncate" title={record.location}>
+                        {record.location}
+                      </span>
+                    </td>
+
                     <td className="whitespace-nowrap px-4 py-4">
                       <span className="text-sm font-semibold text-slate-700">
                         {record.workingHours}
@@ -616,7 +631,7 @@ export default function Attendance() {
 
                 {filteredRecords.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-5 py-16 text-center">
+                    <td colSpan={9} className="px-5 py-16 text-center">
                       <CalendarDays
                         size={32}
                         className="mx-auto text-slate-300"

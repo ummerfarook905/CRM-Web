@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useAssignableEmployees } from "../../viewmodels/shared/UseAssignableEmployees";
 import { useAppDispatch, useAppSelector } from "../../app/Hooks";
 import { fetchWorkOrders, type MonitoredWorkOrder } from "../../services/WorkMonitoringSlice";
@@ -978,8 +979,8 @@ function Modal({
   children: React.ReactNode;
   onClose: () => void;
 }) {
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+  return createPortal((
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/50 p-3 backdrop-blur-sm sm:p-4">
       <button
         type="button"
         aria-label="Close modal backdrop"
@@ -987,7 +988,7 @@ function Modal({
         className="absolute inset-0 h-full w-full cursor-default"
       />
 
-      <div className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label={title} className="relative z-10 my-auto max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
           <h2 className="text-lg font-bold text-slate-900">
             {title}
@@ -1004,7 +1005,7 @@ function Modal({
         <div className="p-5">{children}</div>
       </div>
     </div>
-  );
+  ), document.body);
 }
 
 function Detail({
