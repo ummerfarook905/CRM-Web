@@ -159,7 +159,7 @@ export default function EnquiryManagement() {
   const [managersError, setManagersError] = useState("");
   const technicians = staff.filter((person) => {
     const role = `${person.role ?? ""} ${person.designation}`.toLowerCase();
-    return role.includes("technician") || role.includes("engineer");
+    return role.includes("technician") || role.includes("engineer") || person.employeeNo.startsWith("SGPLTEMP") || role.includes("temp staff");
   });
   const services = useAppSelector((state) => state.services.items);
   const customers = useAppSelector((state) => state.customers.customers);
